@@ -39,70 +39,115 @@ OctobIRLookAndFeel::OctobIRLookAndFeel()
 
 void OctobIRLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
                                           float sliderPos, float rotaryStartAngle,
-                                          float rotaryEndAngle, juce::Slider& slider)
+                                          float rotaryEndAngle, juce::Slider& /*slider*/)
 {
   auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(10.0f);
   auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) / 2.0f;
   auto centreX = bounds.getCentreX();
   auto centreY = bounds.getCentreY();
-  auto lineW = juce::jmin(6.0f, radius * 0.4f);
-  auto arcRadius = radius - lineW * 0.5f;
   auto toAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
+  auto capRadius = radius * 0.72f;
 
-  juce::Path bgArc;
-  bgArc.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f, rotaryStartAngle,
-                      rotaryEndAngle, true);
-  g.setColour(slider.findColour(juce::Slider::rotarySliderOutlineColourId));
-  g.strokePath(bgArc, juce::PathStrokeType(lineW, juce::PathStrokeType::curved,
-                                           juce::PathStrokeType::rounded));
+  // Drop shadow
+  g.setColour(juce::Colour(0xff000000).withAlpha(0.18f));
+  g.fillEllipse(centreX - capRadius + 0.5f, centreY - capRadius + 2.0f, capRadius * 2.0f + 3.0f,
+                capRadius * 2.0f + 3.0f);
 
-  if (sliderPos > 0.0f)
+  // Knob body with radial gradient (light gray)
+  juce::Point<float> centre(centreX, centreY);
+  juce::ColourGradient bodyGradient(
+      juce::Colour(0xffe8e8e8), centre.translated(-capRadius * 0.35f, -capRadius * 0.35f),
+      juce::Colour(0xffc0c0c0), centre.translated(capRadius * 0.55f, capRadius * 0.55f), true);
+  g.setGradientFill(bodyGradient);
+  g.fillEllipse(centreX - capRadius, centreY - capRadius, capRadius * 2.0f, capRadius * 2.0f);
+
+  // Bevel ring: outer shadow, inner highlight
+  g.setColour(juce::Colour(0xffb0b0b0));
+  g.drawEllipse(centreX - capRadius, centreY - capRadius, capRadius * 2.0f, capRadius * 2.0f, 2.0f);
+  auto innerRad = capRadius - 1.5f;
+  g.setColour(juce::Colour(0xffffffff));
+  g.drawEllipse(centreX - innerRad, centreY - innerRad, innerRad * 2.0f, innerRad * 2.0f, 1.0f);
+
+  // Tick marks
+  auto tickRadius = radius - 2.0f;
+  const int numTicks = 11;
+  for (int i = 0; i < numTicks; ++i)
   {
-    juce::Path valueArc;
-    valueArc.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f, rotaryStartAngle, toAngle,
-                           true);
-    g.setColour(slider.findColour(juce::Slider::rotarySliderFillColourId));
-    g.strokePath(valueArc, juce::PathStrokeType(lineW, juce::PathStrokeType::curved,
-                                                juce::PathStrokeType::rounded));
+    float tickAngle =
+        rotaryStartAngle + (float)i / (float)(numTicks - 1) * (rotaryEndAngle - rotaryStartAngle);
+    bool isMajor = (i == 0 || i == 5 || i == 10);
+    float tickLen = isMajor ? 5.0f : 3.0f;
+
+    float cosA = std::cos(tickAngle - juce::MathConstants<float>::halfPi);
+    float sinA = std::sin(tickAngle - juce::MathConstants<float>::halfPi);
+
+    float x1 = centreX + (tickRadius - tickLen) * cosA;
+    float y1 = centreY + (tickRadius - tickLen) * sinA;
+    float x2 = centreX + tickRadius * cosA;
+    float y2 = centreY + tickRadius * sinA;
+
+    g.setColour(juce::Colour(0xff888888));
+    g.drawLine(x1, y1, x2, y2, 1.5f);
   }
 
-  auto capRadius = radius * 0.55f;
-  juce::Point<float> centre(centreX, centreY);
-  juce::ColourGradient capGradient(
-      juce::Colour(0xffffffff), centre.translated(-capRadius * 0.3f, -capRadius * 0.3f),
-      juce::Colour(0xffc8c8c8), centre.translated(capRadius * 0.5f, capRadius * 0.5f), true);
-  g.setGradientFill(capGradient);
-  g.fillEllipse(centreX - capRadius, centreY - capRadius, capRadius * 2.0f, capRadius * 2.0f);
-  g.setColour(juce::Colour(0xffbbbbbb));
-  g.drawEllipse(centreX - capRadius, centreY - capRadius, capRadius * 2.0f, capRadius * 2.0f, 1.0f);
+  // Indicator line with orange colour and dot at outer tip
+  {
+    float cosA = std::cos(toAngle - juce::MathConstants<float>::halfPi);
+    float sinA = std::sin(toAngle - juce::MathConstants<float>::halfPi);
 
-  auto dotRadius = lineW * 0.85f;
-  juce::Point<float> dotPt(
-      centreX + arcRadius * std::cos(toAngle - juce::MathConstants<float>::halfPi),
-      centreY + arcRadius * std::sin(toAngle - juce::MathConstants<float>::halfPi));
-  g.setColour(slider.findColour(juce::Slider::thumbColourId));
-  g.fillEllipse(juce::Rectangle<float>(dotRadius * 2.0f, dotRadius * 2.0f).withCentre(dotPt));
+    float lx1 = centreX + 0.15f * capRadius * cosA;
+    float ly1 = centreY + 0.15f * capRadius * sinA;
+    float lx2 = centreX + 0.85f * capRadius * cosA;
+    float ly2 = centreY + 0.85f * capRadius * sinA;
+
+    g.setColour(juce::Colour(0xffe07030));
+    g.drawLine(lx1, ly1, lx2, ly2, 2.5f);
+    g.fillEllipse(lx2 - 2.0f, ly2 - 2.0f, 4.0f, 4.0f);
+  }
+
+  // Center cap
+  auto centerCapRadius = capRadius * 0.18f;
+  g.setColour(juce::Colour(0xffd8d8d8));
+  g.fillEllipse(centreX - centerCapRadius, centreY - centerCapRadius, centerCapRadius * 2.0f,
+                centerCapRadius * 2.0f);
+  g.setColour(juce::Colour(0xffaaaaaa));
+  g.drawEllipse(centreX - centerCapRadius, centreY - centerCapRadius, centerCapRadius * 2.0f,
+                centerCapRadius * 2.0f, 1.0f);
 }
 
 void OctobIRLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& button,
-                                              const juce::Colour& backgroundColour,
-                                              bool shouldDrawButtonAsHighlighted,
+                                              const juce::Colour& /*backgroundColour*/,
+                                              bool /*shouldDrawButtonAsHighlighted*/,
                                               bool shouldDrawButtonAsDown)
 {
   auto bounds = button.getLocalBounds().toFloat().reduced(0.5f, 0.5f);
   const auto cornerSize = 4.0f;
+  float alpha = button.isEnabled() ? 1.0f : 0.5f;
 
-  auto base = backgroundColour.withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f);
+  juce::Colour topColour =
+      shouldDrawButtonAsDown ? juce::Colour(0xffd0d0d0) : juce::Colour(0xffe8e8e8);
+  juce::Colour bottomColour =
+      shouldDrawButtonAsDown ? juce::Colour(0xffe4e4e4) : juce::Colour(0xffd0d0d0);
 
-  if (shouldDrawButtonAsDown)
-    base = base.darker(0.15f);
-  else if (shouldDrawButtonAsHighlighted)
-    base = base.brighter(0.1f);
-
-  g.setColour(base);
+  juce::ColourGradient gradient(topColour.withMultipliedAlpha(alpha), bounds.getX(), bounds.getY(),
+                                bottomColour.withMultipliedAlpha(alpha), bounds.getX(),
+                                bounds.getBottom(), false);
+  g.setGradientFill(gradient);
   g.fillRoundedRectangle(bounds, cornerSize);
 
-  g.setColour(juce::Colour(0xff444444));
+  g.setColour(juce::Colour(0xffffffff).withMultipliedAlpha(alpha));
+  g.drawLine(bounds.getX() + cornerSize, bounds.getY() + 1.0f, bounds.getRight() - cornerSize,
+             bounds.getY() + 1.0f, 1.0f);
+  g.drawLine(bounds.getX() + 1.0f, bounds.getY() + cornerSize, bounds.getX() + 1.0f,
+             bounds.getBottom() - cornerSize, 1.0f);
+
+  g.setColour(juce::Colour(0xffb8b8b8).withMultipliedAlpha(alpha));
+  g.drawLine(bounds.getX() + cornerSize, bounds.getBottom() - 1.0f, bounds.getRight() - cornerSize,
+             bounds.getBottom() - 1.0f, 1.0f);
+  g.drawLine(bounds.getRight() - 1.0f, bounds.getY() + cornerSize, bounds.getRight() - 1.0f,
+             bounds.getBottom() - cornerSize, 1.0f);
+
+  g.setColour(juce::Colour(0xff888888).withMultipliedAlpha(alpha));
   g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
 }
 
@@ -189,7 +234,7 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
 
     if (isOn)
     {
-      g.setColour(juce::Colour(0xffe07030));
+      g.setColour(juce::Colour(0xffffb733));
       g.fillRoundedRectangle(bounds.withWidth(3.0f), cornerSize);
     }
 
@@ -204,18 +249,35 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
   }
 }
 
-void OctobIRLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height,
-                                      bool /*isButtonDown*/, int /*buttonX*/, int /*buttonY*/,
-                                      int /*buttonW*/, int /*buttonH*/, juce::ComboBox& box)
+void OctobIRLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,
+                                      int /*buttonX*/, int /*buttonY*/, int /*buttonW*/,
+                                      int /*buttonH*/, juce::ComboBox& box)
 {
   const auto cornerSize = 3.0f;
-  juce::Rectangle<float> boxBounds(0.0f, 0.0f, (float)width, (float)height);
+  juce::Rectangle<float> boxBounds(0.5f, 0.5f, (float)width - 1.0f, (float)height - 1.0f);
 
-  g.setColour(box.findColour(juce::ComboBox::backgroundColourId));
+  juce::Colour topColour = isButtonDown ? juce::Colour(0xffd0d0d0) : juce::Colour(0xffe8e8e8);
+  juce::Colour bottomColour = isButtonDown ? juce::Colour(0xffe4e4e4) : juce::Colour(0xffd0d0d0);
+
+  juce::ColourGradient gradient(topColour, boxBounds.getX(), boxBounds.getY(), bottomColour,
+                                boxBounds.getX(), boxBounds.getBottom(), false);
+  g.setGradientFill(gradient);
   g.fillRoundedRectangle(boxBounds, cornerSize);
 
-  g.setColour(box.findColour(juce::ComboBox::outlineColourId));
-  g.drawRoundedRectangle(boxBounds.reduced(0.5f, 0.5f), cornerSize, 1.0f);
+  g.setColour(juce::Colour(0xffffffff));
+  g.drawLine(boxBounds.getX() + cornerSize, boxBounds.getY() + 1.0f,
+             boxBounds.getRight() - cornerSize, boxBounds.getY() + 1.0f, 1.0f);
+  g.drawLine(boxBounds.getX() + 1.0f, boxBounds.getY() + cornerSize, boxBounds.getX() + 1.0f,
+             boxBounds.getBottom() - cornerSize, 1.0f);
+
+  g.setColour(juce::Colour(0xffb8b8b8));
+  g.drawLine(boxBounds.getX() + cornerSize, boxBounds.getBottom() - 1.0f,
+             boxBounds.getRight() - cornerSize, boxBounds.getBottom() - 1.0f, 1.0f);
+  g.drawLine(boxBounds.getRight() - 1.0f, boxBounds.getY() + cornerSize,
+             boxBounds.getRight() - 1.0f, boxBounds.getBottom() - cornerSize, 1.0f);
+
+  g.setColour(juce::Colour(0xff888888));
+  g.drawRoundedRectangle(boxBounds, cornerSize, 1.0f);
 
   juce::Rectangle<int> arrowZone(width - 28, 0, 18, height);
   juce::Path arrow;
@@ -226,6 +288,32 @@ void OctobIRLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height,
   g.setColour(
       box.findColour(juce::ComboBox::arrowColourId).withAlpha(box.isEnabled() ? 0.9f : 0.2f));
   g.strokePath(arrow, juce::PathStrokeType(2.0f));
+}
+
+void OctobIRLookAndFeel::drawLabel(juce::Graphics& g, juce::Label& label)
+{
+  if (dynamic_cast<juce::Slider*>(label.getParentComponent()) != nullptr)
+  {
+    auto bounds = label.getLocalBounds().toFloat();
+    g.setColour(juce::Colour(0xfff0f0f0));
+    g.fillRoundedRectangle(bounds, 3.0f);
+    g.setColour(juce::Colour(0xffcccccc));
+    g.drawRoundedRectangle(bounds.reduced(0.5f), 3.0f, 1.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.8f));
+    g.drawRoundedRectangle(bounds.reduced(1.5f), 2.0f, 1.0f);
+
+    if (!label.isBeingEdited())
+    {
+      g.setColour(label.findColour(juce::Label::textColourId));
+      g.setFont(getLabelFont(label));
+      g.drawFittedText(label.getText(), label.getLocalBounds().reduced(2, 1),
+                       label.getJustificationType(), 1, 1.0f);
+    }
+  }
+  else
+  {
+    LookAndFeel_V4::drawLabel(g, label);
+  }
 }
 
 juce::Typeface::Ptr OctobIRLookAndFeel::getTypefaceForFont(const juce::Font&)

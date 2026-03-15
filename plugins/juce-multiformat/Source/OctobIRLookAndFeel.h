@@ -23,6 +23,8 @@ class OctobIRLookAndFeel : public juce::LookAndFeel_V4
   void drawComboBox(juce::Graphics&, int width, int height, bool isButtonDown, int buttonX,
                     int buttonY, int buttonW, int buttonH, juce::ComboBox&) override;
 
+  void drawLabel(juce::Graphics&, juce::Label&) override;
+
   juce::Typeface::Ptr getTypefaceForFont(const juce::Font&) override;
   juce::Font getLabelFont(juce::Label&) override;
   juce::Typeface::Ptr getMainTypeface() const { return cutiveMonoTypeface_; }
