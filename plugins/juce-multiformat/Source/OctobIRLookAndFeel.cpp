@@ -2,31 +2,31 @@
 
 OctobIRLookAndFeel::OctobIRLookAndFeel()
 {
-  setColour(juce::ResizableWindow::backgroundColourId, juce::Colour(0xff1a1a1a));
+  setColour(juce::ResizableWindow::backgroundColourId, juce::Colours::white);
 
-  setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff333333));
-  setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xff00aaff));
-  setColour(juce::Slider::thumbColourId, juce::Colours::white);
-  setColour(juce::Slider::textBoxTextColourId, juce::Colour(0xffaaaaaa));
-  setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0xff111111));
-  setColour(juce::Slider::textBoxOutlineColourId, juce::Colour(0xff333333));
+  setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xffd8d8d8));
+  setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xffe07030));
+  setColour(juce::Slider::thumbColourId, juce::Colour(0xff1a1a1a));
+  setColour(juce::Slider::textBoxTextColourId, juce::Colour(0xff444444));
+  setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0xfff0f0f0));
+  setColour(juce::Slider::textBoxOutlineColourId, juce::Colour(0xffcccccc));
 
-  setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2a2a2a));
-  setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff3a3a3a));
-  setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-  setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+  setColour(juce::TextButton::buttonColourId, juce::Colour(0xffe8e8e8));
+  setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffd8d8d8));
+  setColour(juce::TextButton::textColourOffId, juce::Colour(0xff1a1a1a));
+  setColour(juce::TextButton::textColourOnId, juce::Colour(0xff1a1a1a));
 
-  setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff2a2a2a));
-  setColour(juce::ComboBox::outlineColourId, juce::Colour(0xff444444));
-  setColour(juce::ComboBox::textColourId, juce::Colours::white);
+  setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xffe8e8e8));
+  setColour(juce::ComboBox::outlineColourId, juce::Colour(0xffcccccc));
+  setColour(juce::ComboBox::textColourId, juce::Colour(0xff1a1a1a));
   setColour(juce::ComboBox::arrowColourId, juce::Colour(0xff888888));
 
-  setColour(juce::PopupMenu::backgroundColourId, juce::Colour(0xff1a1a1a));
-  setColour(juce::PopupMenu::textColourId, juce::Colours::white);
-  setColour(juce::PopupMenu::highlightedBackgroundColourId, juce::Colour(0xff00aaff));
+  setColour(juce::PopupMenu::backgroundColourId, juce::Colour(0xfff8f8f8));
+  setColour(juce::PopupMenu::textColourId, juce::Colour(0xff1a1a1a));
+  setColour(juce::PopupMenu::highlightedBackgroundColourId, juce::Colour(0xffe07030));
   setColour(juce::PopupMenu::highlightedTextColourId, juce::Colours::white);
 
-  setColour(juce::Label::textColourId, juce::Colours::white);
+  setColour(juce::Label::textColourId, juce::Colour(0xff1a1a1a));
 }
 
 void OctobIRLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
@@ -61,11 +61,11 @@ void OctobIRLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w
   auto capRadius = radius * 0.55f;
   juce::Point<float> centre(centreX, centreY);
   juce::ColourGradient capGradient(
-      juce::Colour(0xff454545), centre.translated(-capRadius * 0.3f, -capRadius * 0.3f),
-      juce::Colour(0xff1a1a1a), centre.translated(capRadius * 0.5f, capRadius * 0.5f), true);
+      juce::Colour(0xffffffff), centre.translated(-capRadius * 0.3f, -capRadius * 0.3f),
+      juce::Colour(0xffc8c8c8), centre.translated(capRadius * 0.5f, capRadius * 0.5f), true);
   g.setGradientFill(capGradient);
   g.fillEllipse(centreX - capRadius, centreY - capRadius, capRadius * 2.0f, capRadius * 2.0f);
-  g.setColour(juce::Colour(0xff555555));
+  g.setColour(juce::Colour(0xffbbbbbb));
   g.drawEllipse(centreX - capRadius, centreY - capRadius, capRadius * 2.0f, capRadius * 2.0f, 1.0f);
 
   auto dotRadius = lineW * 0.85f;
@@ -178,7 +178,7 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
 
     if (isOn)
     {
-      g.setColour(juce::Colour(0xff00aaff));
+      g.setColour(juce::Colour(0xffe07030));
       g.fillRoundedRectangle(bounds.withWidth(3.0f), cornerSize);
     }
 

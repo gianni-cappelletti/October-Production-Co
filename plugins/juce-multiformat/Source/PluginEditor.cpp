@@ -31,10 +31,10 @@ void VerticalMeter::paint(juce::Graphics& g)
   int labelHeight = 20;
   auto meterBounds = bounds.removeFromBottom(bounds.getHeight() - labelHeight);
 
-  g.setColour(juce::Colour(0xff2a2a2a));
+  g.setColour(juce::Colour(0xffe8e8e8));
   g.fillRect(meterBounds);
 
-  g.setColour(juce::Colour(0xff444444));
+  g.setColour(juce::Colour(0xffcccccc));
   g.drawRect(meterBounds, 1);
 
   float normalizedValue = (currentValue_ - minValue_) / (maxValue_ - minValue_);
@@ -70,15 +70,15 @@ void VerticalMeter::paint(juce::Graphics& g)
 
     if (isLit)
     {
-      g.setColour(ledColor.withAlpha(0.3f));
+      g.setColour(ledColor.withAlpha(0.25f));
       g.fillEllipse(ledBounds.expanded(2.0f));
     }
 
-    g.setColour(juce::Colour(0xff444444));
+    g.setColour(juce::Colour(0xffaaaaaa));
     g.drawEllipse(ledBounds, 1.0f);
   }
 
-  g.setColour(juce::Colours::white);
+  g.setColour(juce::Colour(0xff1a1a1a));
   g.setFont(juce::FontOptions(14.0f, juce::Font::bold));
   g.drawText(name_, bounds.removeFromTop(labelHeight), juce::Justification::centred, true);
 }
@@ -89,34 +89,21 @@ juce::Colour VerticalMeter::getLEDColor(int ledIndex, bool isLit) const
 
   if (position < 0.67f)
   {
-    return isLit ? juce::Colour(0xff00ff00) : juce::Colour(0xff003300);
+    return isLit ? juce::Colour(0xffe07030) : juce::Colour(0xffd8c8b8);
   }
   else if (position < 0.83f)
   {
-    return isLit ? juce::Colour(0xffffff00) : juce::Colour(0xff333300);
+    return isLit ? juce::Colour(0xffc85820) : juce::Colour(0xffd8c8b8);
   }
   else
   {
-    return isLit ? juce::Colour(0xffff0000) : juce::Colour(0xff330000);
+    return isLit ? juce::Colour(0xffb04010) : juce::Colour(0xffd8c8b8);
   }
 }
 
-juce::Colour VerticalMeter::getBlendLEDColor(int ledIndex, bool isLit) const
+juce::Colour VerticalMeter::getBlendLEDColor(int /*ledIndex*/, bool isLit) const
 {
-  float position = static_cast<float>(ledIndex) / static_cast<float>(numLEDs_ - 1);
-
-  if (position < 0.33f)
-  {
-    return isLit ? juce::Colour(0xff00aaff) : juce::Colour(0xff003344);
-  }
-  else if (position < 0.67f)
-  {
-    return isLit ? juce::Colour(0xffaaaaaa) : juce::Colour(0xff222222);
-  }
-  else
-  {
-    return isLit ? juce::Colour(0xffff6600) : juce::Colour(0xff331100);
-  }
+  return isLit ? juce::Colour(0xffe07030) : juce::Colour(0xffd8c8b8);
 }
 
 void VerticalMeter::timerCallback()
@@ -162,7 +149,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   nextButton1_.onClick = [this] { nextButton1Clicked(); };
 
   addAndMakeVisible(ir1LCDDisplay_);
-  ir1LCDDisplay_.setTextColour(juce::Colour(0xff00ff00));
+  ir1LCDDisplay_.setTextColour(juce::Colour(0xffe07030));
   ir1LCDDisplay_.setText(audioProcessor.getCurrentIR1Path().isEmpty()
                              ? "No IR loaded"
                              : audioProcessor.getCurrentIR1Path());
@@ -170,7 +157,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   addAndMakeVisible(ir1EnableButton_);
   ir1EnableButton_.setButtonText("Enable A");
   ir1EnableButton_.getProperties().set("isLED", true);
-  ir1EnableButton_.setColour(juce::ToggleButton::tickColourId, juce::Colour(0xff00ff00));
+  ir1EnableButton_.setColour(juce::ToggleButton::tickColourId, juce::Colour(0xffe07030));
   ir1EnableAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "irAEnable", ir1EnableButton_);
 
@@ -196,7 +183,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   nextButton2_.onClick = [this] { nextButton2Clicked(); };
 
   addAndMakeVisible(ir2LCDDisplay_);
-  ir2LCDDisplay_.setTextColour(juce::Colour(0xff00aaff));
+  ir2LCDDisplay_.setTextColour(juce::Colour(0xffe07030));
   ir2LCDDisplay_.setText(audioProcessor.getCurrentIR2Path().isEmpty()
                              ? "No IR loaded"
                              : audioProcessor.getCurrentIR2Path());
@@ -204,7 +191,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   addAndMakeVisible(ir2EnableButton_);
   ir2EnableButton_.setButtonText("Enable B");
   ir2EnableButton_.getProperties().set("isLED", true);
-  ir2EnableButton_.setColour(juce::ToggleButton::tickColourId, juce::Colour(0xff00aaff));
+  ir2EnableButton_.setColour(juce::ToggleButton::tickColourId, juce::Colour(0xffe07030));
   ir2EnableAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "irBEnable", ir2EnableButton_);
 
@@ -302,7 +289,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
 
   addAndMakeVisible(latencyLabel_);
   latencyLabel_.setJustificationType(juce::Justification::centred);
-  latencyLabel_.setColour(juce::Label::textColourId, juce::Colour(0xff88ccff));
+  latencyLabel_.setColour(juce::Label::textColourId, juce::Colour(0xff8c4010));
   updateLatencyDisplay();
 
   startTimerHz(30);
@@ -319,7 +306,7 @@ void OctobIREditor::paint(juce::Graphics& g)
 {
   g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
 
-  g.setColour(juce::Colours::white);
+  g.setColour(juce::Colour(0xffe07030));
   g.setFont(juce::FontOptions(24.0f, juce::Font::bold));
   g.drawText("OctobIR", getLocalBounds().removeFromTop(50), juce::Justification::centred, true);
 }
