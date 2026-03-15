@@ -6,44 +6,32 @@
 #include "OctobIRLookAndFeel.h"
 #include "PluginProcessor.h"
 
-class VerticalMeter : public juce::Component, private juce::Timer
+class LCDBargraph : public juce::Component
 {
  public:
-  VerticalMeter(const juce::String& name, float minValue, float maxValue);
+  LCDBargraph(const juce::String& name, float minValue, float maxValue,
+              bool centreBalanced = false);
   void setValue(float value);
   void setThresholdMarkers(float low, float high);
-  void setBlendRangeMarkers(float min, float max);
   void setShowThresholds(bool show)
   {
     showThresholds_ = show;
     repaint();
   }
-  void setShowBlendRange(bool show)
-  {
-    showBlendRange_ = show;
-    repaint();
-  }
   void paint(juce::Graphics& g) override;
 
  private:
-  void timerCallback() override;
-  juce::Colour getLEDColor(int ledIndex, bool isLit) const;
-  juce::Colour getBlendLEDColor(int ledIndex, bool isLit) const;
-
   juce::String name_;
   float minValue_;
   float maxValue_;
   float currentValue_ = 0.0f;
   float lowThreshold_ = 0.0f;
   float highThreshold_ = 0.0f;
-  float minBlend_ = 0.0f;
-  float maxBlend_ = 0.0f;
   bool showThresholds_ = false;
-  bool showBlendRange_ = false;
+  bool centreBalanced_;
 
-  static constexpr int numLEDs_ = 12;
-  static constexpr float ledSpacing_ = 2.0f;
-  static constexpr float ledCornerRadius_ = 3.0f;
+  static constexpr int numSegments_ = 20;
+  static constexpr int segmentGap_ = 2;
 };
 
 class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -63,7 +51,6 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
 
   OctobIRProcessor& audioProcessor;
 
-  juce::Label ir1TitleLabel_;
   juce::TextButton loadButton1_;
   juce::TextButton clearButton1_;
   juce::TextButton prevButton1_;
@@ -72,7 +59,6 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
   juce::ToggleButton ir1EnableButton_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ir1EnableAttachment_;
 
-  juce::Label ir2TitleLabel_;
   juce::TextButton loadButton2_;
   juce::TextButton clearButton2_;
   juce::TextButton prevButton2_;
@@ -81,8 +67,8 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
   juce::ToggleButton ir2EnableButton_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ir2EnableAttachment_;
 
-  VerticalMeter inputLevelMeter_;
-  VerticalMeter blendMeter_;
+  LCDBargraph inputLevelMeter_;
+  LCDBargraph blendMeter_;
 
   juce::ToggleButton dynamicModeButton_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> dynamicModeAttachment_;

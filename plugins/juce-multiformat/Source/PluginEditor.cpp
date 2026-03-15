@@ -2,113 +2,94 @@
 
 #include "PluginProcessor.h"
 
-VerticalMeter::VerticalMeter(const juce::String& name, float minValue, float maxValue)
-    : name_(name), minValue_(minValue), maxValue_(maxValue)
+LCDBargraph::LCDBargraph(const juce::String& name, float minValue, float maxValue,
+                         bool centreBalanced)
+    : name_(name), minValue_(minValue), maxValue_(maxValue), centreBalanced_(centreBalanced)
 {
-  startTimerHz(30);
 }
 
-void VerticalMeter::setValue(float value)
+void LCDBargraph::setValue(float value)
 {
   currentValue_ = value;
+  repaint();
 }
 
-void VerticalMeter::setThresholdMarkers(float low, float high)
+void LCDBargraph::setThresholdMarkers(float low, float high)
 {
   lowThreshold_ = low;
   highThreshold_ = high;
 }
 
-void VerticalMeter::setBlendRangeMarkers(float min, float max)
-{
-  minBlend_ = min;
-  maxBlend_ = max;
-}
-
-void VerticalMeter::paint(juce::Graphics& g)
+void LCDBargraph::paint(juce::Graphics& g)
 {
   auto bounds = getLocalBounds();
-  int labelHeight = 20;
-  auto meterBounds = bounds.removeFromBottom(bounds.getHeight() - labelHeight);
 
-  g.setColour(juce::Colour(0xffe8e8e8));
-  g.fillRect(meterBounds);
+  auto labelBounds = bounds.removeFromTop(18);
+  g.setColour(juce::Colour(0xff1a1a1a));
+  g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+  g.drawText(name_, labelBounds, juce::Justification::centredLeft, true);
 
-  g.setColour(juce::Colour(0xffcccccc));
-  g.drawRect(meterBounds, 1);
+  bounds.removeFromTop(4);
+  auto segmentArea = bounds.removeFromTop(18);
 
-  float normalizedValue = (currentValue_ - minValue_) / (maxValue_ - minValue_);
-  normalizedValue = std::max(0.0f, std::min(1.0f, normalizedValue));
+  g.setColour(juce::Colour(0xff0a0a0a));
+  g.fillRect(segmentArea);
+  g.setColour(juce::Colour(0xff222222));
+  g.drawRect(segmentArea, 1);
 
-  float ledDiameter = (static_cast<float>(meterBounds.getWidth()) - 8.0f) / 2.0f;
-  float totalHeight = numLEDs_ * ledDiameter + (numLEDs_ - 1) * ledSpacing_;
-  float startY = meterBounds.getY() + (meterBounds.getHeight() - totalHeight) / 2.0f;
-  float centerX = meterBounds.getX() + meterBounds.getWidth() / 2.0f;
+  auto innerArea = segmentArea.reduced(1, 1);
+  float normValue = (currentValue_ - minValue_) / (maxValue_ - minValue_);
+  normValue = std::max(0.0f, std::min(1.0f, normValue));
 
-  for (int i = 0; i < numLEDs_; ++i)
+  float totalGapWidth = static_cast<float>((numSegments_ - 1) * segmentGap_);
+  float segW =
+      (static_cast<float>(innerArea.getWidth()) - totalGapWidth) / static_cast<float>(numSegments_);
+  float segH = static_cast<float>(innerArea.getHeight());
+
+  for (int i = 0; i < numSegments_; ++i)
   {
-    int reversedIndex = numLEDs_ - 1 - i;
-    float ledY = startY + i * (ledDiameter + ledSpacing_);
-    auto ledBounds =
-        juce::Rectangle<float>(centerX - ledDiameter / 2.0f, ledY, ledDiameter, ledDiameter);
+    float x = static_cast<float>(innerArea.getX()) +
+              static_cast<float>(i) * (segW + static_cast<float>(segmentGap_));
+    juce::Rectangle<float> seg(x, static_cast<float>(innerArea.getY()), segW, segH);
 
-    float ledThreshold = static_cast<float>(reversedIndex) / static_cast<float>(numLEDs_);
-    bool isLit = normalizedValue >= ledThreshold;
+    bool isClipZone =
+        !centreBalanced_ && (static_cast<float>(i) / static_cast<float>(numSegments_)) >= 0.85f;
+    juce::Colour litColour = isClipZone ? juce::Colour(0xffb04010) : juce::Colour(0xffe07030);
 
-    juce::Colour ledColor;
-    if (name_ == "Blend")
+    bool isLit = false;
+    if (centreBalanced_)
     {
-      ledColor = getBlendLEDColor(reversedIndex, isLit);
+      int centre = numSegments_ / 2;
+      float normPos = normValue * static_cast<float>(numSegments_);
+      if (normValue < 0.5f)
+        isLit = (static_cast<float>(i) >= normPos && i < centre);
+      else
+        isLit = (i >= centre && static_cast<float>(i) < normPos);
     }
     else
     {
-      ledColor = getLEDColor(reversedIndex, isLit);
+      isLit = static_cast<float>(i) < normValue * static_cast<float>(numSegments_);
     }
 
-    g.setColour(ledColor);
-    g.fillEllipse(ledBounds);
+    g.setColour(isLit ? litColour : litColour.withAlpha(0.12f));
+    g.fillRect(seg);
+  }
 
-    if (isLit)
+  if (showThresholds_)
+  {
+    auto drawMarker = [&](float threshold)
     {
-      g.setColour(ledColor.withAlpha(0.25f));
-      g.fillEllipse(ledBounds.expanded(2.0f));
-    }
-
-    g.setColour(juce::Colour(0xffaaaaaa));
-    g.drawEllipse(ledBounds, 1.0f);
+      float normT = (threshold - minValue_) / (maxValue_ - minValue_);
+      normT = std::max(0.0f, std::min(1.0f, normT));
+      float x =
+          static_cast<float>(innerArea.getX()) + normT * static_cast<float>(innerArea.getWidth());
+      g.setColour(juce::Colour(0xffffffff).withAlpha(0.8f));
+      g.drawLine(x, static_cast<float>(segmentArea.getY()), x,
+                 static_cast<float>(segmentArea.getBottom()), 3.0f);
+    };
+    drawMarker(lowThreshold_);
+    drawMarker(highThreshold_);
   }
-
-  g.setColour(juce::Colour(0xff1a1a1a));
-  g.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-  g.drawText(name_, bounds.removeFromTop(labelHeight), juce::Justification::centred, true);
-}
-
-juce::Colour VerticalMeter::getLEDColor(int ledIndex, bool isLit) const
-{
-  float position = static_cast<float>(ledIndex) / static_cast<float>(numLEDs_ - 1);
-
-  if (position < 0.67f)
-  {
-    return isLit ? juce::Colour(0xffe07030) : juce::Colour(0xffd8c8b8);
-  }
-  else if (position < 0.83f)
-  {
-    return isLit ? juce::Colour(0xffc85820) : juce::Colour(0xffd8c8b8);
-  }
-  else
-  {
-    return isLit ? juce::Colour(0xffb04010) : juce::Colour(0xffd8c8b8);
-  }
-}
-
-juce::Colour VerticalMeter::getBlendLEDColor(int /*ledIndex*/, bool isLit) const
-{
-  return isLit ? juce::Colour(0xffe07030) : juce::Colour(0xffd8c8b8);
-}
-
-void VerticalMeter::timerCallback()
-{
-  repaint();
 }
 
 static void setupRotarySlider(juce::Slider& s, int textBoxWidth = 70)
@@ -122,22 +103,17 @@ static void setupRotarySlider(juce::Slider& s, int textBoxWidth = 70)
 OctobIREditor::OctobIREditor(OctobIRProcessor& p)
     : AudioProcessorEditor(&p),
       audioProcessor(p),
-      inputLevelMeter_("Input Level", -96.0f, 0.0f),
-      blendMeter_("Blend", -1.0f, 1.0f)
+      inputLevelMeter_("INPUT", -96.0f, 0.0f, false),
+      blendMeter_("BLEND", -1.0f, 1.0f, true)
 {
   setLookAndFeel(&laf_);
 
-  addAndMakeVisible(ir1TitleLabel_);
-  ir1TitleLabel_.setText("IR A (-1.0)", juce::dontSendNotification);
-  ir1TitleLabel_.setJustificationType(juce::Justification::centredLeft);
-  ir1TitleLabel_.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-
   addAndMakeVisible(loadButton1_);
-  loadButton1_.setButtonText("Load");
+  loadButton1_.setButtonText("LOAD");
   loadButton1_.onClick = [this] { loadButton1Clicked(); };
 
   addAndMakeVisible(clearButton1_);
-  clearButton1_.setButtonText("Clear");
+  clearButton1_.setButtonText("CLEAR");
   clearButton1_.onClick = [this] { clearButton1Clicked(); };
 
   addAndMakeVisible(prevButton1_);
@@ -155,23 +131,18 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
                              : audioProcessor.getCurrentIR1Path());
 
   addAndMakeVisible(ir1EnableButton_);
-  ir1EnableButton_.setButtonText("Enable A");
+  ir1EnableButton_.setButtonText("ENABLE");
   ir1EnableButton_.getProperties().set("isLED", true);
   ir1EnableButton_.setColour(juce::ToggleButton::tickColourId, juce::Colour(0xffe07030));
   ir1EnableAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "irAEnable", ir1EnableButton_);
 
-  addAndMakeVisible(ir2TitleLabel_);
-  ir2TitleLabel_.setText("IR B (+1.0)", juce::dontSendNotification);
-  ir2TitleLabel_.setJustificationType(juce::Justification::centredLeft);
-  ir2TitleLabel_.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-
   addAndMakeVisible(loadButton2_);
-  loadButton2_.setButtonText("Load");
+  loadButton2_.setButtonText("LOAD");
   loadButton2_.onClick = [this] { loadButton2Clicked(); };
 
   addAndMakeVisible(clearButton2_);
-  clearButton2_.setButtonText("Clear");
+  clearButton2_.setButtonText("CLEAR");
   clearButton2_.onClick = [this] { clearButton2Clicked(); };
 
   addAndMakeVisible(prevButton2_);
@@ -189,7 +160,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
                              : audioProcessor.getCurrentIR2Path());
 
   addAndMakeVisible(ir2EnableButton_);
-  ir2EnableButton_.setButtonText("Enable B");
+  ir2EnableButton_.setButtonText("ENABLE");
   ir2EnableButton_.getProperties().set("isLED", true);
   ir2EnableButton_.setColour(juce::ToggleButton::tickColourId, juce::Colour(0xffe07030));
   ir2EnableAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
@@ -199,22 +170,22 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   addAndMakeVisible(blendMeter_);
 
   addAndMakeVisible(dynamicModeButton_);
-  dynamicModeButton_.setButtonText("Dynamic Mode");
+  dynamicModeButton_.setButtonText("DYNAMIC MODE");
   dynamicModeAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "dynamicMode", dynamicModeButton_);
 
   addAndMakeVisible(sidechainEnableButton_);
-  sidechainEnableButton_.setButtonText("Sidechain Enable");
+  sidechainEnableButton_.setButtonText("SIDECHAIN ENABLE");
   sidechainEnableAttachment_ =
       std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
           audioProcessor.getAPVTS(), "sidechainEnable", sidechainEnableButton_);
 
   addAndMakeVisible(swapIROrderButton_);
-  swapIROrderButton_.setButtonText("Swap IR Order");
+  swapIROrderButton_.setButtonText("SWAP IR ORDER");
   swapIROrderButton_.onClick = [this] { swapIROrderClicked(); };
 
   addAndMakeVisible(blendLabel_);
-  blendLabel_.setText("Static Blend", juce::dontSendNotification);
+  blendLabel_.setText("STATIC BLEND", juce::dontSendNotification);
   blendLabel_.setJustificationType(juce::Justification::centred);
 
   addAndMakeVisible(blendSlider_);
@@ -223,7 +194,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
       audioProcessor.getAPVTS(), "blend", blendSlider_);
 
   addAndMakeVisible(outputGainLabel_);
-  outputGainLabel_.setText("Output Gain", juce::dontSendNotification);
+  outputGainLabel_.setText("OUTPUT GAIN", juce::dontSendNotification);
   outputGainLabel_.setJustificationType(juce::Justification::centred);
 
   addAndMakeVisible(outputGainSlider_);
@@ -232,7 +203,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
       audioProcessor.getAPVTS(), "outputGain", outputGainSlider_);
 
   addAndMakeVisible(thresholdLabel_);
-  thresholdLabel_.setText("Threshold", juce::dontSendNotification);
+  thresholdLabel_.setText("THRESHOLD", juce::dontSendNotification);
   thresholdLabel_.setJustificationType(juce::Justification::centred);
 
   addAndMakeVisible(thresholdSlider_);
@@ -241,7 +212,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
       audioProcessor.getAPVTS(), "threshold", thresholdSlider_);
 
   addAndMakeVisible(rangeDbLabel_);
-  rangeDbLabel_.setText("Range", juce::dontSendNotification);
+  rangeDbLabel_.setText("RANGE", juce::dontSendNotification);
   rangeDbLabel_.setJustificationType(juce::Justification::centred);
 
   addAndMakeVisible(rangeDbSlider_);
@@ -250,7 +221,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
       audioProcessor.getAPVTS(), "rangeDb", rangeDbSlider_);
 
   addAndMakeVisible(kneeWidthDbLabel_);
-  kneeWidthDbLabel_.setText("Knee", juce::dontSendNotification);
+  kneeWidthDbLabel_.setText("KNEE", juce::dontSendNotification);
   kneeWidthDbLabel_.setJustificationType(juce::Justification::centred);
 
   addAndMakeVisible(kneeWidthDbSlider_);
@@ -259,7 +230,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
       audioProcessor.getAPVTS(), "kneeWidthDb", kneeWidthDbSlider_);
 
   addAndMakeVisible(attackTimeLabel_);
-  attackTimeLabel_.setText("Attack", juce::dontSendNotification);
+  attackTimeLabel_.setText("ATTACK", juce::dontSendNotification);
   attackTimeLabel_.setJustificationType(juce::Justification::centred);
 
   addAndMakeVisible(attackTimeSlider_);
@@ -268,7 +239,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
       audioProcessor.getAPVTS(), "attackTime", attackTimeSlider_);
 
   addAndMakeVisible(releaseTimeLabel_);
-  releaseTimeLabel_.setText("Release", juce::dontSendNotification);
+  releaseTimeLabel_.setText("RELEASE", juce::dontSendNotification);
   releaseTimeLabel_.setJustificationType(juce::Justification::centred);
 
   addAndMakeVisible(releaseTimeSlider_);
@@ -277,11 +248,11 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
       audioProcessor.getAPVTS(), "releaseTime", releaseTimeSlider_);
 
   addAndMakeVisible(detectionModeLabel_);
-  detectionModeLabel_.setText("Detection", juce::dontSendNotification);
+  detectionModeLabel_.setText("DETECTION", juce::dontSendNotification);
   detectionModeLabel_.setJustificationType(juce::Justification::centred);
 
   addAndMakeVisible(detectionModeCombo_);
-  detectionModeCombo_.addItem("Peak", 1);
+  detectionModeCombo_.addItem("PEAK", 1);
   detectionModeCombo_.addItem("RMS", 2);
   detectionModeAttachment_ =
       std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
@@ -293,7 +264,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   updateLatencyDisplay();
 
   startTimerHz(30);
-  setSize(700, 760);
+  setSize(700, 655);
 }
 
 OctobIREditor::~OctobIREditor()
@@ -324,7 +295,6 @@ void OctobIREditor::resized()
 
   {
     auto col = irButtonRow.removeFromLeft(halfW);
-    ir1TitleLabel_.setBounds(col.removeFromLeft(55));
     loadButton1_.setBounds(col.removeFromLeft(55).reduced(2));
     clearButton1_.setBounds(col.removeFromLeft(48).reduced(2));
     prevButton1_.setBounds(col.removeFromLeft(28).reduced(2));
@@ -333,7 +303,6 @@ void OctobIREditor::resized()
   }
   {
     auto col = irButtonRow;
-    ir2TitleLabel_.setBounds(col.removeFromLeft(55));
     loadButton2_.setBounds(col.removeFromLeft(55).reduced(2));
     clearButton2_.setBounds(col.removeFromLeft(48).reduced(2));
     prevButton2_.setBounds(col.removeFromLeft(28).reduced(2));
@@ -349,19 +318,18 @@ void OctobIREditor::resized()
 
   irSection.removeFromTop(10);
   auto modeRow = irSection.removeFromTop(30);
-  dynamicModeButton_.setBounds(modeRow.removeFromLeft(140).reduced(2));
-  modeRow.removeFromLeft(5);
-  sidechainEnableButton_.setBounds(modeRow.removeFromLeft(150).reduced(2));
-  modeRow.removeFromLeft(5);
-  swapIROrderButton_.setBounds(modeRow.removeFromLeft(120).reduced(2));
+  auto modeColW = modeRow.getWidth() / 3;
+  dynamicModeButton_.setBounds(modeRow.removeFromLeft(modeColW).reduced(2));
+  sidechainEnableButton_.setBounds(modeRow.removeFromLeft(modeColW).reduced(2));
+  swapIROrderButton_.setBounds(modeRow.reduced(2));
 
-  // --- Meters (205px) ---
+  // --- Meters (96px) ---
   bounds.removeFromTop(10);
-  auto meterRow = bounds.removeFromTop(205);
-  auto metersSection = meterRow.withSizeKeepingCentre(140, meterRow.getHeight());
-  inputLevelMeter_.setBounds(metersSection.removeFromLeft(60));
-  metersSection.removeFromLeft(20);
-  blendMeter_.setBounds(metersSection.removeFromLeft(60));
+  auto inputMeterBounds = bounds.removeFromTop(40);
+  bounds.removeFromTop(6);
+  auto blendMeterBounds = bounds.removeFromTop(40);
+  inputLevelMeter_.setBounds(inputMeterBounds);
+  blendMeter_.setBounds(blendMeterBounds);
 
   // --- Large Rotary Knobs (130px) ---
   bounds.removeFromTop(10);
@@ -435,14 +403,12 @@ void OctobIREditor::updateMeters()
   bool dynamicMode = audioProcessor.getAPVTS().getRawParameterValue("dynamicMode")->load() > 0.5f;
 
   inputLevelMeter_.setShowThresholds(dynamicMode);
-  blendMeter_.setShowBlendRange(dynamicMode);
 
   if (dynamicMode)
   {
     float threshold = audioProcessor.getAPVTS().getRawParameterValue("threshold")->load();
     float rangeDb = audioProcessor.getAPVTS().getRawParameterValue("rangeDb")->load();
     inputLevelMeter_.setThresholdMarkers(threshold, threshold + rangeDb);
-    blendMeter_.setBlendRangeMarkers(-1.0f, 1.0f);
   }
 }
 
