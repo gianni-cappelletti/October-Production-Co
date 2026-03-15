@@ -1,7 +1,15 @@
 #include "OctobIRLookAndFeel.h"
 
+#include <BinaryData.h>
+
 OctobIRLookAndFeel::OctobIRLookAndFeel()
 {
+  cutiveMonoTypeface_ = juce::Typeface::createSystemTypefaceFor(
+      BinaryData::CourierPrimeRegular_ttf, BinaryData::CourierPrimeRegular_ttfSize);
+  workbenchTypeface_ = juce::Typeface::createSystemTypefaceFor(
+      BinaryData::WorkbenchRegularVariableFont_BLEDSCAN_ttf,
+      BinaryData::WorkbenchRegularVariableFont_BLEDSCAN_ttfSize);
+  setDefaultSansSerifTypeface(cutiveMonoTypeface_);
   setColour(juce::ResizableWindow::backgroundColourId, juce::Colours::white);
 
   setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xffd8d8d8));
@@ -101,7 +109,8 @@ void OctobIRLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& b
 void OctobIRLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& button,
                                         bool /*isHighlighted*/, bool isButtonDown)
 {
-  g.setFont(getTextButtonFont(button, button.getHeight()));
+  auto height = juce::jmin(15.0f, (float)button.getHeight() * 0.6f);
+  g.setFont(juce::Font(juce::FontOptions().withTypeface(cutiveMonoTypeface_).withHeight(height)));
   g.setColour(button
                   .findColour(button.getToggleState() ? juce::TextButton::textColourOnId
                                                       : juce::TextButton::textColourOffId)
@@ -152,7 +161,8 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
     {
       g.setColour(findColour(juce::Label::textColourId)
                       .withMultipliedAlpha(button.isEnabled() ? 0.9f : 0.5f));
-      g.setFont(juce::Font(juce::FontOptions(12.0f)));
+      g.setFont(
+          juce::Font(juce::FontOptions().withTypeface(cutiveMonoTypeface_).withHeight(12.0f)));
       auto textBounds = bounds.withLeft(ledBounds.getRight() + 5.0f);
       g.drawFittedText(button.getButtonText(), textBounds.toNearestInt(),
                        juce::Justification::centredLeft, 1);
@@ -188,7 +198,7 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
 
     g.setColour(findColour(juce::Label::textColourId)
                     .withMultipliedAlpha(button.isEnabled() ? 0.9f : 0.5f));
-    g.setFont(juce::Font(juce::FontOptions(13.0f)));
+    g.setFont(juce::Font(juce::FontOptions().withTypeface(cutiveMonoTypeface_).withHeight(13.0f)));
     g.drawFittedText(button.getButtonText(), button.getLocalBounds(), juce::Justification::centred,
                      1);
   }
@@ -216,4 +226,16 @@ void OctobIRLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height,
   g.setColour(
       box.findColour(juce::ComboBox::arrowColourId).withAlpha(box.isEnabled() ? 0.9f : 0.2f));
   g.strokePath(arrow, juce::PathStrokeType(2.0f));
+}
+
+juce::Typeface::Ptr OctobIRLookAndFeel::getTypefaceForFont(const juce::Font&)
+{
+  return cutiveMonoTypeface_;
+}
+
+juce::Font OctobIRLookAndFeel::getLabelFont(juce::Label& label)
+{
+  auto f = LookAndFeel_V4::getLabelFont(label);
+  return juce::Font(
+      juce::FontOptions().withTypeface(cutiveMonoTypeface_).withHeight(f.getHeight()));
 }

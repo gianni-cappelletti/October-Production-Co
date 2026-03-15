@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 
+#include "OctobIRLookAndFeel.h"
 #include "PluginProcessor.h"
 
 LCDBargraph::LCDBargraph(const juce::String& name, float minValue, float maxValue,
@@ -26,7 +27,11 @@ void LCDBargraph::paint(juce::Graphics& g)
 
   auto labelBounds = bounds.removeFromTop(18);
   g.setColour(juce::Colour(0xff1a1a1a));
-  g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+  if (auto* laf = dynamic_cast<OctobIRLookAndFeel*>(&getLookAndFeel()))
+    g.setFont(
+        juce::Font(juce::FontOptions().withTypeface(laf->getMainTypeface()).withHeight(12.0f)));
+  else
+    g.setFont(juce::FontOptions(12.0f));
   g.drawText(name_, labelBounds, juce::Justification::centredLeft, true);
 
   bounds.removeFromTop(4);
@@ -107,6 +112,12 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
       blendMeter_("BLEND", -1.0f, 1.0f, true)
 {
   setLookAndFeel(&laf_);
+
+  if (auto typeface = laf_.getWorkbenchTypeface())
+  {
+    ir1LCDDisplay_.setTypeface(typeface);
+    ir2LCDDisplay_.setTypeface(typeface);
+  }
 
   addAndMakeVisible(loadButton1_);
   loadButton1_.setButtonText("LOAD");
@@ -278,7 +289,7 @@ void OctobIREditor::paint(juce::Graphics& g)
   g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
 
   g.setColour(juce::Colour(0xffe07030));
-  g.setFont(juce::FontOptions(24.0f, juce::Font::bold));
+  g.setFont(juce::Font(juce::FontOptions().withTypeface(laf_.getMainTypeface()).withHeight(24.0f)));
   g.drawText("OctobIR", getLocalBounds().removeFromTop(50), juce::Justification::centred, true);
 }
 

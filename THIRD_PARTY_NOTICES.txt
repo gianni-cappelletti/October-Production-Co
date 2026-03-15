@@ -59,7 +59,35 @@ this software and associated documentation files (the "Software"), to deal in
 the Software without restriction.
 
 
-4. VCV Rack SDK (VCV Rack Plugin Only)
+4. Courier Prime (JUCE Plugin Only)
+------------------------------------
+Copyright 2015 The Courier Prime Project Authors (https://github.com/quoteunquoteapps/CourierPrime)
+Source: https://fonts.google.com/specimen/Courier+Prime
+
+License: SIL Open Font License, Version 1.1
+Full license text: plugins/juce-multiformat/Resources/Fonts/CourierPrime-OFL.txt
+
+Used for: UI typeface, embedded in the JUCE plugin binary via juce_add_binary_data.
+
+The OFL allows the font to be bundled and redistributed with software provided
+that the copyright notice and license are included.
+
+
+5. Workbench (JUCE Plugin Only)
+---------------------------------
+Copyright 2021 The Workbench Project Authors (https://github.com/jenskutilek/homecomputer-fonts)
+Source: https://fonts.google.com/specimen/Workbench
+
+License: SIL Open Font License, Version 1.1
+Full license text: plugins/juce-multiformat/Resources/Fonts/Workbench-OFL.txt
+
+Used for: LCD display typeface, embedded in the JUCE plugin binary via juce_add_binary_data.
+
+The OFL allows the font to be bundled and redistributed with software provided
+that the copyright notice and license are included.
+
+
+6. VCV Rack SDK (VCV Rack Plugin Only)
 ---------------------------------------
 Copyright (c) 2016-2024 VCV
 Source: https://github.com/VCVRack/Rack
