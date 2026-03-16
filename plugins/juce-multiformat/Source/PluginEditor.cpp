@@ -120,9 +120,9 @@ void LCDMeterPanel::paintMeter(juce::Graphics& g, juce::Rectangle<int> barArea, 
     {
       float markerX =
           static_cast<float>(innerArea.getX()) + normT * static_cast<float>(innerArea.getWidth());
-      g.setColour(juce::Colour(0xffffffff).withAlpha(0.8f));
-      g.drawLine(markerX, static_cast<float>(barArea.getY()), markerX,
-                 static_cast<float>(barArea.getBottom()), 3.0f);
+      g.setColour(juce::Colour(0xff1c1c30));
+      g.fillRect(juce::Rectangle<float>(markerX - 2.0f, static_cast<float>(barArea.getY()) - 4.0f,
+                                        4.0f, static_cast<float>(barArea.getHeight()) + 8.0f));
     };
     drawMarker(normLow);
     drawMarker(normHigh);
@@ -209,11 +209,13 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   addAndMakeVisible(meterPanel_);
 
   addAndMakeVisible(dynamicModeButton_);
+  dynamicModeButton_.setPaintingIsUnclipped(true);
   dynamicModeButton_.setButtonText("DYNAMIC");
   dynamicModeAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "dynamicMode", dynamicModeButton_);
 
   addAndMakeVisible(sidechainEnableButton_);
+  sidechainEnableButton_.setPaintingIsUnclipped(true);
   sidechainEnableButton_.setButtonText("SIDECHAIN");
   sidechainEnableAttachment_ =
       std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(

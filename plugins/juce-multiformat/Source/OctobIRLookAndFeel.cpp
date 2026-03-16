@@ -190,7 +190,7 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
     }
 
     auto innerColour =
-        isOn ? ledColour.brighter(0.5f) : ledColour.withSaturation(0.3f).withBrightness(0.08f);
+        isOn ? juce::Colour(0xffffb060) : ledColour.withSaturation(0.3f).withBrightness(0.08f);
     auto outerColour =
         isOn ? ledColour.darker(0.3f) : ledColour.withSaturation(0.2f).withBrightness(0.04f);
     juce::ColourGradient body(innerColour, centre.translated(-radius * 0.3f, -radius * 0.3f),
@@ -278,7 +278,17 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
 
     if (isOn)
     {
-      g.setColour(ledColour.withMultipliedAlpha(alpha));
+      auto ledCentre = ledRect.getCentre();
+      const float glowRadius = 18.0f;
+      juce::ColourGradient glow(ledColour.withAlpha(0.28f), ledCentre, ledColour.withAlpha(0.0f),
+                                ledCentre.translated(glowRadius, 0.0f), true);
+      g.setGradientFill(glow);
+      g.fillRect(ledRect.expanded(glowRadius));
+
+      juce::ColourGradient stripGlow(juce::Colour(0xffffb060).withMultipliedAlpha(alpha), ledCentre,
+                                     ledColour.darker(0.25f).withMultipliedAlpha(alpha),
+                                     ledCentre.translated(0.0f, ledRect.getHeight() * 0.5f), true);
+      g.setGradientFill(stripGlow);
       g.fillRoundedRectangle(ledRect, cornerSize);
     }
     else
