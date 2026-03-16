@@ -8,7 +8,7 @@ void LCDMeterPanel::paint(juce::Graphics& g)
   static constexpr int kPadH = 8;
   static constexpr int kLabelH = 10;
   static constexpr int kGapLB = 3;
-  static constexpr int kBarH = 18;
+  static constexpr int kBarH = 24;
   static constexpr int kGapBM = 16;
 
   auto bounds = getLocalBounds().toFloat().reduced(1.0f);
@@ -36,7 +36,7 @@ void LCDMeterPanel::paint(juce::Graphics& g)
     g.setFont(juce::Font(
         juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 8.0f, juce::Font::plain)));
 
-  g.setColour(juce::Colour(0xff1e1a06));
+  g.setColour(juce::Colour(0xff1c1c30));
 
   auto content = getLocalBounds().reduced(kPadH, kPadV);
   int cx = content.getX();
@@ -57,7 +57,7 @@ void LCDMeterPanel::paint(juce::Graphics& g)
   paintMeter(g, inputBarArea, normInput, false, showThresholds_, normLow, normHigh);
   cy += kBarH + kGapBM;
 
-  g.setColour(juce::Colour(0xff1e1a06));
+  g.setColour(juce::Colour(0xff1c1c30));
   juce::Rectangle<int> blendLabelArea(cx, cy, cw, kLabelH);
   g.drawText("BLEND", blendLabelArea, juce::Justification::centredLeft, true);
   cy += kLabelH + kGapLB;
@@ -80,7 +80,7 @@ void LCDMeterPanel::paintMeter(juce::Graphics& g, juce::Rectangle<int> barArea, 
                                bool centreBalanced, bool showThresholds, float normLow,
                                float normHigh) const
 {
-  auto innerArea = barArea.reduced(1, 1);
+  auto innerArea = barArea.reduced(3, 3);
   float totalGapWidth = static_cast<float>((numSegments_ - 1) * segmentGap_);
   float segW =
       (static_cast<float>(innerArea.getWidth()) - totalGapWidth) / static_cast<float>(numSegments_);
@@ -109,22 +109,10 @@ void LCDMeterPanel::paintMeter(juce::Graphics& g, juce::Rectangle<int> barArea, 
 
     if (isLit)
     {
-      g.setColour(juce::Colour(0xff1a1a1a));
+      g.setColour(juce::Colour(0xff1c1c30));
       g.fillRect(seg);
     }
   }
-
-  auto innerF = innerArea.toFloat();
-  juce::ColourGradient topShadow(juce::Colour(0xff000000).withAlpha(0.22f), innerF.getX(),
-                                 innerF.getY(), juce::Colour(0xff000000).withAlpha(0.0f),
-                                 innerF.getX(), innerF.getY() + 5.0f, false);
-  g.setGradientFill(topShadow);
-  g.fillRect(innerF);
-  juce::ColourGradient leftShadow(juce::Colour(0xff000000).withAlpha(0.12f), innerF.getX(),
-                                  innerF.getY(), juce::Colour(0xff000000).withAlpha(0.0f),
-                                  innerF.getX() + 5.0f, innerF.getY(), false);
-  g.setGradientFill(leftShadow);
-  g.fillRect(innerF);
 
   if (showThresholds)
   {
@@ -177,7 +165,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   nextButton1_.onClick = [this] { nextButton1Clicked(); };
 
   addAndMakeVisible(ir1LCDDisplay_);
-  ir1LCDDisplay_.setTextColour(juce::Colour(0xff1e1a06));
+  ir1LCDDisplay_.setTextColour(juce::Colour(0xff1c1c30));
   ir1LCDDisplay_.setText(audioProcessor.getCurrentIR1Path().isEmpty()
                              ? "No IR loaded"
                              : juce::File(audioProcessor.getCurrentIR1Path()).getFileName());
@@ -206,7 +194,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   nextButton2_.onClick = [this] { nextButton2Clicked(); };
 
   addAndMakeVisible(ir2LCDDisplay_);
-  ir2LCDDisplay_.setTextColour(juce::Colour(0xff1e1a06));
+  ir2LCDDisplay_.setTextColour(juce::Colour(0xff1c1c30));
   ir2LCDDisplay_.setText(audioProcessor.getCurrentIR2Path().isEmpty()
                              ? "No IR loaded"
                              : juce::File(audioProcessor.getCurrentIR2Path()).getFileName());
@@ -310,7 +298,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
           audioProcessor.getAPVTS(), "detectionMode", detectionModeCombo_);
 
   startTimerHz(30);
-  setSize(520, 630);
+  setSize(520, 642);
 }
 
 OctobIREditor::~OctobIREditor()
@@ -367,7 +355,7 @@ void OctobIREditor::resized()
 
   // --- Meters (96px) ---
   bounds.removeFromTop(10);
-  meterPanel_.setBounds(bounds.removeFromTop(108));
+  meterPanel_.setBounds(bounds.removeFromTop(120));
 
   // --- Large Rotary Knobs (110px) ---
   bounds.removeFromTop(10);

@@ -65,6 +65,6 @@ class LCDDisplay : public juce::Component
 
  private:
   juce::String text_ = "No IR loaded";
-  juce::Colour textColour_ = juce::Colour(0xff1e1a06);
+  juce::Colour textColour_ = juce::Colour(0xff1c1c30);
   juce::Typeface::Ptr typeface_;
 };
