@@ -167,8 +167,8 @@ void OctobIRLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& but
 }
 
 void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,
-                                          bool shouldDrawButtonAsHighlighted,
-                                          bool shouldDrawButtonAsDown)
+                                          bool /*shouldDrawButtonAsHighlighted*/,
+                                          bool /*shouldDrawButtonAsDown*/)
 {
   if (button.getProperties()["isLED"])
   {
@@ -218,31 +218,77 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
     auto bounds = button.getLocalBounds().toFloat().reduced(0.5f, 0.5f);
     const auto cornerSize = 4.0f;
     bool isOn = button.getToggleState();
-
-    auto base = findColour(juce::TextButton::buttonColourId)
-                    .withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f);
-
-    if (isOn)
-      base = base.brighter(0.12f);
-    if (shouldDrawButtonAsHighlighted)
-      base = base.brighter(0.08f);
-    if (shouldDrawButtonAsDown)
-      base = base.darker(0.12f);
-
-    g.setColour(base);
-    g.fillRoundedRectangle(bounds, cornerSize);
+    float alpha = button.isEnabled() ? 1.0f : 0.5f;
 
     if (isOn)
     {
-      g.setColour(juce::Colour(0xffffb733));
-      g.fillRoundedRectangle(bounds.withWidth(3.0f), cornerSize);
+      // Pushed-in: reversed gradient (darker top, lighter bottom)
+      juce::ColourGradient gradient(juce::Colour(0xffc8c8c8).withMultipliedAlpha(alpha),
+                                    bounds.getX(), bounds.getY(),
+                                    juce::Colour(0xffe0e0e0).withMultipliedAlpha(alpha),
+                                    bounds.getX(), bounds.getBottom(), false);
+      g.setGradientFill(gradient);
+      g.fillRoundedRectangle(bounds, cornerSize);
+
+      // Inset shadow on top and left
+      g.setColour(juce::Colour(0xffaaaaaa).withMultipliedAlpha(alpha));
+      g.drawLine(bounds.getX() + cornerSize, bounds.getY() + 1.0f, bounds.getRight() - cornerSize,
+                 bounds.getY() + 1.0f, 1.0f);
+      g.drawLine(bounds.getX() + 1.0f, bounds.getY() + cornerSize, bounds.getX() + 1.0f,
+                 bounds.getBottom() - cornerSize, 1.0f);
+
+      // Highlight on bottom and right
+      g.setColour(juce::Colour(0xffffffff).withMultipliedAlpha(alpha));
+      g.drawLine(bounds.getX() + cornerSize, bounds.getBottom() - 1.0f,
+                 bounds.getRight() - cornerSize, bounds.getBottom() - 1.0f, 1.0f);
+      g.drawLine(bounds.getRight() - 1.0f, bounds.getY() + cornerSize, bounds.getRight() - 1.0f,
+                 bounds.getBottom() - cornerSize, 1.0f);
+    }
+    else
+    {
+      // Raised: matches TextButton / SWAP button style
+      juce::ColourGradient gradient(juce::Colour(0xffe8e8e8).withMultipliedAlpha(alpha),
+                                    bounds.getX(), bounds.getY(),
+                                    juce::Colour(0xffd0d0d0).withMultipliedAlpha(alpha),
+                                    bounds.getX(), bounds.getBottom(), false);
+      g.setGradientFill(gradient);
+      g.fillRoundedRectangle(bounds, cornerSize);
+
+      // Highlight on top and left
+      g.setColour(juce::Colour(0xffffffff).withMultipliedAlpha(alpha));
+      g.drawLine(bounds.getX() + cornerSize, bounds.getY() + 1.0f, bounds.getRight() - cornerSize,
+                 bounds.getY() + 1.0f, 1.0f);
+      g.drawLine(bounds.getX() + 1.0f, bounds.getY() + cornerSize, bounds.getX() + 1.0f,
+                 bounds.getBottom() - cornerSize, 1.0f);
+
+      // Shadow on bottom and right
+      g.setColour(juce::Colour(0xffb8b8b8).withMultipliedAlpha(alpha));
+      g.drawLine(bounds.getX() + cornerSize, bounds.getBottom() - 1.0f,
+                 bounds.getRight() - cornerSize, bounds.getBottom() - 1.0f, 1.0f);
+      g.drawLine(bounds.getRight() - 1.0f, bounds.getY() + cornerSize, bounds.getRight() - 1.0f,
+                 bounds.getBottom() - cornerSize, 1.0f);
     }
 
-    g.setColour(juce::Colour(0xff444444));
+    g.setColour(juce::Colour(0xff888888).withMultipliedAlpha(alpha));
     g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
 
-    g.setColour(findColour(juce::Label::textColourId)
-                    .withMultipliedAlpha(button.isEnabled() ? 0.9f : 0.5f));
+    // LED strip on left
+    const float ledWidth = 8.0f;
+    auto ledColour = juce::Colour(0xffe07030);
+    auto ledRect = bounds.withWidth(ledWidth);
+
+    if (isOn)
+    {
+      g.setColour(ledColour.withMultipliedAlpha(alpha));
+      g.fillRoundedRectangle(ledRect, cornerSize);
+    }
+    else
+    {
+      g.setColour(ledColour.withSaturation(0.25f).withBrightness(0.12f).withMultipliedAlpha(alpha));
+      g.fillRoundedRectangle(ledRect, cornerSize);
+    }
+
+    g.setColour(findColour(juce::Label::textColourId).withMultipliedAlpha(alpha * 0.9f));
     g.setFont(juce::Font(juce::FontOptions().withTypeface(cutiveMonoTypeface_).withHeight(13.0f)));
     g.drawFittedText(button.getButtonText(), button.getLocalBounds(), juce::Justification::centred,
                      1);
