@@ -28,9 +28,9 @@ class OctobIRLookAndFeel : public juce::LookAndFeel_V4
   juce::Typeface::Ptr getTypefaceForFont(const juce::Font&) override;
   juce::Font getLabelFont(juce::Label&) override;
   juce::Typeface::Ptr getMainTypeface() const { return cutiveMonoTypeface_; }
-  juce::Typeface::Ptr getWorkbenchTypeface() const { return workbenchTypeface_; }
+  juce::Typeface::Ptr getLCDTypeface() const { return lcdTypeface_; }
 
  private:
   juce::Typeface::Ptr cutiveMonoTypeface_;
-  juce::Typeface::Ptr workbenchTypeface_;
+  juce::Typeface::Ptr lcdTypeface_;
 };

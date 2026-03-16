@@ -34,7 +34,7 @@ All third-party dependencies are GPL-compatible:
 | **dr_wav** | Public Domain / MIT | WAV file loading | GPL-compatible |
 | **VCV Rack SDK** | GPL-3.0+ | VCV Rack plugin API | GPL-3.0 |
 | **Courier Prime** | SIL Open Font License 1.1 | UI typeface (bundled) | GPL-compatible |
-| **Workbench** | SIL Open Font License 1.1 | LCD display typeface (bundled) | GPL-compatible |
+| **Press Start 2P** | SIL Open Font License 1.1 | LCD display typeface (bundled) | GPL-compatible |
 
 ### WDL (Winamp Developmental Library)
 

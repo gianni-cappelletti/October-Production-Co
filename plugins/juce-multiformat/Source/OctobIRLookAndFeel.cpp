@@ -6,18 +6,17 @@ OctobIRLookAndFeel::OctobIRLookAndFeel()
 {
   cutiveMonoTypeface_ = juce::Typeface::createSystemTypefaceFor(
       BinaryData::CourierPrimeRegular_ttf, BinaryData::CourierPrimeRegular_ttfSize);
-  workbenchTypeface_ = juce::Typeface::createSystemTypefaceFor(
-      BinaryData::WorkbenchRegularVariableFont_BLEDSCAN_ttf,
-      BinaryData::WorkbenchRegularVariableFont_BLEDSCAN_ttfSize);
+  lcdTypeface_ = juce::Typeface::createSystemTypefaceFor(BinaryData::PressStart2PRegular_ttf,
+                                                         BinaryData::PressStart2PRegular_ttfSize);
   setDefaultSansSerifTypeface(cutiveMonoTypeface_);
   setColour(juce::ResizableWindow::backgroundColourId, juce::Colours::white);
 
   setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xffd8d8d8));
   setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xffe07030));
   setColour(juce::Slider::thumbColourId, juce::Colour(0xff1a1a1a));
-  setColour(juce::Slider::textBoxTextColourId, juce::Colour(0xffe07030));
-  setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0xff0a0a0a));
-  setColour(juce::Slider::textBoxOutlineColourId, juce::Colour(0xff222222));
+  setColour(juce::Slider::textBoxTextColourId, juce::Colour(0xff1e1a06));
+  setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0xffF08830));
+  setColour(juce::Slider::textBoxOutlineColourId, juce::Colour(0xff1a1a1a));
 
   setColour(juce::TextButton::buttonColourId, juce::Colour(0xffe8e8e8));
   setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffd8d8d8));
@@ -341,17 +340,27 @@ void OctobIRLookAndFeel::drawLabel(juce::Graphics& g, juce::Label& label)
   if (dynamic_cast<juce::Slider*>(label.getParentComponent()) != nullptr)
   {
     auto bounds = label.getLocalBounds().toFloat();
-    g.setColour(juce::Colour(0xff0a0a0a));
+    g.setColour(juce::Colour(0xffF08830));
     g.fillRoundedRectangle(bounds, 3.0f);
-    g.setColour(juce::Colours::black.withAlpha(0.9f));
-    g.drawRoundedRectangle(bounds, 3.0f, 1.5f);
-    g.setColour(juce::Colours::white.withAlpha(0.08f));
-    g.drawRoundedRectangle(bounds.reduced(1.5f), 2.0f, 1.0f);
+    g.setColour(juce::Colour(0xff1a1a1a));
+    g.drawRoundedRectangle(bounds, 3.0f, 1.0f);
+
+    auto inner = bounds.reduced(1.0f);
+    juce::ColourGradient topShadow(juce::Colour(0xff000000).withAlpha(0.22f), inner.getX(),
+                                   inner.getY(), juce::Colour(0xff000000).withAlpha(0.0f),
+                                   inner.getX(), inner.getY() + 5.0f, false);
+    g.setGradientFill(topShadow);
+    g.fillRoundedRectangle(inner, 2.0f);
+    juce::ColourGradient leftShadow(juce::Colour(0xff000000).withAlpha(0.12f), inner.getX(),
+                                    inner.getY(), juce::Colour(0xff000000).withAlpha(0.0f),
+                                    inner.getX() + 5.0f, inner.getY(), false);
+    g.setGradientFill(leftShadow);
+    g.fillRoundedRectangle(inner, 2.0f);
 
     if (!label.isBeingEdited())
     {
-      g.setColour(label.findColour(juce::Label::textColourId));
       g.setFont(getLabelFont(label));
+      g.setColour(label.findColour(juce::Label::textColourId));
       g.drawFittedText(label.getText(), label.getLocalBounds().reduced(3, 1),
                        label.getJustificationType(), 1, 1.0f);
     }
@@ -370,6 +379,9 @@ juce::Typeface::Ptr OctobIRLookAndFeel::getTypefaceForFont(const juce::Font&)
 juce::Font OctobIRLookAndFeel::getLabelFont(juce::Label& label)
 {
   auto f = LookAndFeel_V4::getLabelFont(label);
+  bool isSliderTextBox = dynamic_cast<juce::Slider*>(label.getParentComponent()) != nullptr;
+  if (isSliderTextBox)
+    return juce::Font(juce::FontOptions().withTypeface(lcdTypeface_).withHeight(8.0f));
   return juce::Font(
       juce::FontOptions().withTypeface(cutiveMonoTypeface_).withHeight(f.getHeight()));
 }

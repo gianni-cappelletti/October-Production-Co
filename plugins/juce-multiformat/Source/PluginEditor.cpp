@@ -37,9 +37,9 @@ void LCDBargraph::paint(juce::Graphics& g)
   bounds.removeFromTop(4);
   auto segmentArea = bounds.removeFromTop(18);
 
-  g.setColour(juce::Colour(0xff0a0a0a));
+  g.setColour(juce::Colour(0xffF08830));
   g.fillRect(segmentArea);
-  g.setColour(juce::Colour(0xff222222));
+  g.setColour(juce::Colour(0xff1a1a1a));
   g.drawRect(segmentArea, 1);
 
   auto innerArea = segmentArea.reduced(1, 1);
@@ -76,9 +76,28 @@ void LCDBargraph::paint(juce::Graphics& g)
       isLit = static_cast<float>(i) < normValue * static_cast<float>(numSegments_);
     }
 
-    g.setColour(isLit ? litColour : litColour.withAlpha(0.12f));
+    g.setColour(isLit ? litColour : juce::Colour(0xff7A3C0A).withAlpha(0.35f));
     g.fillRect(seg);
+
+    if (isLit)
+    {
+      g.setColour(juce::Colours::black.withAlpha(0.1f));
+      for (float lineY = seg.getY() + 1.0f; lineY < seg.getBottom(); lineY += 2.0f)
+        g.drawHorizontalLine((int)lineY, seg.getX(), seg.getRight());
+    }
   }
+
+  auto innerF = innerArea.toFloat();
+  juce::ColourGradient topShadow(juce::Colour(0xff000000).withAlpha(0.22f), innerF.getX(),
+                                 innerF.getY(), juce::Colour(0xff000000).withAlpha(0.0f),
+                                 innerF.getX(), innerF.getY() + 5.0f, false);
+  g.setGradientFill(topShadow);
+  g.fillRect(innerF);
+  juce::ColourGradient leftShadow(juce::Colour(0xff000000).withAlpha(0.12f), innerF.getX(),
+                                  innerF.getY(), juce::Colour(0xff000000).withAlpha(0.0f),
+                                  innerF.getX() + 5.0f, innerF.getY(), false);
+  g.setGradientFill(leftShadow);
+  g.fillRect(innerF);
 
   if (showThresholds_)
   {
@@ -113,7 +132,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
 {
   setLookAndFeel(&laf_);
 
-  if (auto typeface = laf_.getWorkbenchTypeface())
+  if (auto typeface = laf_.getLCDTypeface())
   {
     ir1LCDDisplay_.setTypeface(typeface);
     ir2LCDDisplay_.setTypeface(typeface);
@@ -136,7 +155,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   nextButton1_.onClick = [this] { nextButton1Clicked(); };
 
   addAndMakeVisible(ir1LCDDisplay_);
-  ir1LCDDisplay_.setTextColour(juce::Colour(0xffe07030));
+  ir1LCDDisplay_.setTextColour(juce::Colour(0xff1e1a06));
   ir1LCDDisplay_.setText(audioProcessor.getCurrentIR1Path().isEmpty()
                              ? "No IR loaded"
                              : juce::File(audioProcessor.getCurrentIR1Path()).getFileName());
@@ -165,7 +184,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   nextButton2_.onClick = [this] { nextButton2Clicked(); };
 
   addAndMakeVisible(ir2LCDDisplay_);
-  ir2LCDDisplay_.setTextColour(juce::Colour(0xffe07030));
+  ir2LCDDisplay_.setTextColour(juce::Colour(0xff1e1a06));
   ir2LCDDisplay_.setText(audioProcessor.getCurrentIR2Path().isEmpty()
                              ? "No IR loaded"
                              : juce::File(audioProcessor.getCurrentIR2Path()).getFileName());

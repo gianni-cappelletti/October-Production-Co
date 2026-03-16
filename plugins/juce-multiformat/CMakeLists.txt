@@ -33,7 +33,7 @@ juce_add_plugin(OctobIR
 
 juce_add_binary_data(OctobIR_FontData SOURCES
     Resources/Fonts/CourierPrime-Regular.ttf
-    "Resources/Fonts/Workbench-Regular-VariableFont_BLED,SCAN.ttf")
+    Resources/Fonts/PressStart2P-Regular.ttf)
 
 target_sources(OctobIR PRIVATE
     Source/PluginProcessor.cpp

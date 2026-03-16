@@ -73,15 +73,15 @@ The OFL allows the font to be bundled and redistributed with software provided
 that the copyright notice and license are included.
 
 
-5. Workbench (JUCE Plugin Only)
----------------------------------
-Copyright 2021 The Workbench Project Authors (https://github.com/jenskutilek/homecomputer-fonts)
-Source: https://fonts.google.com/specimen/Workbench
+5. Press Start 2P (JUCE Plugin Only)
+--------------------------------------
+Copyright 2012 The Press Start 2P Project Authors (cody@zone38.net)
+Source: https://fonts.google.com/specimen/Press+Start+2P
 
 License: SIL Open Font License, Version 1.1
-Full license text: plugins/juce-multiformat/Resources/Fonts/Workbench-OFL.txt
+Full license text: plugins/juce-multiformat/Resources/Fonts/PressStart2P-OFL.txt
 
-Used for: LCD display typeface, embedded in the JUCE plugin binary via juce_add_binary_data.
+Used for: LCD display typeface (file name displays and rotary value labels), embedded in the JUCE plugin binary via juce_add_binary_data.
 
 The OFL allows the font to be bundled and redistributed with software provided
 that the copyright notice and license are included.
