@@ -1,51 +1,86 @@
 #include "PluginEditor.h"
 
-#include "OctobIRLookAndFeel.h"
 #include "PluginProcessor.h"
 
-LCDBargraph::LCDBargraph(const juce::String& name, float minValue, float maxValue,
-                         bool centreBalanced)
-    : name_(name), minValue_(minValue), maxValue_(maxValue), centreBalanced_(centreBalanced)
+void LCDMeterPanel::paint(juce::Graphics& g)
 {
-}
+  static constexpr int kPadV = 15;
+  static constexpr int kPadH = 8;
+  static constexpr int kLabelH = 10;
+  static constexpr int kGapLB = 3;
+  static constexpr int kBarH = 18;
+  static constexpr int kGapBM = 16;
 
-void LCDBargraph::setValue(float value)
-{
-  currentValue_ = value;
-  repaint();
-}
-
-void LCDBargraph::setThresholdMarkers(float low, float high)
-{
-  lowThreshold_ = low;
-  highThreshold_ = high;
-}
-
-void LCDBargraph::paint(juce::Graphics& g)
-{
-  auto bounds = getLocalBounds();
-
-  auto labelBounds = bounds.removeFromTop(18);
-  g.setColour(juce::Colour(0xff1a1a1a));
-  if (auto* laf = dynamic_cast<OctobIRLookAndFeel*>(&getLookAndFeel()))
-    g.setFont(
-        juce::Font(juce::FontOptions().withTypeface(laf->getMainTypeface()).withHeight(12.0f)));
-  else
-    g.setFont(juce::FontOptions(12.0f));
-  g.drawText(name_, labelBounds, juce::Justification::centredLeft, true);
-
-  bounds.removeFromTop(4);
-  auto segmentArea = bounds.removeFromTop(18);
+  auto bounds = getLocalBounds().toFloat().reduced(1.0f);
 
   g.setColour(juce::Colour(0xffF08830));
-  g.fillRect(segmentArea);
+  g.fillRoundedRectangle(bounds, 3.0f);
   g.setColour(juce::Colour(0xff1a1a1a));
-  g.drawRect(segmentArea, 1);
+  g.drawRoundedRectangle(bounds, 3.0f, 1.0f);
 
-  auto innerArea = segmentArea.reduced(1, 1);
-  float normValue = (currentValue_ - minValue_) / (maxValue_ - minValue_);
-  normValue = std::max(0.0f, std::min(1.0f, normValue));
+  auto inner = bounds.reduced(1.0f);
+  juce::ColourGradient topShadow(juce::Colour(0xff000000).withAlpha(0.22f), inner.getX(),
+                                 inner.getY(), juce::Colour(0xff000000).withAlpha(0.0f),
+                                 inner.getX(), inner.getY() + 5.0f, false);
+  g.setGradientFill(topShadow);
+  g.fillRoundedRectangle(inner, 2.0f);
+  juce::ColourGradient leftShadow(juce::Colour(0xff000000).withAlpha(0.12f), inner.getX(),
+                                  inner.getY(), juce::Colour(0xff000000).withAlpha(0.0f),
+                                  inner.getX() + 5.0f, inner.getY(), false);
+  g.setGradientFill(leftShadow);
+  g.fillRoundedRectangle(inner, 2.0f);
 
+  if (typeface_ != nullptr)
+    g.setFont(juce::Font(juce::FontOptions().withTypeface(typeface_).withHeight(8.0f)));
+  else
+    g.setFont(juce::Font(
+        juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 8.0f, juce::Font::plain)));
+
+  g.setColour(juce::Colour(0xff1e1a06));
+
+  auto content = getLocalBounds().reduced(kPadH, kPadV);
+  int cx = content.getX();
+  int cw = content.getWidth();
+  int cy = content.getY();
+
+  juce::Rectangle<int> inputLabelArea(cx, cy, cw, kLabelH);
+  g.drawText("INPUT", inputLabelArea, juce::Justification::centredLeft, true);
+  cy += kLabelH + kGapLB;
+
+  juce::Rectangle<int> inputBarArea(cx, cy, cw, kBarH);
+  g.setColour(juce::Colour(0xff1a1a1a));
+  g.drawRoundedRectangle(inputBarArea.toFloat().reduced(0.5f), 3.0f, 1.0f);
+
+  float normInput = juce::jlimit(0.0f, 1.0f, (inputValue_ + 96.0f) / 96.0f);
+  float normLow = juce::jlimit(0.0f, 1.0f, (lowThreshold_ + 96.0f) / 96.0f);
+  float normHigh = juce::jlimit(0.0f, 1.0f, (highThreshold_ + 96.0f) / 96.0f);
+  paintMeter(g, inputBarArea, normInput, false, showThresholds_, normLow, normHigh);
+  cy += kBarH + kGapBM;
+
+  g.setColour(juce::Colour(0xff1e1a06));
+  juce::Rectangle<int> blendLabelArea(cx, cy, cw, kLabelH);
+  g.drawText("BLEND", blendLabelArea, juce::Justification::centredLeft, true);
+  cy += kLabelH + kGapLB;
+
+  juce::Rectangle<int> blendBarArea(cx, cy, cw, kBarH);
+  g.setColour(juce::Colour(0xff1a1a1a));
+  g.drawRoundedRectangle(blendBarArea.toFloat().reduced(0.5f), 3.0f, 1.0f);
+
+  float normBlend = juce::jlimit(0.0f, 1.0f, (blendValue_ + 1.0f) / 2.0f);
+  paintMeter(g, blendBarArea, normBlend, true, false, 0.0f, 0.0f);
+
+  auto scanBounds = getLocalBounds();
+  g.setColour(juce::Colour(0xff000000).withAlpha(0.025f));
+  for (int sy = scanBounds.getY(); sy < scanBounds.getBottom(); sy += 2)
+    g.drawHorizontalLine(sy, static_cast<float>(scanBounds.getX()),
+                         static_cast<float>(scanBounds.getRight()));
+}
+
+void LCDMeterPanel::paintMeter(juce::Graphics& g, juce::Rectangle<int> barArea, float normValue,
+                               bool centreBalanced, bool showThresholds, float normLow,
+                               float normHigh) const
+{
+  auto innerArea = barArea.reduced(1, 1);
   float totalGapWidth = static_cast<float>((numSegments_ - 1) * segmentGap_);
   float segW =
       (static_cast<float>(innerArea.getWidth()) - totalGapWidth) / static_cast<float>(numSegments_);
@@ -57,11 +92,8 @@ void LCDBargraph::paint(juce::Graphics& g)
               static_cast<float>(i) * (segW + static_cast<float>(segmentGap_));
     juce::Rectangle<float> seg(x, static_cast<float>(innerArea.getY()), segW, segH);
 
-    bool isClipZone =
-        !centreBalanced_ && (static_cast<float>(i) / static_cast<float>(numSegments_)) >= 0.85f;
-
     bool isLit = false;
-    if (centreBalanced_)
+    if (centreBalanced)
     {
       int centre = numSegments_ / 2;
       float normPos = normValue * static_cast<float>(numSegments_);
@@ -77,7 +109,7 @@ void LCDBargraph::paint(juce::Graphics& g)
 
     if (isLit)
     {
-      g.setColour(juce::Colour(0xff1e1a06));
+      g.setColour(juce::Colour(0xff1a1a1a));
       g.fillRect(seg);
     }
   }
@@ -94,20 +126,18 @@ void LCDBargraph::paint(juce::Graphics& g)
   g.setGradientFill(leftShadow);
   g.fillRect(innerF);
 
-  if (showThresholds_)
+  if (showThresholds)
   {
-    auto drawMarker = [&](float threshold)
+    auto drawMarker = [&](float normT)
     {
-      float normT = (threshold - minValue_) / (maxValue_ - minValue_);
-      normT = std::max(0.0f, std::min(1.0f, normT));
-      float x =
+      float markerX =
           static_cast<float>(innerArea.getX()) + normT * static_cast<float>(innerArea.getWidth());
       g.setColour(juce::Colour(0xffffffff).withAlpha(0.8f));
-      g.drawLine(x, static_cast<float>(segmentArea.getY()), x,
-                 static_cast<float>(segmentArea.getBottom()), 3.0f);
+      g.drawLine(markerX, static_cast<float>(barArea.getY()), markerX,
+                 static_cast<float>(barArea.getBottom()), 3.0f);
     };
-    drawMarker(lowThreshold_);
-    drawMarker(highThreshold_);
+    drawMarker(normLow);
+    drawMarker(normHigh);
   }
 }
 
@@ -119,11 +149,7 @@ static void setupRotarySlider(juce::Slider& s, int textBoxWidth = 90)
                         juce::MathConstants<float>::pi * 2.75f, true);
 }
 
-OctobIREditor::OctobIREditor(OctobIRProcessor& p)
-    : AudioProcessorEditor(&p),
-      audioProcessor(p),
-      inputLevelMeter_("INPUT", -96.0f, 0.0f, false),
-      blendMeter_("BLEND", -1.0f, 1.0f, true)
+OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), audioProcessor(p)
 {
   setLookAndFeel(&laf_);
 
@@ -131,6 +157,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   {
     ir1LCDDisplay_.setTypeface(typeface);
     ir2LCDDisplay_.setTypeface(typeface);
+    meterPanel_.setTypeface(typeface);
   }
 
   addAndMakeVisible(loadButton1_);
@@ -191,8 +218,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   ir2EnableAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "irBEnable", ir2EnableButton_);
 
-  addAndMakeVisible(inputLevelMeter_);
-  addAndMakeVisible(blendMeter_);
+  addAndMakeVisible(meterPanel_);
 
   addAndMakeVisible(dynamicModeButton_);
   dynamicModeButton_.setButtonText("DYNAMIC");
@@ -341,11 +367,7 @@ void OctobIREditor::resized()
 
   // --- Meters (96px) ---
   bounds.removeFromTop(10);
-  auto inputMeterBounds = bounds.removeFromTop(40);
-  bounds.removeFromTop(6);
-  auto blendMeterBounds = bounds.removeFromTop(40);
-  inputLevelMeter_.setBounds(inputMeterBounds);
-  blendMeter_.setBounds(blendMeterBounds);
+  meterPanel_.setBounds(bounds.removeFromTop(108));
 
   // --- Large Rotary Knobs (110px) ---
   bounds.removeFromTop(10);
@@ -410,18 +432,17 @@ void OctobIREditor::timerCallback()
 
 void OctobIREditor::updateMeters()
 {
-  inputLevelMeter_.setValue(audioProcessor.getCurrentInputLevel());
-  blendMeter_.setValue(audioProcessor.getCurrentBlend());
+  meterPanel_.setInputValue(audioProcessor.getCurrentInputLevel());
+  meterPanel_.setBlendValue(audioProcessor.getCurrentBlend());
 
   bool dynamicMode = audioProcessor.getAPVTS().getRawParameterValue("dynamicMode")->load() > 0.5f;
-
-  inputLevelMeter_.setShowThresholds(dynamicMode);
+  meterPanel_.setShowThresholds(dynamicMode);
 
   if (dynamicMode)
   {
     float threshold = audioProcessor.getAPVTS().getRawParameterValue("threshold")->load();
     float rangeDb = audioProcessor.getAPVTS().getRawParameterValue("rangeDb")->load();
-    inputLevelMeter_.setThresholdMarkers(threshold, threshold + rangeDb);
+    meterPanel_.setThresholdMarkers(threshold, threshold + rangeDb);
   }
 }
 

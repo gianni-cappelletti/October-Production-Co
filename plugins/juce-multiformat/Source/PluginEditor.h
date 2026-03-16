@@ -6,32 +6,49 @@
 #include "OctobIRLookAndFeel.h"
 #include "PluginProcessor.h"
 
-class LCDBargraph : public juce::Component
+class LCDMeterPanel : public juce::Component
 {
  public:
-  LCDBargraph(const juce::String& name, float minValue, float maxValue,
-              bool centreBalanced = false);
-  void setValue(float value);
-  void setThresholdMarkers(float low, float high);
+  void setTypeface(juce::Typeface::Ptr tf)
+  {
+    typeface_ = tf;
+    repaint();
+  }
+  void setInputValue(float v)
+  {
+    inputValue_ = v;
+    repaint();
+  }
+  void setBlendValue(float v)
+  {
+    blendValue_ = v;
+    repaint();
+  }
   void setShowThresholds(bool show)
   {
     showThresholds_ = show;
     repaint();
   }
+  void setThresholdMarkers(float lo, float hi)
+  {
+    lowThreshold_ = lo;
+    highThreshold_ = hi;
+  }
   void paint(juce::Graphics& g) override;
 
  private:
-  juce::String name_;
-  float minValue_;
-  float maxValue_;
-  float currentValue_ = 0.0f;
+  float inputValue_ = 0.0f;
+  float blendValue_ = 0.0f;
   float lowThreshold_ = 0.0f;
   float highThreshold_ = 0.0f;
   bool showThresholds_ = false;
-  bool centreBalanced_;
+  juce::Typeface::Ptr typeface_;
 
   static constexpr int numSegments_ = 20;
   static constexpr int segmentGap_ = 2;
+
+  void paintMeter(juce::Graphics& g, juce::Rectangle<int> barArea, float normValue,
+                  bool centreBalanced, bool showThresholds, float normLow, float normHigh) const;
 };
 
 class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -67,8 +84,7 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
   juce::ToggleButton ir2EnableButton_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ir2EnableAttachment_;
 
-  LCDBargraph inputLevelMeter_;
-  LCDBargraph blendMeter_;
+  LCDMeterPanel meterPanel_;
 
   juce::ToggleButton dynamicModeButton_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> dynamicModeAttachment_;
