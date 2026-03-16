@@ -139,7 +139,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   ir1LCDDisplay_.setTextColour(juce::Colour(0xffe07030));
   ir1LCDDisplay_.setText(audioProcessor.getCurrentIR1Path().isEmpty()
                              ? "No IR loaded"
-                             : audioProcessor.getCurrentIR1Path());
+                             : juce::File(audioProcessor.getCurrentIR1Path()).getFileName());
 
   addAndMakeVisible(ir1EnableButton_);
   ir1EnableButton_.setButtonText("ENABLE");
@@ -168,7 +168,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   ir2LCDDisplay_.setTextColour(juce::Colour(0xffe07030));
   ir2LCDDisplay_.setText(audioProcessor.getCurrentIR2Path().isEmpty()
                              ? "No IR loaded"
-                             : audioProcessor.getCurrentIR2Path());
+                             : juce::File(audioProcessor.getCurrentIR2Path()).getFileName());
 
   addAndMakeVisible(ir2EnableButton_);
   ir2EnableButton_.setButtonText("ENABLE");
@@ -181,18 +181,18 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
   addAndMakeVisible(blendMeter_);
 
   addAndMakeVisible(dynamicModeButton_);
-  dynamicModeButton_.setButtonText("DYNAMIC MODE");
+  dynamicModeButton_.setButtonText("DYNAMIC");
   dynamicModeAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "dynamicMode", dynamicModeButton_);
 
   addAndMakeVisible(sidechainEnableButton_);
-  sidechainEnableButton_.setButtonText("SIDECHAIN ENABLE");
+  sidechainEnableButton_.setButtonText("SIDECHAIN");
   sidechainEnableAttachment_ =
       std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
           audioProcessor.getAPVTS(), "sidechainEnable", sidechainEnableButton_);
 
   addAndMakeVisible(swapIROrderButton_);
-  swapIROrderButton_.setButtonText("SWAP IR ORDER");
+  swapIROrderButton_.setButtonText("SWAP");
   swapIROrderButton_.onClick = [this] { swapIROrderClicked(); };
 
   addAndMakeVisible(blendLabel_);
@@ -270,7 +270,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p)
           audioProcessor.getAPVTS(), "detectionMode", detectionModeCombo_);
 
   startTimerHz(30);
-  setSize(700, 590);
+  setSize(520, 630);
 }
 
 OctobIREditor::~OctobIREditor()
@@ -322,8 +322,8 @@ void OctobIREditor::resized()
   auto modeRow = irSection.removeFromTop(30);
   auto modeColW = modeRow.getWidth() / 3;
   dynamicModeButton_.setBounds(modeRow.removeFromLeft(modeColW).reduced(2));
-  sidechainEnableButton_.setBounds(modeRow.removeFromLeft(modeColW).reduced(2));
-  swapIROrderButton_.setBounds(modeRow.reduced(2));
+  swapIROrderButton_.setBounds(modeRow.removeFromLeft(modeColW).reduced(2));
+  sidechainEnableButton_.setBounds(modeRow.reduced(2));
 
   // --- Meters (96px) ---
   bounds.removeFromTop(10);
@@ -333,53 +333,54 @@ void OctobIREditor::resized()
   inputLevelMeter_.setBounds(inputMeterBounds);
   blendMeter_.setBounds(blendMeterBounds);
 
-  // --- Large Rotary Knobs (130px) ---
+  // --- Large Rotary Knobs (110px) ---
   bounds.removeFromTop(10);
-  auto largeKnobRow = bounds.removeFromTop(130);
+  auto largeKnobRow = bounds.removeFromTop(110);
   halfW = largeKnobRow.getWidth() / 2;
   {
     auto col = largeKnobRow.removeFromLeft(halfW);
     blendLabel_.setBounds(col.removeFromTop(18));
-    blendSlider_.setBounds(col.withSizeKeepingCentre(100, 112));
+    blendSlider_.setBounds(col.withSizeKeepingCentre(86, 90));
   }
   {
     auto col = largeKnobRow;
     outputGainLabel_.setBounds(col.removeFromTop(18));
-    outputGainSlider_.setBounds(col.withSizeKeepingCentre(100, 112));
+    outputGainSlider_.setBounds(col.withSizeKeepingCentre(86, 90));
   }
 
-  // --- Small Rotary Knobs Row 1: Threshold, Range, Knee (90px) ---
+  // --- Small Rotary Knobs Row 1: Threshold, Range, Knee (110px) ---
   bounds.removeFromTop(20);
-  auto smallRow1 = bounds.removeFromTop(90);
+  auto smallRow1 = bounds.removeFromTop(110);
   auto colW = smallRow1.getWidth() / 3;
   {
     auto col = smallRow1.removeFromLeft(colW);
     thresholdLabel_.setBounds(col.removeFromTop(16));
-    thresholdSlider_.setBounds(col.withSizeKeepingCentre(72, 74));
+    thresholdSlider_.setBounds(col.withSizeKeepingCentre(86, 90));
   }
   {
     auto col = smallRow1.removeFromLeft(colW);
     rangeDbLabel_.setBounds(col.removeFromTop(16));
-    rangeDbSlider_.setBounds(col.withSizeKeepingCentre(72, 74));
+    rangeDbSlider_.setBounds(col.withSizeKeepingCentre(86, 90));
   }
   {
     auto col = smallRow1;
     kneeWidthDbLabel_.setBounds(col.removeFromTop(16));
-    kneeWidthDbSlider_.setBounds(col.withSizeKeepingCentre(72, 74));
+    kneeWidthDbSlider_.setBounds(col.withSizeKeepingCentre(86, 90));
   }
 
-  // --- Small Rotary Knobs Row 2: Attack, Release + Detection ComboBox (90px) ---
-  auto smallRow2 = bounds.removeFromTop(90);
+  // --- Small Rotary Knobs Row 2: Attack, Release + Detection ComboBox (110px) ---
+  bounds.removeFromTop(20);
+  auto smallRow2 = bounds.removeFromTop(110);
   colW = smallRow2.getWidth() / 3;
   {
     auto col = smallRow2.removeFromLeft(colW);
     attackTimeLabel_.setBounds(col.removeFromTop(16));
-    attackTimeSlider_.setBounds(col.withSizeKeepingCentre(72, 74));
+    attackTimeSlider_.setBounds(col.withSizeKeepingCentre(86, 90));
   }
   {
     auto col = smallRow2.removeFromLeft(colW);
     releaseTimeLabel_.setBounds(col.removeFromTop(16));
-    releaseTimeSlider_.setBounds(col.withSizeKeepingCentre(72, 74));
+    releaseTimeSlider_.setBounds(col.withSizeKeepingCentre(86, 90));
   }
   {
     auto col = smallRow2;
