@@ -59,7 +59,6 @@ void LCDBargraph::paint(juce::Graphics& g)
 
     bool isClipZone =
         !centreBalanced_ && (static_cast<float>(i) / static_cast<float>(numSegments_)) >= 0.85f;
-    juce::Colour litColour = isClipZone ? juce::Colour(0xffb04010) : juce::Colour(0xffe07030);
 
     bool isLit = false;
     if (centreBalanced_)
@@ -76,14 +75,10 @@ void LCDBargraph::paint(juce::Graphics& g)
       isLit = static_cast<float>(i) < normValue * static_cast<float>(numSegments_);
     }
 
-    g.setColour(isLit ? litColour : juce::Colour(0xff7A3C0A).withAlpha(0.35f));
-    g.fillRect(seg);
-
     if (isLit)
     {
-      g.setColour(juce::Colours::black.withAlpha(0.1f));
-      for (float lineY = seg.getY() + 1.0f; lineY < seg.getBottom(); lineY += 2.0f)
-        g.drawHorizontalLine((int)lineY, seg.getX(), seg.getRight());
+      g.setColour(juce::Colour(0xff1e1a06));
+      g.fillRect(seg);
     }
   }
 
