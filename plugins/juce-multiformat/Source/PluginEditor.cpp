@@ -129,6 +129,54 @@ void LCDMeterPanel::paintMeter(juce::Graphics& g, juce::Rectangle<int> barArea, 
   }
 }
 
+static void drawScrew(juce::Graphics& g, float cx, float cy)
+{
+  // Dimensions and colors from ScrewSilver.svg (VCV Rack ComponentLibrary, 15x15px).
+  // All three gradients run top-to-bottom (light -> dark) per the SVG gradientTransform.
+  {
+    juce::ColourGradient grad(juce::Colour(0xffABA9A9), cx, cy - 6.5f, juce::Colour(0xff8F8F8F), cx,
+                              cy + 6.5f, false);
+    g.setGradientFill(grad);
+    g.fillEllipse(cx - 6.5f, cy - 6.5f, 13.0f, 13.0f);
+  }
+  {
+    juce::ColourGradient grad(juce::Colour(0xffF5F5F5), cx, cy - 5.81f, juce::Colour(0xffC2C2C2),
+                              cx, cy + 5.81f, false);
+    g.setGradientFill(grad);
+    g.fillEllipse(cx - 5.81f, cy - 5.81f, 11.62f, 11.62f);
+  }
+  {
+    juce::ColourGradient grad(juce::Colour(0xffEBEBEB), cx, cy - 5.36f, juce::Colour(0xffCCCCCC),
+                              cx, cy + 5.36f, false);
+    g.setGradientFill(grad);
+    g.fillEllipse(cx - 5.36f, cy - 5.36f, 10.72f, 10.72f);
+  }
+
+  // Cross slot: two overlapping rects forming a plus, ~7.09px arm length, ~1.88px arm width
+  const float armLen = 7.09f;
+  const float armW = 1.88f;
+  g.setColour(juce::Colour(0xff8C8C8C));
+  g.fillRect(cx - armW * 0.5f, cy - armLen * 0.5f, armW, armLen);
+  g.fillRect(cx - armLen * 0.5f, cy - armW * 0.5f, armLen, armW);
+}
+
+static juce::Image generateMetallicTexture(int width, int height)
+{
+  juce::Image img(juce::Image::RGB, width, height, true);
+  juce::Graphics g(img);
+
+  juce::ColourGradient baseGrad(juce::Colour(0xffffffff), 0.0f, 0.0f, juce::Colour(0xfff4f4f6),
+                                0.0f, static_cast<float>(height), false);
+  g.setGradientFill(baseGrad);
+  g.fillAll();
+
+  g.setColour(juce::Colour(0xff000000).withAlpha(0.012f));
+  for (int y = 0; y < height; y += 2)
+    g.drawHorizontalLine(y, 0.0f, static_cast<float>(width));
+
+  return img;
+}
+
 static void setupRotarySlider(juce::Slider& s, int textBoxWidth = 90)
 {
   s.setSliderStyle(juce::Slider::RotaryVerticalDrag);
@@ -149,18 +197,22 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   }
 
   addAndMakeVisible(loadButton1_);
+  loadButton1_.setPaintingIsUnclipped(true);
   loadButton1_.setButtonText("LOAD");
   loadButton1_.onClick = [this] { loadButton1Clicked(); };
 
   addAndMakeVisible(clearButton1_);
+  clearButton1_.setPaintingIsUnclipped(true);
   clearButton1_.setButtonText("CLEAR");
   clearButton1_.onClick = [this] { clearButton1Clicked(); };
 
   addAndMakeVisible(prevButton1_);
+  prevButton1_.setPaintingIsUnclipped(true);
   prevButton1_.setButtonText("<");
   prevButton1_.onClick = [this] { prevButton1Clicked(); };
 
   addAndMakeVisible(nextButton1_);
+  nextButton1_.setPaintingIsUnclipped(true);
   nextButton1_.setButtonText(">");
   nextButton1_.onClick = [this] { nextButton1Clicked(); };
 
@@ -178,18 +230,22 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
       audioProcessor.getAPVTS(), "irAEnable", ir1EnableButton_);
 
   addAndMakeVisible(loadButton2_);
+  loadButton2_.setPaintingIsUnclipped(true);
   loadButton2_.setButtonText("LOAD");
   loadButton2_.onClick = [this] { loadButton2Clicked(); };
 
   addAndMakeVisible(clearButton2_);
+  clearButton2_.setPaintingIsUnclipped(true);
   clearButton2_.setButtonText("CLEAR");
   clearButton2_.onClick = [this] { clearButton2Clicked(); };
 
   addAndMakeVisible(prevButton2_);
+  prevButton2_.setPaintingIsUnclipped(true);
   prevButton2_.setButtonText("<");
   prevButton2_.onClick = [this] { prevButton2Clicked(); };
 
   addAndMakeVisible(nextButton2_);
+  nextButton2_.setPaintingIsUnclipped(true);
   nextButton2_.setButtonText(">");
   nextButton2_.onClick = [this] { nextButton2Clicked(); };
 
@@ -222,6 +278,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
           audioProcessor.getAPVTS(), "sidechainEnable", sidechainEnableButton_);
 
   addAndMakeVisible(swapIROrderButton_);
+  swapIROrderButton_.setPaintingIsUnclipped(true);
   swapIROrderButton_.setButtonText("SWAP");
   swapIROrderButton_.onClick = [this] { swapIROrderClicked(); };
 
@@ -300,7 +357,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
           audioProcessor.getAPVTS(), "detectionMode", detectionModeCombo_);
 
   startTimerHz(30);
-  setSize(520, 642);
+  setSize(520, 676);
 }
 
 OctobIREditor::~OctobIREditor()
@@ -311,13 +368,31 @@ OctobIREditor::~OctobIREditor()
 
 void OctobIREditor::paint(juce::Graphics& g)
 {
-  g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
+  if (backgroundTexture_.isValid())
+    g.drawImageAt(backgroundTexture_, 0, 0);
+  else
+    g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
+
+  const float w = static_cast<float>(getWidth());
+  const float h = static_cast<float>(getHeight());
+  const float screwCyTop = 8.0f + 7.5f;
+  const float screwCyBottom = h - 8.0f - 7.5f;
+  const float screwCx1 = w / 4.0f;
+  const float screwCx2 = w * 3.0f / 4.0f;
+
+  drawScrew(g, screwCx1, screwCyTop);
+  drawScrew(g, screwCx2, screwCyTop);
+  drawScrew(g, screwCx1, screwCyBottom);
+  drawScrew(g, screwCx2, screwCyBottom);
 }
 
 void OctobIREditor::resized()
 {
+  backgroundTexture_ = generateMetallicTexture(getWidth(), getHeight());
+
   auto bounds = getLocalBounds().reduced(15);
-  bounds.removeFromTop(10);
+  bounds.removeFromTop(16);
+  bounds.removeFromBottom(28);
 
   // --- IR Loading Section (110px) ---
   auto irSection = bounds.removeFromTop(110);

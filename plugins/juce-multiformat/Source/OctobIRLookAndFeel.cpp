@@ -18,18 +18,18 @@ OctobIRLookAndFeel::OctobIRLookAndFeel()
   setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0xffF08830));
   setColour(juce::Slider::textBoxOutlineColourId, juce::Colour(0xff1a1a1a));
 
-  setColour(juce::TextButton::buttonColourId, juce::Colour(0xffe8e8e8));
-  setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffd8d8d8));
-  setColour(juce::TextButton::textColourOffId, juce::Colour(0xff1a1a1a));
-  setColour(juce::TextButton::textColourOnId, juce::Colour(0xff1a1a1a));
+  setColour(juce::TextButton::buttonColourId, juce::Colour(0xff323232));
+  setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff222222));
+  setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+  setColour(juce::TextButton::textColourOnId, juce::Colours::white);
 
-  setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xffe8e8e8));
-  setColour(juce::ComboBox::outlineColourId, juce::Colour(0xffcccccc));
-  setColour(juce::ComboBox::textColourId, juce::Colour(0xff1a1a1a));
-  setColour(juce::ComboBox::arrowColourId, juce::Colour(0xff888888));
+  setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff323232));
+  setColour(juce::ComboBox::outlineColourId, juce::Colour(0xff181818));
+  setColour(juce::ComboBox::textColourId, juce::Colours::white);
+  setColour(juce::ComboBox::arrowColourId, juce::Colour(0xffaaaaaa));
 
-  setColour(juce::PopupMenu::backgroundColourId, juce::Colour(0xfff8f8f8));
-  setColour(juce::PopupMenu::textColourId, juce::Colour(0xff1a1a1a));
+  setColour(juce::PopupMenu::backgroundColourId, juce::Colour(0xff2c2c2c));
+  setColour(juce::PopupMenu::textColourId, juce::Colours::white);
   setColour(juce::PopupMenu::highlightedBackgroundColourId, juce::Colour(0xffe07030));
   setColour(juce::PopupMenu::highlightedTextColourId, juce::Colours::white);
 
@@ -123,10 +123,17 @@ void OctobIRLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& b
   const auto cornerSize = 4.0f;
   float alpha = button.isEnabled() ? 1.0f : 0.5f;
 
+  if (!shouldDrawButtonAsDown)
+  {
+    juce::Path shadowPath;
+    shadowPath.addRoundedRectangle(bounds, cornerSize);
+    juce::DropShadow(juce::Colours::black.withAlpha(0.45f), 4, {0, 2}).drawForPath(g, shadowPath);
+  }
+
   juce::Colour topColour =
-      shouldDrawButtonAsDown ? juce::Colour(0xffd0d0d0) : juce::Colour(0xffe8e8e8);
+      shouldDrawButtonAsDown ? juce::Colour(0xff242424) : juce::Colour(0xff383838);
   juce::Colour bottomColour =
-      shouldDrawButtonAsDown ? juce::Colour(0xffe4e4e4) : juce::Colour(0xffd0d0d0);
+      shouldDrawButtonAsDown ? juce::Colour(0xff303030) : juce::Colour(0xff242424);
 
   juce::ColourGradient gradient(topColour.withMultipliedAlpha(alpha), bounds.getX(), bounds.getY(),
                                 bottomColour.withMultipliedAlpha(alpha), bounds.getX(),
@@ -134,19 +141,19 @@ void OctobIRLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& b
   g.setGradientFill(gradient);
   g.fillRoundedRectangle(bounds, cornerSize);
 
-  g.setColour(juce::Colour(0xffffffff).withMultipliedAlpha(alpha));
+  g.setColour(juce::Colour(0xff505050).withMultipliedAlpha(alpha));
   g.drawLine(bounds.getX() + cornerSize, bounds.getY() + 1.0f, bounds.getRight() - cornerSize,
              bounds.getY() + 1.0f, 1.0f);
   g.drawLine(bounds.getX() + 1.0f, bounds.getY() + cornerSize, bounds.getX() + 1.0f,
              bounds.getBottom() - cornerSize, 1.0f);
 
-  g.setColour(juce::Colour(0xffb8b8b8).withMultipliedAlpha(alpha));
+  g.setColour(juce::Colour(0xff141414).withMultipliedAlpha(alpha));
   g.drawLine(bounds.getX() + cornerSize, bounds.getBottom() - 1.0f, bounds.getRight() - cornerSize,
              bounds.getBottom() - 1.0f, 1.0f);
   g.drawLine(bounds.getRight() - 1.0f, bounds.getY() + cornerSize, bounds.getRight() - 1.0f,
              bounds.getBottom() - cornerSize, 1.0f);
 
-  g.setColour(juce::Colour(0xff888888).withMultipliedAlpha(alpha));
+  g.setColour(juce::Colour(0xff181818).withMultipliedAlpha(alpha));
   g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
 }
 
@@ -219,25 +226,32 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
     bool isOn = button.getToggleState();
     float alpha = button.isEnabled() ? 1.0f : 0.5f;
 
+    if (!isOn)
+    {
+      juce::Path shadowPath;
+      shadowPath.addRoundedRectangle(bounds, cornerSize);
+      juce::DropShadow(juce::Colours::black.withAlpha(0.45f), 4, {0, 2}).drawForPath(g, shadowPath);
+    }
+
     if (isOn)
     {
       // Pushed-in: reversed gradient (darker top, lighter bottom)
-      juce::ColourGradient gradient(juce::Colour(0xffc8c8c8).withMultipliedAlpha(alpha),
+      juce::ColourGradient gradient(juce::Colour(0xff1e1e1e).withMultipliedAlpha(alpha),
                                     bounds.getX(), bounds.getY(),
-                                    juce::Colour(0xffe0e0e0).withMultipliedAlpha(alpha),
+                                    juce::Colour(0xff2e2e2e).withMultipliedAlpha(alpha),
                                     bounds.getX(), bounds.getBottom(), false);
       g.setGradientFill(gradient);
       g.fillRoundedRectangle(bounds, cornerSize);
 
       // Inset shadow on top and left
-      g.setColour(juce::Colour(0xffaaaaaa).withMultipliedAlpha(alpha));
+      g.setColour(juce::Colour(0xff141414).withMultipliedAlpha(alpha));
       g.drawLine(bounds.getX() + cornerSize, bounds.getY() + 1.0f, bounds.getRight() - cornerSize,
                  bounds.getY() + 1.0f, 1.0f);
       g.drawLine(bounds.getX() + 1.0f, bounds.getY() + cornerSize, bounds.getX() + 1.0f,
                  bounds.getBottom() - cornerSize, 1.0f);
 
       // Highlight on bottom and right
-      g.setColour(juce::Colour(0xffffffff).withMultipliedAlpha(alpha));
+      g.setColour(juce::Colour(0xff505050).withMultipliedAlpha(alpha));
       g.drawLine(bounds.getX() + cornerSize, bounds.getBottom() - 1.0f,
                  bounds.getRight() - cornerSize, bounds.getBottom() - 1.0f, 1.0f);
       g.drawLine(bounds.getRight() - 1.0f, bounds.getY() + cornerSize, bounds.getRight() - 1.0f,
@@ -246,29 +260,29 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
     else
     {
       // Raised: matches TextButton / SWAP button style
-      juce::ColourGradient gradient(juce::Colour(0xffe8e8e8).withMultipliedAlpha(alpha),
+      juce::ColourGradient gradient(juce::Colour(0xff383838).withMultipliedAlpha(alpha),
                                     bounds.getX(), bounds.getY(),
-                                    juce::Colour(0xffd0d0d0).withMultipliedAlpha(alpha),
+                                    juce::Colour(0xff242424).withMultipliedAlpha(alpha),
                                     bounds.getX(), bounds.getBottom(), false);
       g.setGradientFill(gradient);
       g.fillRoundedRectangle(bounds, cornerSize);
 
       // Highlight on top and left
-      g.setColour(juce::Colour(0xffffffff).withMultipliedAlpha(alpha));
+      g.setColour(juce::Colour(0xff505050).withMultipliedAlpha(alpha));
       g.drawLine(bounds.getX() + cornerSize, bounds.getY() + 1.0f, bounds.getRight() - cornerSize,
                  bounds.getY() + 1.0f, 1.0f);
       g.drawLine(bounds.getX() + 1.0f, bounds.getY() + cornerSize, bounds.getX() + 1.0f,
                  bounds.getBottom() - cornerSize, 1.0f);
 
       // Shadow on bottom and right
-      g.setColour(juce::Colour(0xffb8b8b8).withMultipliedAlpha(alpha));
+      g.setColour(juce::Colour(0xff141414).withMultipliedAlpha(alpha));
       g.drawLine(bounds.getX() + cornerSize, bounds.getBottom() - 1.0f,
                  bounds.getRight() - cornerSize, bounds.getBottom() - 1.0f, 1.0f);
       g.drawLine(bounds.getRight() - 1.0f, bounds.getY() + cornerSize, bounds.getRight() - 1.0f,
                  bounds.getBottom() - cornerSize, 1.0f);
     }
 
-    g.setColour(juce::Colour(0xff888888).withMultipliedAlpha(alpha));
+    g.setColour(juce::Colour(0xff181818).withMultipliedAlpha(alpha));
     g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
 
     // LED strip on left
@@ -297,7 +311,7 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
       g.fillRoundedRectangle(ledRect, cornerSize);
     }
 
-    g.setColour(findColour(juce::Label::textColourId).withMultipliedAlpha(alpha * 0.9f));
+    g.setColour(juce::Colours::white.withMultipliedAlpha(alpha * 0.9f));
     g.setFont(juce::Font(juce::FontOptions().withTypeface(cutiveMonoTypeface_).withHeight(13.0f)));
     g.drawFittedText(button.getButtonText(), button.getLocalBounds(), juce::Justification::centred,
                      1);
@@ -311,27 +325,27 @@ void OctobIRLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, 
   const auto cornerSize = 3.0f;
   juce::Rectangle<float> boxBounds(0.5f, 0.5f, (float)width - 1.0f, (float)height - 1.0f);
 
-  juce::Colour topColour = isButtonDown ? juce::Colour(0xffd0d0d0) : juce::Colour(0xffe8e8e8);
-  juce::Colour bottomColour = isButtonDown ? juce::Colour(0xffe4e4e4) : juce::Colour(0xffd0d0d0);
+  juce::Colour topColour = isButtonDown ? juce::Colour(0xff242424) : juce::Colour(0xff383838);
+  juce::Colour bottomColour = isButtonDown ? juce::Colour(0xff303030) : juce::Colour(0xff242424);
 
   juce::ColourGradient gradient(topColour, boxBounds.getX(), boxBounds.getY(), bottomColour,
                                 boxBounds.getX(), boxBounds.getBottom(), false);
   g.setGradientFill(gradient);
   g.fillRoundedRectangle(boxBounds, cornerSize);
 
-  g.setColour(juce::Colour(0xffffffff));
+  g.setColour(juce::Colour(0xff505050));
   g.drawLine(boxBounds.getX() + cornerSize, boxBounds.getY() + 1.0f,
              boxBounds.getRight() - cornerSize, boxBounds.getY() + 1.0f, 1.0f);
   g.drawLine(boxBounds.getX() + 1.0f, boxBounds.getY() + cornerSize, boxBounds.getX() + 1.0f,
              boxBounds.getBottom() - cornerSize, 1.0f);
 
-  g.setColour(juce::Colour(0xffb8b8b8));
+  g.setColour(juce::Colour(0xff141414));
   g.drawLine(boxBounds.getX() + cornerSize, boxBounds.getBottom() - 1.0f,
              boxBounds.getRight() - cornerSize, boxBounds.getBottom() - 1.0f, 1.0f);
   g.drawLine(boxBounds.getRight() - 1.0f, boxBounds.getY() + cornerSize,
              boxBounds.getRight() - 1.0f, boxBounds.getBottom() - cornerSize, 1.0f);
 
-  g.setColour(juce::Colour(0xff888888));
+  g.setColour(juce::Colour(0xff181818));
   g.drawRoundedRectangle(boxBounds, cornerSize, 1.0f);
 
   juce::Rectangle<int> arrowZone(width - 28, 0, 18, height);
