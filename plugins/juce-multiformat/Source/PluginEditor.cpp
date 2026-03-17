@@ -1,5 +1,7 @@
 #include "PluginEditor.h"
 
+#include <BinaryData.h>
+
 #include "PluginProcessor.h"
 
 void LCDMeterPanel::paint(juce::Graphics& g)
@@ -337,6 +339,9 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
       std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
           audioProcessor.getAPVTS(), "detectionMode", detectionModeCombo_);
 
+  logoImage_ =
+      juce::ImageCache::getFromMemory(BinaryData::OctoberLogo_png, BinaryData::OctoberLogo_pngSize);
+
   startTimerHz(30);
   setSize(520, 694);
 }
@@ -382,6 +387,27 @@ void OctobIREditor::paint(juce::Graphics& g)
   drawScrew(g, screwCx2, screwCyTop);
   drawScrew(g, screwCx1, screwCyBottom);
   drawScrew(g, screwCx2, screwCyBottom);
+
+  g.setColour(juce::Colour(0xff888888));
+  g.setFont(juce::Font(juce::FontOptions().withHeight(8.0f)));
+  auto versionArea =
+      juce::Rectangle<float>(screwCx2 + 12.0f, screwCyBottom - 5.0f, w - screwCx2 - 20.0f, 10.0f);
+  g.drawText("v" JucePlugin_VersionString, versionArea.toNearestInt(),
+             juce::Justification::centredRight, false);
+
+  if (logoImage_.isValid())
+  {
+    const float imgAspect =
+        static_cast<float>(logoImage_.getWidth()) / static_cast<float>(logoImage_.getHeight());
+    const int maxW = logoArea_.getWidth() - 48;
+    const int maxH = logoArea_.getHeight() - 32;
+    const int dispH = juce::jmin(maxH, static_cast<int>(maxW / imgAspect));
+    const int dispW = static_cast<int>(dispH * imgAspect);
+    auto dest = logoArea_.withSizeKeepingCentre(dispW, dispH).translated(0, 5);
+
+    g.drawImage(logoImage_, dest.getX(), dest.getY(), dest.getWidth(), dest.getHeight(), 0, 0,
+                logoImage_.getWidth(), logoImage_.getHeight());
+  }
 }
 
 void OctobIREditor::resized()
@@ -433,11 +459,14 @@ void OctobIREditor::resized()
   // --- Large Rotary Knobs (110px) ---
   bounds.removeFromTop(10);
   auto largeKnobRow = bounds.removeFromTop(110);
-  halfW = largeKnobRow.getWidth() / 2;
+  auto largeColW = largeKnobRow.getWidth() / 3;
   {
-    auto col = largeKnobRow.removeFromLeft(halfW);
+    auto col = largeKnobRow.removeFromLeft(largeColW);
     blendLabel_.setBounds(col.removeFromTop(18));
     blendSlider_.setBounds(col.withSizeKeepingCentre(86, 90));
+  }
+  {
+    logoArea_ = largeKnobRow.removeFromLeft(largeColW);
   }
   {
     auto col = largeKnobRow;

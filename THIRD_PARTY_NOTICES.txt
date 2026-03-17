@@ -87,7 +87,18 @@ The OFL allows the font to be bundled and redistributed with software provided
 that the copyright notice and license are included.
 
 
-6. VCV Rack SDK (VCV Rack Plugin Only)
+6. October Production Co. Logo
+-------------------------------
+Copyright (c) October Production Co. — All Rights Reserved
+
+License: Proprietary (not GPL-3.0)
+
+This asset is bundled with OctobIR for branding purposes only. It is NOT licensed
+under GPL-3.0 and may not be redistributed, modified, or used in derivative works.
+See TRADEMARK.md for the full trademark policy.
+
+
+7. VCV Rack SDK (VCV Rack Plugin Only)
 ---------------------------------------
 Copyright (c) 2016-2024 VCV
 Source: https://github.com/VCVRack/Rack

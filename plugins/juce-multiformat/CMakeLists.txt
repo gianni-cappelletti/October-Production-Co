@@ -33,7 +33,8 @@ juce_add_plugin(OctobIR
 
 juce_add_binary_data(OctobIR_FontData SOURCES
     Resources/Fonts/CourierPrime-Regular.ttf
-    Resources/Fonts/PressStart2P-Regular.ttf)
+    Resources/Fonts/PressStart2P-Regular.ttf
+    Resources/Images/OctoberLogo.png)
 
 target_sources(OctobIR PRIVATE
     Source/PluginProcessor.cpp

@@ -95,6 +95,12 @@ You must:
 - Include copyright and license notices
 - State significant changes made
 
+## Brand Assets
+
+The "October Production Co." name and logo are proprietary trademarks and are **not**
+covered by the GPL-3.0 license. They may not be used in forks, modified versions, or
+derivative projects. See [TRADEMARK.md](TRADEMARK.md) for the full trademark policy.
+
 ## Questions?
 
 - JUCE GPL-3.0 info: https://juce.com/juce-7-licence/
