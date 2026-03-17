@@ -45,73 +45,78 @@ void OctobIRLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w
   auto centreX = bounds.getCentreX();
   auto centreY = bounds.getCentreY();
   auto toAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
-  auto capRadius = radius * 0.72f;
+  juce::Point<float> centre(centreX, centreY);
+
+  const float outerR = radius;
+  const float knurlingOuter = radius * 0.68f;
+  const float knurlingInner = radius * 0.60f;
+  const float capR = radius * 0.60f;
+  const int knurlingCount = 55;
 
   // Drop shadow
-  g.setColour(juce::Colour(0xff000000).withAlpha(0.18f));
-  g.fillEllipse(centreX - capRadius + 0.5f, centreY - capRadius + 2.0f, capRadius * 2.0f + 3.0f,
-                capRadius * 2.0f + 3.0f);
+  g.setColour(juce::Colour(0xff000000).withAlpha(0.22f));
+  g.fillEllipse(centreX - outerR + 0.5f, centreY - outerR + 2.0f, outerR * 2.0f + 3.0f,
+                outerR * 2.0f + 3.0f);
 
-  // Knob body with radial gradient (light gray)
-  juce::Point<float> centre(centreX, centreY);
-  juce::ColourGradient bodyGradient(
-      juce::Colour(0xffe8e8e8), centre.translated(-capRadius * 0.35f, -capRadius * 0.35f),
-      juce::Colour(0xffc0c0c0), centre.translated(capRadius * 0.55f, capRadius * 0.55f), true);
-  g.setGradientFill(bodyGradient);
-  g.fillEllipse(centreX - capRadius, centreY - capRadius, capRadius * 2.0f, capRadius * 2.0f);
+  // Outer skirt (near-black) with radial gradient
+  juce::ColourGradient skirtGradient(
+      juce::Colour(0xff2c2c2c), centre.translated(-outerR * 0.3f, -outerR * 0.3f),
+      juce::Colour(0xff0a0a0a), centre.translated(outerR * 0.4f, outerR * 0.4f), true);
+  g.setGradientFill(skirtGradient);
+  g.fillEllipse(centreX - outerR, centreY - outerR, outerR * 2.0f, outerR * 2.0f);
 
-  // Bevel ring: outer shadow, inner highlight
-  g.setColour(juce::Colour(0xffb0b0b0));
-  g.drawEllipse(centreX - capRadius, centreY - capRadius, capRadius * 2.0f, capRadius * 2.0f, 2.0f);
-  auto innerRad = capRadius - 1.5f;
-  g.setColour(juce::Colour(0xffffffff));
-  g.drawEllipse(centreX - innerRad, centreY - innerRad, innerRad * 2.0f, innerRad * 2.0f, 1.0f);
+  // Thin rim highlight
+  g.setColour(juce::Colour(0xff484848));
+  g.drawEllipse(centreX - outerR, centreY - outerR, outerR * 2.0f, outerR * 2.0f, 1.0f);
 
-  // Tick marks
-  auto tickRadius = radius - 2.0f;
-  const int numTicks = 11;
-  for (int i = 0; i < numTicks; ++i)
+  // Knurling band: fine radial tick marks
+  g.setColour(juce::Colour(0xff404040));
+  for (int i = 0; i < knurlingCount; ++i)
   {
-    float tickAngle =
-        rotaryStartAngle + (float)i / (float)(numTicks - 1) * (rotaryEndAngle - rotaryStartAngle);
-    bool isMajor = (i == 0 || i == 5 || i == 10);
-    float tickLen = isMajor ? 5.0f : 3.0f;
-
-    float cosA = std::cos(tickAngle - juce::MathConstants<float>::halfPi);
-    float sinA = std::sin(tickAngle - juce::MathConstants<float>::halfPi);
-
-    float x1 = centreX + (tickRadius - tickLen) * cosA;
-    float y1 = centreY + (tickRadius - tickLen) * sinA;
-    float x2 = centreX + tickRadius * cosA;
-    float y2 = centreY + tickRadius * sinA;
-
-    g.setColour(juce::Colour(0xff888888));
-    g.drawLine(x1, y1, x2, y2, 1.5f);
+    float angle = juce::MathConstants<float>::twoPi * (float)i / (float)knurlingCount -
+                  juce::MathConstants<float>::halfPi;
+    float cosA = std::cos(angle);
+    float sinA = std::sin(angle);
+    g.drawLine(centreX + knurlingInner * cosA, centreY + knurlingInner * sinA,
+               centreX + knurlingOuter * cosA, centreY + knurlingOuter * sinA, 1.5f);
   }
 
-  // Indicator line with orange colour and dot at outer tip
+  // Inner silver cap with convex-mirror radial gradient
+  juce::ColourGradient capGradient(
+      juce::Colour(0xfffafafa), centre.translated(-capR * 0.30f, -capR * 0.35f),
+      juce::Colour(0xff8c8c8c), centre.translated(capR * 0.50f, capR * 0.55f), true);
+  g.setGradientFill(capGradient);
+  g.fillEllipse(centreX - capR, centreY - capR, capR * 2.0f, capR * 2.0f);
+
+  // Cap border ring
+  g.setColour(juce::Colour(0xff888888));
+  g.drawEllipse(centreX - capR, centreY - capR, capR * 2.0f, capR * 2.0f, 1.0f);
+
+  // White indicator line on the outer skirt
   {
     float cosA = std::cos(toAngle - juce::MathConstants<float>::halfPi);
     float sinA = std::sin(toAngle - juce::MathConstants<float>::halfPi);
-
-    float lx1 = centreX + 0.15f * capRadius * cosA;
-    float ly1 = centreY + 0.15f * capRadius * sinA;
-    float lx2 = centreX + 0.85f * capRadius * cosA;
-    float ly2 = centreY + 0.85f * capRadius * sinA;
-
-    g.setColour(juce::Colour(0xffe07030));
-    g.drawLine(lx1, ly1, lx2, ly2, 2.5f);
-    g.fillEllipse(lx2 - 2.0f, ly2 - 2.0f, 4.0f, 4.0f);
+    g.setColour(juce::Colours::white);
+    g.drawLine(centreX + knurlingOuter * cosA, centreY + knurlingOuter * sinA,
+               centreX + outerR * 0.90f * cosA, centreY + outerR * 0.90f * sinA, 1.5f);
   }
 
-  // Center cap
-  auto centerCapRadius = capRadius * 0.18f;
-  g.setColour(juce::Colour(0xffd8d8d8));
-  g.fillEllipse(centreX - centerCapRadius, centreY - centerCapRadius, centerCapRadius * 2.0f,
-                centerCapRadius * 2.0f);
-  g.setColour(juce::Colour(0xffaaaaaa));
-  g.drawEllipse(centreX - centerCapRadius, centreY - centerCapRadius, centerCapRadius * 2.0f,
-                centerCapRadius * 2.0f, 1.0f);
+  // External tick marks around the rotation arc
+  {
+    const int numTicks = 11;
+    const float tickInner = outerR + 3.0f;
+    const float tickOuter = outerR + 9.0f;
+    g.setColour(juce::Colour(0xff888888));
+    for (int i = 0; i < numTicks; ++i)
+    {
+      float tickAngle =
+          rotaryStartAngle + (float)i / (float)(numTicks - 1) * (rotaryEndAngle - rotaryStartAngle);
+      float cosA = std::cos(tickAngle - juce::MathConstants<float>::halfPi);
+      float sinA = std::sin(tickAngle - juce::MathConstants<float>::halfPi);
+      g.drawLine(centreX + tickInner * cosA, centreY + tickInner * sinA, centreX + tickOuter * cosA,
+                 centreY + tickOuter * sinA, 1.5f);
+    }
+  }
 }
 
 void OctobIRLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& button,

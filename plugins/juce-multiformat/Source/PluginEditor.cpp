@@ -338,7 +338,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
           audioProcessor.getAPVTS(), "detectionMode", detectionModeCombo_);
 
   startTimerHz(30);
-  setSize(520, 676);
+  setSize(520, 694);
 }
 
 OctobIREditor::~OctobIREditor()
