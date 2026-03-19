@@ -142,7 +142,6 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
 
   juce::File lastBrowsedDirectory_;
   juce::Image logoImage_;
-  juce::Rectangle<int> logoArea_;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OctobIREditor)
 };

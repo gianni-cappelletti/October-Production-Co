@@ -266,7 +266,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   swapIROrderButton_.onClick = [this] { swapIROrderClicked(); };
 
   addAndMakeVisible(blendLabel_);
-  blendLabel_.setText("STATIC BLEND", juce::dontSendNotification);
+  blendLabel_.setText("BLEND", juce::dontSendNotification);
   blendLabel_.setJustificationType(juce::Justification::centred);
 
   addAndMakeVisible(blendSlider_);
@@ -275,7 +275,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
       audioProcessor.getAPVTS(), "blend", blendSlider_);
 
   addAndMakeVisible(outputGainLabel_);
-  outputGainLabel_.setText("OUTPUT GAIN", juce::dontSendNotification);
+  outputGainLabel_.setText("OUTPUT", juce::dontSendNotification);
   outputGainLabel_.setJustificationType(juce::Justification::centred);
 
   addAndMakeVisible(outputGainSlider_);
@@ -390,22 +390,20 @@ void OctobIREditor::paint(juce::Graphics& g)
 
   g.setColour(juce::Colour(0xff888888));
   g.setFont(juce::Font(juce::FontOptions().withHeight(8.0f)));
-  auto versionArea =
-      juce::Rectangle<float>(screwCx2 + 12.0f, screwCyBottom - 5.0f, w - screwCx2 - 20.0f, 10.0f);
+
+  auto versionArea = juce::Rectangle<float>(32.0f, screwCyBottom - 5.0f, screwCx1 - 40.0f, 10.0f);
   g.drawText("v" JucePlugin_VersionString, versionArea.toNearestInt(),
-             juce::Justification::centredRight, false);
+             juce::Justification::centredLeft, false);
 
   if (logoImage_.isValid())
   {
     const float imgAspect =
         static_cast<float>(logoImage_.getWidth()) / static_cast<float>(logoImage_.getHeight());
-    const int maxW = logoArea_.getWidth() - 48;
-    const int maxH = logoArea_.getHeight() - 32;
-    const int dispH = juce::jmin(maxH, static_cast<int>(maxW / imgAspect));
-    const int dispW = static_cast<int>(dispH * imgAspect);
-    auto dest = logoArea_.withSizeKeepingCentre(dispW, dispH).translated(0, 5);
-
-    g.drawImage(logoImage_, dest.getX(), dest.getY(), dest.getWidth(), dest.getHeight(), 0, 0,
+    const float logoH = 40.0f;
+    const float logoW = logoH * imgAspect;
+    const float logoX = (screwCx2 + w) * 0.5f - logoW * 0.5f - 4.0f;
+    const float logoY = screwCyBottom - logoH * 0.5f - 12.0f;
+    g.drawImage(logoImage_, (int)logoX, (int)logoY, (int)logoW, (int)logoH, 0, 0,
                 logoImage_.getWidth(), logoImage_.getHeight());
   }
 }
@@ -459,14 +457,11 @@ void OctobIREditor::resized()
   // --- Large Rotary Knobs (110px) ---
   bounds.removeFromTop(10);
   auto largeKnobRow = bounds.removeFromTop(110);
-  auto largeColW = largeKnobRow.getWidth() / 3;
+  auto largeHalfW = largeKnobRow.getWidth() / 2;
   {
-    auto col = largeKnobRow.removeFromLeft(largeColW);
+    auto col = largeKnobRow.removeFromLeft(largeHalfW);
     blendLabel_.setBounds(col.removeFromTop(18));
     blendSlider_.setBounds(col.withSizeKeepingCentre(86, 90));
-  }
-  {
-    logoArea_ = largeKnobRow.removeFromLeft(largeColW);
   }
   {
     auto col = largeKnobRow;

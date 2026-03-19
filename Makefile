@@ -31,7 +31,7 @@ help: header
 	@echo ""
 	@echo "Note: GitHub releases provide pre-built installers for end users"
 
-# VCV Plugin Development (always clean build)
+# VCV Plugin Development
 vcv: header
 	@if cmake --preset dev-vcv; then \
 		echo "Using CMake preset: dev-vcv"; \
@@ -44,7 +44,7 @@ vcv: header
 	@cmake --build build/dev-vcv --target vcv-plugin-install
 	@echo "VCV plugin cleaned, built, and installed"
 
-# JUCE Plugin Development (always clean build)
+# JUCE Plugin Development
 juce: header
 	@rm -rf build/dev-juce
 	@if cmake --preset dev-juce; then \
@@ -56,7 +56,7 @@ juce: header
 	@cmake --build build/dev-juce --target OctobIR_All -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 	@echo "JUCE plugin cleaned and built: build/dev-juce/plugins/juce-multiformat/OctobIR_artefacts/"
 
-# Core Library (always clean build)
+# Core Library
 core: header
 	@rm -rf build/dev
 	@if cmake --preset dev; then \
@@ -68,7 +68,7 @@ core: header
 	@cmake --build build/dev --target octobir-core -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 	@echo "Core library cleaned and built"
 
-# Unit Tests (always clean build)
+# Unit Tests
 test:
 	@rm -rf build/test
 	@cmake -B build/test -DCMAKE_BUILD_TYPE=Debug -DBUILD_JUCE_PLUGIN=OFF -DBUILD_VCV_PLUGIN=OFF -DBUILD_TESTS=ON
