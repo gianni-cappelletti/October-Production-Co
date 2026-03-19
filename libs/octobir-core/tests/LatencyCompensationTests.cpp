@@ -20,54 +20,18 @@ class LatencyCompensationTest : public ::testing::Test
 
   void TearDown() override { processor_.reset(); }
 
-  void createTestIR(const std::string& filepath, int numSamples, float amplitude = 1.0f,
-                    int numChannels = 2)
-  {
-    std::vector<float> irData(numSamples * numChannels);
-
-    for (int i = 0; i < numSamples; ++i)
-    {
-      float impulse = (i == 0) ? amplitude : 0.0f;
-      for (int ch = 0; ch < numChannels; ++ch)
-      {
-        irData[i * numChannels + ch] = impulse;
-      }
-    }
-
-    testIRs_[filepath] = irData;
-  }
-
   std::unique_ptr<IRProcessor> processor_;
-  std::map<std::string, std::vector<float>> testIRs_;
 };
 
 TEST_F(LatencyCompensationTest, MaxLatencyReporting_SingleIR)
 {
-  std::string errorMessage;
-  createTestIR("test_ir1.wav", 2048);
-
-  int initialLatency = processor_->getLatencySamples();
-  EXPECT_EQ(initialLatency, 0);
+  EXPECT_EQ(processor_->getLatencySamples(), 0);
 }
 
 TEST_F(LatencyCompensationTest, MaxLatencyReporting_NoIRsLoaded)
 {
   int latency = processor_->getLatencySamples();
   EXPECT_EQ(latency, 0);
-}
-
-TEST_F(LatencyCompensationTest, DelayBufferInitialization)
-{
-  const int bufferSize = 512;
-  std::vector<Sample> testBuffer(bufferSize, 0.0f);
-
-  EXPECT_EQ(testBuffer.size(), static_cast<size_t>(bufferSize));
-
-  std::fill(testBuffer.begin(), testBuffer.end(), 0.5f);
-  for (const auto& sample : testBuffer)
-  {
-    EXPECT_FLOAT_EQ(sample, 0.5f);
-  }
 }
 
 TEST_F(LatencyCompensationTest, PhaseAlignment_ImpulseResponse)
@@ -120,7 +84,9 @@ TEST_F(LatencyCompensationTest, PhaseAlignment_SineWave)
   inputRMS = std::sqrt(inputRMS / numFrames);
   outputRMS = std::sqrt(outputRMS / numFrames);
 
-  EXPECT_GT(inputRMS, 0.0f);
+  EXPECT_GT(outputRMS, 0.0f);
+  EXPECT_LT(outputRMS, 1.0f);
+  EXPECT_NEAR(outputRMS, inputRMS, 1e-4f);
 }
 
 TEST_F(LatencyCompensationTest, StereoProcessing_ChannelIndependence)
@@ -131,25 +97,18 @@ TEST_F(LatencyCompensationTest, StereoProcessing_ChannelIndependence)
   std::vector<Sample> outputL(numFrames, 0.0f);
   std::vector<Sample> outputR(numFrames, 0.0f);
 
+  // L impulse at sample 0, R impulse at sample 10 — with no IRs, this is passthrough.
+  // Verify the channels don't bleed into each other.
   inputL[0] = 1.0f;
   inputR[10] = 1.0f;
 
   processor_->processStereo(inputL.data(), inputR.data(), outputL.data(), outputR.data(),
                             numFrames);
 
-  bool hasOutputL = false;
-  bool hasOutputR = false;
-
-  for (int i = 0; i < numFrames; ++i)
-  {
-    if (std::abs(outputL[i]) > 0.01f)
-      hasOutputL = true;
-    if (std::abs(outputR[i]) > 0.01f)
-      hasOutputR = true;
-  }
-
-  EXPECT_TRUE(hasOutputL || !hasOutputL);
-  EXPECT_TRUE(hasOutputR || !hasOutputR);
+  EXPECT_FLOAT_EQ(outputL[0], 1.0f);
+  EXPECT_FLOAT_EQ(outputR[10], 1.0f);
+  EXPECT_FLOAT_EQ(outputL[10], 0.0f);
+  EXPECT_FLOAT_EQ(outputR[0], 0.0f);
 }
 
 TEST_F(LatencyCompensationTest, BlendParameter_RangeValidation)

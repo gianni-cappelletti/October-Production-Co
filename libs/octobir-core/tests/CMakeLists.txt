@@ -18,6 +18,8 @@ add_executable(octobir-core-tests
   IRProcessorLogicTests.cpp
   IRLoaderTests.cpp
   LatencyCompensationTests.cpp
+  DynamicModeTests.cpp
+  SidechainTests.cpp
 )
 
 target_link_libraries(octobir-core-tests

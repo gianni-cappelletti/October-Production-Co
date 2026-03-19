@@ -108,6 +108,30 @@ TEST_F(IRProcessorTest, ParameterClamping_ReleaseTime)
   EXPECT_FLOAT_EQ(processor.getReleaseTime(), 250.0f);
 }
 
+TEST_F(IRProcessorTest, ParameterClamping_IRATrimGain)
+{
+  processor.setIRATrimGain(20.0f);
+  EXPECT_FLOAT_EQ(processor.getIRATrimGain(), 12.0f);
+
+  processor.setIRATrimGain(-20.0f);
+  EXPECT_FLOAT_EQ(processor.getIRATrimGain(), -12.0f);
+
+  processor.setIRATrimGain(6.0f);
+  EXPECT_FLOAT_EQ(processor.getIRATrimGain(), 6.0f);
+}
+
+TEST_F(IRProcessorTest, ParameterClamping_IRBTrimGain)
+{
+  processor.setIRBTrimGain(20.0f);
+  EXPECT_FLOAT_EQ(processor.getIRBTrimGain(), 12.0f);
+
+  processor.setIRBTrimGain(-20.0f);
+  EXPECT_FLOAT_EQ(processor.getIRBTrimGain(), -12.0f);
+
+  processor.setIRBTrimGain(-3.0f);
+  EXPECT_FLOAT_EQ(processor.getIRBTrimGain(), -3.0f);
+}
+
 TEST_F(IRProcessorTest, ParameterClamping_OutputGain)
 {
   processor.setOutputGain(30.0f);

@@ -85,6 +85,8 @@ class IRProcessor
   float getAttackTime() const { return attackTimeMs_; }
   float getReleaseTime() const { return releaseTimeMs_; }
   float getOutputGain() const { return outputGainDb_; }
+  float getIRATrimGain() const { return irATrimGainDb_; }
+  float getIRBTrimGain() const { return irBTrimGainDb_; }
   float getCurrentInputLevel() const { return currentInputLevelDb_; }
   float getCurrentBlend() const { return currentBlend_; }
 
