@@ -4,7 +4,7 @@
 
 #include <octobir-core/IRProcessor.hpp>
 
-class OctobIRProcessor : public juce::AudioProcessor
+class OctobIRProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
 {
  public:
   OctobIRProcessor();
@@ -57,6 +57,10 @@ class OctobIRProcessor : public juce::AudioProcessor
 
   juce::AudioProcessorValueTreeState apvts_;
   juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+  juce::SpinLock pendingStateLock_;
+  juce::ValueTree pendingState_;
+  void handleAsyncUpdate() override;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OctobIRProcessor)
 };

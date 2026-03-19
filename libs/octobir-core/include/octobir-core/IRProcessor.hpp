@@ -1,6 +1,8 @@
 #pragma once
 
+#include <atomic>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -32,8 +34,6 @@ class IRProcessor
   void setIRBEnabled(bool enabled);
   void setDynamicModeEnabled(bool enabled);
   void setSidechainEnabled(bool enabled);
-  void setLowBlend(float lowBlend);
-  void setHighBlend(float highBlend);
   void setThreshold(float thresholdDb);
   void setRangeDb(float rangeDb);
   void setKneeWidthDb(float kneeDb);
@@ -59,8 +59,8 @@ class IRProcessor
                                     const Sample* sidechainL, const Sample* sidechainR,
                                     Sample* outputL, Sample* outputR, FrameCount numFrames);
 
-  bool isIR1Loaded() const { return ir1Loaded_; }
-  bool isIR2Loaded() const { return ir2Loaded_; }
+  bool isIR1Loaded() const { return ir1Loaded_.load(); }
+  bool isIR2Loaded() const { return ir2Loaded_.load(); }
   std::string getCurrentIR1Path() const { return currentIR1Path_; }
   std::string getCurrentIR2Path() const { return currentIR2Path_; }
   SampleRate getIR1SampleRate() const;
@@ -76,8 +76,6 @@ class IRProcessor
   bool getIRBEnabled() const { return irBEnabled_; }
   bool getDynamicModeEnabled() const { return dynamicModeEnabled_; }
   bool getSidechainEnabled() const { return sidechainEnabled_; }
-  float getLowBlend() const { return lowBlend_; }
-  float getHighBlend() const { return highBlend_; }
   float getThreshold() const { return thresholdDb_; }
   float getRangeDb() const { return rangeDb_; }
   float getKneeWidthDb() const { return kneeWidthDb_; }
@@ -104,20 +102,33 @@ class IRProcessor
   SampleRate sampleRate_ = 44100.0;
   std::string currentIR1Path_;
   std::string currentIR2Path_;
-  bool ir1Loaded_ = false;
-  bool ir2Loaded_ = false;
+  std::atomic<bool> ir1Loaded_{false};
+  std::atomic<bool> ir2Loaded_{false};
   int latencySamples1_ = 0;
   int latencySamples2_ = 0;
   int ir1PeakOffset_ = 0;
   int ir2PeakOffset_ = 0;
+
+  std::unique_ptr<WDL_ConvolutionEngine_Div> stagingEngine1_;
+  bool stagingLoaded1_ = false;
+  int stagingLatency1_ = 0;
+  int stagingPeakOffset1_ = 0;
+
+  std::unique_ptr<WDL_ConvolutionEngine_Div> stagingEngine2_;
+  bool stagingLoaded2_ = false;
+  int stagingLatency2_ = 0;
+  int stagingPeakOffset2_ = 0;
+
+  std::mutex pendingMutex1_;
+  std::mutex pendingMutex2_;
+  std::atomic<bool> ir1Pending_{false};
+  std::atomic<bool> ir2Pending_{false};
   float blend_ = 0.0f;
 
   bool irAEnabled_ = true;
   bool irBEnabled_ = true;
   bool dynamicModeEnabled_ = false;
   bool sidechainEnabled_ = false;
-  float lowBlend_ = -1.0f;
-  float highBlend_ = 1.0f;
   float thresholdDb_ = -30.0f;
   float rangeDb_ = 20.0f;
   float kneeWidthDb_ = 5.0f;
@@ -147,7 +158,12 @@ class IRProcessor
   std::vector<Sample> ir1DelayBufferR_;
   std::vector<Sample> ir2DelayBufferL_;
   std::vector<Sample> ir2DelayBufferR_;
-  size_t delayBufferWritePos_ = 0;
+  size_t dryDelayWritePosL_ = 0;
+  size_t dryDelayWritePosR_ = 0;
+  size_t ir1DelayWritePosL_ = 0;
+  size_t ir1DelayWritePosR_ = 0;
+  size_t ir2DelayWritePosL_ = 0;
+  size_t ir2DelayWritePosR_ = 0;
   int maxLatencySamples_ = 0;
 
   float calculateDynamicBlend(float inputLevelDb) const;
@@ -157,9 +173,11 @@ class IRProcessor
   void updateRMSBufferSize();
   void applyOutputGain(Sample* buffer, FrameCount numFrames) const;
   void updateDelayBuffers();
-  void writeToDelayBuffer(std::vector<Sample>& buffer, const Sample* input, FrameCount numFrames);
-  void readFromDelayBuffer(const std::vector<Sample>& buffer, Sample* output, FrameCount numFrames,
-                           int delaySamples) const;
+  static void writeToDelayBuffer(std::vector<Sample>& buffer, size_t& writePos, const Sample* input,
+                                 FrameCount numFrames);
+  static void readFromDelayBuffer(const std::vector<Sample>& buffer, size_t writePos,
+                                  Sample* output, FrameCount numFrames, int delaySamples);
+  void applyPendingIRUpdates();
 };
 
 }  // namespace octob

@@ -24,30 +24,6 @@ TEST_F(IRProcessorTest, ParameterClamping_Blend)
   EXPECT_FLOAT_EQ(processor.getBlend(), 0.5f);
 }
 
-TEST_F(IRProcessorTest, ParameterClamping_LowBlend)
-{
-  processor.setLowBlend(2.0f);
-  EXPECT_FLOAT_EQ(processor.getLowBlend(), 1.0f);
-
-  processor.setLowBlend(-2.0f);
-  EXPECT_FLOAT_EQ(processor.getLowBlend(), -1.0f);
-
-  processor.setLowBlend(-0.5f);
-  EXPECT_FLOAT_EQ(processor.getLowBlend(), -0.5f);
-}
-
-TEST_F(IRProcessorTest, ParameterClamping_HighBlend)
-{
-  processor.setHighBlend(2.0f);
-  EXPECT_FLOAT_EQ(processor.getHighBlend(), 1.0f);
-
-  processor.setHighBlend(-2.0f);
-  EXPECT_FLOAT_EQ(processor.getHighBlend(), -1.0f);
-
-  processor.setHighBlend(0.8f);
-  EXPECT_FLOAT_EQ(processor.getHighBlend(), 0.8f);
-}
-
 TEST_F(IRProcessorTest, ParameterClamping_Threshold)
 {
   processor.setThreshold(10.0f);

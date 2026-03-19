@@ -67,9 +67,7 @@ IRLoadResult IRLoader::loadFromFile(const std::string& filepath)
 
   drwav_free(sampleData, nullptr);
 
-  constexpr float IrCompensationGainDb = -18.0f;
-  constexpr float KDbToLinear = 0.1151292546497023f;
-  const float irCompensationGain = std::exp(IrCompensationGainDb * KDbToLinear);
+  const float irCompensationGain = std::exp(kIrCompensationGainDb * kDbToLinearScalar);
   for (auto& sample : irBuffer_)
   {
     sample *= irCompensationGain;

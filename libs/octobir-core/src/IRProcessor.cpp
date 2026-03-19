@@ -24,168 +24,164 @@ IRProcessor::~IRProcessor() = default;
 
 bool IRProcessor::loadImpulseResponse1(const std::string& filepath, std::string& errorMessage)
 {
-  const IRLoadResult result = irLoader1_->loadFromFile(filepath);
+  auto stagingBuffer = std::unique_ptr<WDL_ImpulseBuffer>(new WDL_ImpulseBuffer());
+  auto stagingEngine = std::unique_ptr<WDL_ConvolutionEngine_Div>(new WDL_ConvolutionEngine_Div());
+  auto stagingLoader = std::unique_ptr<IRLoader>(new IRLoader());
 
+  const IRLoadResult result = stagingLoader->loadFromFile(filepath);
   if (!result.success)
   {
     errorMessage = result.errorMessage;
-    ir1Loaded_ = false;
     return false;
   }
 
-  if (!irLoader1_->resampleAndInitialize(*impulseBuffer1_, sampleRate_))
+  if (!stagingLoader->resampleAndInitialize(*stagingBuffer, sampleRate_))
   {
     errorMessage = "Failed to resample IR to target sample rate";
-    ir1Loaded_ = false;
     return false;
   }
 
-  const int irLength = impulseBuffer1_->GetLength();
-  const int irChannels = impulseBuffer1_->GetNumChannels();
-  const double irSampleRate = impulseBuffer1_->samplerate;
+  const int irLength = stagingBuffer->GetLength();
+  const int irChannels = stagingBuffer->GetNumChannels();
+  const double irSampleRate = stagingBuffer->samplerate;
 
   if (irLength <= 0)
   {
     errorMessage = "IR buffer length is invalid: " + std::to_string(irLength);
-    ir1Loaded_ = false;
     return false;
   }
 
   if (irChannels <= 0)
   {
     errorMessage = "IR buffer channels is invalid: " + std::to_string(irChannels);
-    ir1Loaded_ = false;
     return false;
   }
 
   if (irSampleRate <= 0)
   {
     errorMessage = "IR sample rate is invalid: " + std::to_string(irSampleRate);
-    ir1Loaded_ = false;
     return false;
   }
 
-  ir1PeakOffset_ = IRLoader::findPeakSampleIndex(*impulseBuffer1_);
-
-  latencySamples1_ =
-      convolutionEngine1_->SetImpulse(impulseBuffer1_.get(), 64, 0, 0, ir1PeakOffset_);
-  if (latencySamples1_ < 0)
+  const int peakOffset = IRLoader::findPeakSampleIndex(*stagingBuffer);
+  const int latency = stagingEngine->SetImpulse(stagingBuffer.get(), 64, 0, 0, peakOffset);
+  if (latency < 0)
   {
     errorMessage = "Failed to initialize convolution engine with IR (returned " +
-                   std::to_string(latencySamples1_) + "). IR: " + std::to_string(irLength) +
-                   " samples, " + std::to_string(irChannels) + " channels, " +
-                   std::to_string(irSampleRate) + " Hz";
-    ir1Loaded_ = false;
-    latencySamples1_ = 0;
-    ir1PeakOffset_ = 0;
+                   std::to_string(latency) + "). IR: " + std::to_string(irLength) + " samples, " +
+                   std::to_string(irChannels) + " channels, " + std::to_string(irSampleRate) +
+                   " Hz";
     return false;
   }
 
+  {
+    std::lock_guard<std::mutex> lock(pendingMutex1_);
+    stagingEngine1_ = std::move(stagingEngine);
+    stagingLoaded1_ = true;
+    stagingLatency1_ = latency;
+    stagingPeakOffset1_ = peakOffset;
+    ir1Pending_.store(true, std::memory_order_release);
+  }
+
+  impulseBuffer1_ = std::move(stagingBuffer);
+  irLoader1_ = std::move(stagingLoader);
   currentIR1Path_ = filepath;
-  ir1Loaded_ = true;
   errorMessage.clear();
-
-  updateDelayBuffers();
-
   return true;
 }
 
 bool IRProcessor::loadImpulseResponse2(const std::string& filepath, std::string& errorMessage)
 {
-  const IRLoadResult result = irLoader2_->loadFromFile(filepath);
+  auto stagingBuffer = std::unique_ptr<WDL_ImpulseBuffer>(new WDL_ImpulseBuffer());
+  auto stagingEngine = std::unique_ptr<WDL_ConvolutionEngine_Div>(new WDL_ConvolutionEngine_Div());
+  auto stagingLoader = std::unique_ptr<IRLoader>(new IRLoader());
 
+  const IRLoadResult result = stagingLoader->loadFromFile(filepath);
   if (!result.success)
   {
     errorMessage = result.errorMessage;
-    ir2Loaded_ = false;
     return false;
   }
 
-  if (!irLoader2_->resampleAndInitialize(*impulseBuffer2_, sampleRate_))
+  if (!stagingLoader->resampleAndInitialize(*stagingBuffer, sampleRate_))
   {
     errorMessage = "Failed to resample IR2 to target sample rate";
-    ir2Loaded_ = false;
     return false;
   }
 
-  const int irLength = impulseBuffer2_->GetLength();
-  const int irChannels = impulseBuffer2_->GetNumChannels();
-  const double irSampleRate = impulseBuffer2_->samplerate;
+  const int irLength = stagingBuffer->GetLength();
+  const int irChannels = stagingBuffer->GetNumChannels();
+  const double irSampleRate = stagingBuffer->samplerate;
 
   if (irLength <= 0)
   {
     errorMessage = "IR2 buffer length is invalid: " + std::to_string(irLength);
-    ir2Loaded_ = false;
     return false;
   }
 
   if (irChannels <= 0)
   {
     errorMessage = "IR2 buffer channels is invalid: " + std::to_string(irChannels);
-    ir2Loaded_ = false;
     return false;
   }
 
   if (irSampleRate <= 0)
   {
     errorMessage = "IR2 sample rate is invalid: " + std::to_string(irSampleRate);
-    ir2Loaded_ = false;
     return false;
   }
 
-  ir2PeakOffset_ = IRLoader::findPeakSampleIndex(*impulseBuffer2_);
-
-  latencySamples2_ =
-      convolutionEngine2_->SetImpulse(impulseBuffer2_.get(), 64, 0, 0, ir2PeakOffset_);
-  if (latencySamples2_ < 0)
+  const int peakOffset = IRLoader::findPeakSampleIndex(*stagingBuffer);
+  const int latency = stagingEngine->SetImpulse(stagingBuffer.get(), 64, 0, 0, peakOffset);
+  if (latency < 0)
   {
     errorMessage = "Failed to initialize convolution engine with IR2 (returned " +
-                   std::to_string(latencySamples2_) + "). IR2: " + std::to_string(irLength) +
-                   " samples, " + std::to_string(irChannels) + " channels, " +
-                   std::to_string(irSampleRate) + " Hz";
-    ir2Loaded_ = false;
-    latencySamples2_ = 0;
-    ir2PeakOffset_ = 0;
+                   std::to_string(latency) + "). IR2: " + std::to_string(irLength) + " samples, " +
+                   std::to_string(irChannels) + " channels, " + std::to_string(irSampleRate) +
+                   " Hz";
     return false;
   }
 
+  {
+    std::lock_guard<std::mutex> lock(pendingMutex2_);
+    stagingEngine2_ = std::move(stagingEngine);
+    stagingLoaded2_ = true;
+    stagingLatency2_ = latency;
+    stagingPeakOffset2_ = peakOffset;
+    ir2Pending_.store(true, std::memory_order_release);
+  }
+
+  impulseBuffer2_ = std::move(stagingBuffer);
+  irLoader2_ = std::move(stagingLoader);
   currentIR2Path_ = filepath;
-  ir2Loaded_ = true;
   errorMessage.clear();
-
-  updateDelayBuffers();
-
   return true;
 }
 
 void IRProcessor::clearImpulseResponse1()
 {
-  ir1Loaded_ = false;
-  currentIR1Path_.clear();
-  latencySamples1_ = 0;
-  ir1PeakOffset_ = 0;
-
-  if (convolutionEngine1_)
   {
-    convolutionEngine1_->Reset();
+    std::lock_guard<std::mutex> lock(pendingMutex1_);
+    stagingEngine1_ = std::unique_ptr<WDL_ConvolutionEngine_Div>(new WDL_ConvolutionEngine_Div());
+    stagingLoaded1_ = false;
+    stagingLatency1_ = 0;
+    stagingPeakOffset1_ = 0;
+    ir1Pending_.store(true, std::memory_order_release);
   }
-
-  updateDelayBuffers();
+  currentIR1Path_.clear();
 }
 
 void IRProcessor::clearImpulseResponse2()
 {
-  ir2Loaded_ = false;
-  currentIR2Path_.clear();
-  latencySamples2_ = 0;
-  ir2PeakOffset_ = 0;
-
-  if (convolutionEngine2_)
   {
-    convolutionEngine2_->Reset();
+    std::lock_guard<std::mutex> lock(pendingMutex2_);
+    stagingEngine2_ = std::unique_ptr<WDL_ConvolutionEngine_Div>(new WDL_ConvolutionEngine_Div());
+    stagingLoaded2_ = false;
+    stagingLatency2_ = 0;
+    stagingPeakOffset2_ = 0;
+    ir2Pending_.store(true, std::memory_order_release);
   }
-
-  updateDelayBuffers();
+  currentIR2Path_.clear();
 }
 
 void IRProcessor::setSampleRate(SampleRate sampleRate)
@@ -196,22 +192,36 @@ void IRProcessor::setSampleRate(SampleRate sampleRate)
     updateSmoothingCoefficients();
     updateRMSBufferSize();
 
-    if (ir1Loaded_)
+    if (ir1Loaded_.load(std::memory_order_relaxed) && impulseBuffer1_->GetLength() > 0)
     {
       irLoader1_->resampleAndInitialize(*impulseBuffer1_, sampleRate_);
-      ir1PeakOffset_ = IRLoader::findPeakSampleIndex(*impulseBuffer1_);
-      convolutionEngine1_->Reset();
-      latencySamples1_ =
-          convolutionEngine1_->SetImpulse(impulseBuffer1_.get(), 64, 0, 0, ir1PeakOffset_);
+      auto stagingEngine =
+          std::unique_ptr<WDL_ConvolutionEngine_Div>(new WDL_ConvolutionEngine_Div());
+      const int peakOffset = IRLoader::findPeakSampleIndex(*impulseBuffer1_);
+      const int latency = stagingEngine->SetImpulse(impulseBuffer1_.get(), 64, 0, 0, peakOffset);
+
+      std::lock_guard<std::mutex> lock(pendingMutex1_);
+      stagingEngine1_ = std::move(stagingEngine);
+      stagingLoaded1_ = true;
+      stagingLatency1_ = latency >= 0 ? latency : 0;
+      stagingPeakOffset1_ = peakOffset;
+      ir1Pending_.store(true, std::memory_order_release);
     }
 
-    if (ir2Loaded_)
+    if (ir2Loaded_.load(std::memory_order_relaxed) && impulseBuffer2_->GetLength() > 0)
     {
       irLoader2_->resampleAndInitialize(*impulseBuffer2_, sampleRate_);
-      ir2PeakOffset_ = IRLoader::findPeakSampleIndex(*impulseBuffer2_);
-      convolutionEngine2_->Reset();
-      latencySamples2_ =
-          convolutionEngine2_->SetImpulse(impulseBuffer2_.get(), 64, 0, 0, ir2PeakOffset_);
+      auto stagingEngine =
+          std::unique_ptr<WDL_ConvolutionEngine_Div>(new WDL_ConvolutionEngine_Div());
+      const int peakOffset = IRLoader::findPeakSampleIndex(*impulseBuffer2_);
+      const int latency = stagingEngine->SetImpulse(impulseBuffer2_.get(), 64, 0, 0, peakOffset);
+
+      std::lock_guard<std::mutex> lock(pendingMutex2_);
+      stagingEngine2_ = std::move(stagingEngine);
+      stagingLoaded2_ = true;
+      stagingLatency2_ = latency >= 0 ? latency : 0;
+      stagingPeakOffset2_ = peakOffset;
+      ir2Pending_.store(true, std::memory_order_release);
     }
   }
 }
@@ -239,16 +249,6 @@ void IRProcessor::setDynamicModeEnabled(bool enabled)
 void IRProcessor::setSidechainEnabled(bool enabled)
 {
   sidechainEnabled_ = enabled;
-}
-
-void IRProcessor::setLowBlend(float lowBlend)
-{
-  lowBlend_ = std::max(-1.0f, std::min(1.0f, lowBlend));
-}
-
-void IRProcessor::setHighBlend(float highBlend)
-{
-  highBlend_ = std::max(-1.0f, std::min(1.0f, highBlend));
 }
 
 void IRProcessor::setThreshold(float thresholdDb)
@@ -330,8 +330,10 @@ void IRProcessor::setIRBEnabled(bool enabled)
 
 void IRProcessor::processMono(const Sample* input, Sample* output, FrameCount numFrames)
 {
-  bool hasIR1 = ir1Loaded_ && irAEnabled_;
-  bool hasIR2 = ir2Loaded_ && irBEnabled_;
+  applyPendingIRUpdates();
+
+  bool hasIR1 = ir1Loaded_.load(std::memory_order_relaxed) && irAEnabled_;
+  bool hasIR2 = ir2Loaded_.load(std::memory_order_relaxed) && irBEnabled_;
 
   if (!hasIR1 && !hasIR2)
   {
@@ -396,9 +398,10 @@ void IRProcessor::processMono(const Sample* input, Sample* output, FrameCount nu
 
       if (latencyDiff > 0)
       {
-        writeToDelayBuffer(ir1DelayBufferL_, output1Ptr[0], numFrames);
+        writeToDelayBuffer(ir1DelayBufferL_, ir1DelayWritePosL_, output1Ptr[0], numFrames);
         std::vector<Sample> delayedIR1(numFrames);
-        readFromDelayBuffer(ir1DelayBufferL_, delayedIR1.data(), numFrames, latencyDiff);
+        readFromDelayBuffer(ir1DelayBufferL_, ir1DelayWritePosL_, delayedIR1.data(), numFrames,
+                            latencyDiff);
 
         for (FrameCount i = 0; i < numFrames; ++i)
         {
@@ -408,9 +411,10 @@ void IRProcessor::processMono(const Sample* input, Sample* output, FrameCount nu
       }
       else if (latencyDiff < 0)
       {
-        writeToDelayBuffer(ir2DelayBufferL_, output2Ptr[0], numFrames);
+        writeToDelayBuffer(ir2DelayBufferL_, ir2DelayWritePosL_, output2Ptr[0], numFrames);
         std::vector<Sample> delayedIR2(numFrames);
-        readFromDelayBuffer(ir2DelayBufferL_, delayedIR2.data(), numFrames, -latencyDiff);
+        readFromDelayBuffer(ir2DelayBufferL_, ir2DelayWritePosL_, delayedIR2.data(), numFrames,
+                            -latencyDiff);
 
         for (FrameCount i = 0; i < numFrames; ++i)
         {
@@ -437,7 +441,7 @@ void IRProcessor::processMono(const Sample* input, Sample* output, FrameCount nu
   }
   else if (hasIR1)
   {
-    writeToDelayBuffer(dryDelayBufferL_, input, numFrames);
+    writeToDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, input, numFrames);
 
     WDL_FFT_REAL* inputPtr = const_cast<WDL_FFT_REAL*>(input);
     convolutionEngine1_->Add(&inputPtr, static_cast<int>(numFrames), 1);
@@ -448,7 +452,8 @@ void IRProcessor::processMono(const Sample* input, Sample* output, FrameCount nu
       WDL_FFT_REAL** outputPtr = convolutionEngine1_->Get();
 
       std::vector<Sample> delayedDry(numFrames);
-      readFromDelayBuffer(dryDelayBufferL_, delayedDry.data(), numFrames, latencySamples1_);
+      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, delayedDry.data(), numFrames,
+                          latencySamples1_);
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -463,7 +468,7 @@ void IRProcessor::processMono(const Sample* input, Sample* output, FrameCount nu
   }
   else
   {
-    writeToDelayBuffer(dryDelayBufferL_, input, numFrames);
+    writeToDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, input, numFrames);
 
     WDL_FFT_REAL* inputPtr = const_cast<WDL_FFT_REAL*>(input);
     convolutionEngine2_->Add(&inputPtr, static_cast<int>(numFrames), 1);
@@ -474,7 +479,8 @@ void IRProcessor::processMono(const Sample* input, Sample* output, FrameCount nu
       WDL_FFT_REAL** outputPtr = convolutionEngine2_->Get();
 
       std::vector<Sample> delayedDry(numFrames);
-      readFromDelayBuffer(dryDelayBufferL_, delayedDry.data(), numFrames, latencySamples2_);
+      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, delayedDry.data(), numFrames,
+                          latencySamples2_);
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -489,6 +495,44 @@ void IRProcessor::processMono(const Sample* input, Sample* output, FrameCount nu
   }
 
   applyOutputGain(output, numFrames);
+}
+
+void IRProcessor::applyPendingIRUpdates()
+{
+  bool delayBuffersNeedUpdate = false;
+
+  if (ir1Pending_.load(std::memory_order_acquire))
+  {
+    std::unique_lock<std::mutex> lock(pendingMutex1_, std::try_to_lock);
+    if (lock.owns_lock())
+    {
+      std::swap(convolutionEngine1_, stagingEngine1_);
+      ir1Loaded_.store(stagingLoaded1_, std::memory_order_relaxed);
+      latencySamples1_ = stagingLatency1_;
+      ir1PeakOffset_ = stagingPeakOffset1_;
+      ir1Pending_.store(false, std::memory_order_relaxed);
+      delayBuffersNeedUpdate = true;
+    }
+  }
+
+  if (ir2Pending_.load(std::memory_order_acquire))
+  {
+    std::unique_lock<std::mutex> lock(pendingMutex2_, std::try_to_lock);
+    if (lock.owns_lock())
+    {
+      std::swap(convolutionEngine2_, stagingEngine2_);
+      ir2Loaded_.store(stagingLoaded2_, std::memory_order_relaxed);
+      latencySamples2_ = stagingLatency2_;
+      ir2PeakOffset_ = stagingPeakOffset2_;
+      ir2Pending_.store(false, std::memory_order_relaxed);
+      delayBuffersNeedUpdate = true;
+    }
+  }
+
+  if (delayBuffersNeedUpdate)
+  {
+    updateDelayBuffers();
+  }
 }
 
 void IRProcessor::reset()
@@ -541,8 +585,10 @@ int IRProcessor::getLatencySamples() const
 void IRProcessor::processStereo(const Sample* inputL, const Sample* inputR, Sample* outputL,
                                 Sample* outputR, FrameCount numFrames)
 {
-  bool hasIR1 = ir1Loaded_ && irAEnabled_;
-  bool hasIR2 = ir2Loaded_ && irBEnabled_;
+  applyPendingIRUpdates();
+
+  bool hasIR1 = ir1Loaded_.load(std::memory_order_relaxed) && irAEnabled_;
+  bool hasIR2 = ir2Loaded_.load(std::memory_order_relaxed) && irBEnabled_;
 
   if (!hasIR1 && !hasIR2)
   {
@@ -616,12 +662,14 @@ void IRProcessor::processStereo(const Sample* inputL, const Sample* inputR, Samp
 
       if (latencyDiff > 0)
       {
-        writeToDelayBuffer(ir1DelayBufferL_, output1Ptr[0], numFrames);
-        writeToDelayBuffer(ir1DelayBufferR_, output1Ptr[1], numFrames);
+        writeToDelayBuffer(ir1DelayBufferL_, ir1DelayWritePosL_, output1Ptr[0], numFrames);
+        writeToDelayBuffer(ir1DelayBufferR_, ir1DelayWritePosR_, output1Ptr[1], numFrames);
         std::vector<Sample> delayedIR1L(numFrames);
         std::vector<Sample> delayedIR1R(numFrames);
-        readFromDelayBuffer(ir1DelayBufferL_, delayedIR1L.data(), numFrames, latencyDiff);
-        readFromDelayBuffer(ir1DelayBufferR_, delayedIR1R.data(), numFrames, latencyDiff);
+        readFromDelayBuffer(ir1DelayBufferL_, ir1DelayWritePosL_, delayedIR1L.data(), numFrames,
+                            latencyDiff);
+        readFromDelayBuffer(ir1DelayBufferR_, ir1DelayWritePosR_, delayedIR1R.data(), numFrames,
+                            latencyDiff);
 
         for (FrameCount i = 0; i < numFrames; ++i)
         {
@@ -633,12 +681,14 @@ void IRProcessor::processStereo(const Sample* inputL, const Sample* inputR, Samp
       }
       else if (latencyDiff < 0)
       {
-        writeToDelayBuffer(ir2DelayBufferL_, output2Ptr[0], numFrames);
-        writeToDelayBuffer(ir2DelayBufferR_, output2Ptr[1], numFrames);
+        writeToDelayBuffer(ir2DelayBufferL_, ir2DelayWritePosL_, output2Ptr[0], numFrames);
+        writeToDelayBuffer(ir2DelayBufferR_, ir2DelayWritePosR_, output2Ptr[1], numFrames);
         std::vector<Sample> delayedIR2L(numFrames);
         std::vector<Sample> delayedIR2R(numFrames);
-        readFromDelayBuffer(ir2DelayBufferL_, delayedIR2L.data(), numFrames, -latencyDiff);
-        readFromDelayBuffer(ir2DelayBufferR_, delayedIR2R.data(), numFrames, -latencyDiff);
+        readFromDelayBuffer(ir2DelayBufferL_, ir2DelayWritePosL_, delayedIR2L.data(), numFrames,
+                            -latencyDiff);
+        readFromDelayBuffer(ir2DelayBufferR_, ir2DelayWritePosR_, delayedIR2R.data(), numFrames,
+                            -latencyDiff);
 
         for (FrameCount i = 0; i < numFrames; ++i)
         {
@@ -670,8 +720,8 @@ void IRProcessor::processStereo(const Sample* inputL, const Sample* inputR, Samp
   }
   else if (hasIR1)
   {
-    writeToDelayBuffer(dryDelayBufferL_, inputL, numFrames);
-    writeToDelayBuffer(dryDelayBufferR_, inputR, numFrames);
+    writeToDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, inputL, numFrames);
+    writeToDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, inputR, numFrames);
 
     convolutionEngine1_->Add(inputPtrs.data(), static_cast<int>(numFrames), 2);
 
@@ -682,8 +732,10 @@ void IRProcessor::processStereo(const Sample* inputL, const Sample* inputR, Samp
 
       std::vector<Sample> delayedDryL(numFrames);
       std::vector<Sample> delayedDryR(numFrames);
-      readFromDelayBuffer(dryDelayBufferL_, delayedDryL.data(), numFrames, latencySamples1_);
-      readFromDelayBuffer(dryDelayBufferR_, delayedDryR.data(), numFrames, latencySamples1_);
+      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, delayedDryL.data(), numFrames,
+                          latencySamples1_);
+      readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, delayedDryR.data(), numFrames,
+                          latencySamples1_);
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -700,8 +752,8 @@ void IRProcessor::processStereo(const Sample* inputL, const Sample* inputR, Samp
   }
   else
   {
-    writeToDelayBuffer(dryDelayBufferL_, inputL, numFrames);
-    writeToDelayBuffer(dryDelayBufferR_, inputR, numFrames);
+    writeToDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, inputL, numFrames);
+    writeToDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, inputR, numFrames);
 
     convolutionEngine2_->Add(inputPtrs.data(), static_cast<int>(numFrames), 2);
 
@@ -712,8 +764,10 @@ void IRProcessor::processStereo(const Sample* inputL, const Sample* inputR, Samp
 
       std::vector<Sample> delayedDryL(numFrames);
       std::vector<Sample> delayedDryR(numFrames);
-      readFromDelayBuffer(dryDelayBufferL_, delayedDryL.data(), numFrames, latencySamples2_);
-      readFromDelayBuffer(dryDelayBufferR_, delayedDryR.data(), numFrames, latencySamples2_);
+      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, delayedDryL.data(), numFrames,
+                          latencySamples2_);
+      readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, delayedDryR.data(), numFrames,
+                          latencySamples2_);
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -742,8 +796,10 @@ void IRProcessor::processDualMono(const Sample* inputL, const Sample* inputR, Sa
 void IRProcessor::processMonoWithSidechain(const Sample* input, const Sample* sidechain,
                                            Sample* output, FrameCount numFrames)
 {
-  bool hasIR1 = ir1Loaded_ && irAEnabled_;
-  bool hasIR2 = ir2Loaded_ && irBEnabled_;
+  applyPendingIRUpdates();
+
+  bool hasIR1 = ir1Loaded_.load(std::memory_order_relaxed) && irAEnabled_;
+  bool hasIR2 = ir2Loaded_.load(std::memory_order_relaxed) && irBEnabled_;
 
   if (!hasIR1 && !hasIR2)
   {
@@ -808,9 +864,10 @@ void IRProcessor::processMonoWithSidechain(const Sample* input, const Sample* si
 
       if (latencyDiff > 0)
       {
-        writeToDelayBuffer(ir1DelayBufferL_, output1Ptr[0], numFrames);
+        writeToDelayBuffer(ir1DelayBufferL_, ir1DelayWritePosL_, output1Ptr[0], numFrames);
         std::vector<Sample> delayedIR1(numFrames);
-        readFromDelayBuffer(ir1DelayBufferL_, delayedIR1.data(), numFrames, latencyDiff);
+        readFromDelayBuffer(ir1DelayBufferL_, ir1DelayWritePosL_, delayedIR1.data(), numFrames,
+                            latencyDiff);
 
         for (FrameCount i = 0; i < numFrames; ++i)
         {
@@ -820,9 +877,10 @@ void IRProcessor::processMonoWithSidechain(const Sample* input, const Sample* si
       }
       else if (latencyDiff < 0)
       {
-        writeToDelayBuffer(ir2DelayBufferL_, output2Ptr[0], numFrames);
+        writeToDelayBuffer(ir2DelayBufferL_, ir2DelayWritePosL_, output2Ptr[0], numFrames);
         std::vector<Sample> delayedIR2(numFrames);
-        readFromDelayBuffer(ir2DelayBufferL_, delayedIR2.data(), numFrames, -latencyDiff);
+        readFromDelayBuffer(ir2DelayBufferL_, ir2DelayWritePosL_, delayedIR2.data(), numFrames,
+                            -latencyDiff);
 
         for (FrameCount i = 0; i < numFrames; ++i)
         {
@@ -849,7 +907,7 @@ void IRProcessor::processMonoWithSidechain(const Sample* input, const Sample* si
   }
   else if (hasIR1)
   {
-    writeToDelayBuffer(dryDelayBufferL_, input, numFrames);
+    writeToDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, input, numFrames);
 
     WDL_FFT_REAL* inputPtr = const_cast<WDL_FFT_REAL*>(input);
     convolutionEngine1_->Add(&inputPtr, static_cast<int>(numFrames), 1);
@@ -860,7 +918,8 @@ void IRProcessor::processMonoWithSidechain(const Sample* input, const Sample* si
       WDL_FFT_REAL** outputPtr = convolutionEngine1_->Get();
 
       std::vector<Sample> delayedDry(numFrames);
-      readFromDelayBuffer(dryDelayBufferL_, delayedDry.data(), numFrames, latencySamples1_);
+      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, delayedDry.data(), numFrames,
+                          latencySamples1_);
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -875,7 +934,7 @@ void IRProcessor::processMonoWithSidechain(const Sample* input, const Sample* si
   }
   else
   {
-    writeToDelayBuffer(dryDelayBufferL_, input, numFrames);
+    writeToDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, input, numFrames);
 
     WDL_FFT_REAL* inputPtr = const_cast<WDL_FFT_REAL*>(input);
     convolutionEngine2_->Add(&inputPtr, static_cast<int>(numFrames), 1);
@@ -886,7 +945,8 @@ void IRProcessor::processMonoWithSidechain(const Sample* input, const Sample* si
       WDL_FFT_REAL** outputPtr = convolutionEngine2_->Get();
 
       std::vector<Sample> delayedDry(numFrames);
-      readFromDelayBuffer(dryDelayBufferL_, delayedDry.data(), numFrames, latencySamples2_);
+      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, delayedDry.data(), numFrames,
+                          latencySamples2_);
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -907,8 +967,10 @@ void IRProcessor::processStereoWithSidechain(const Sample* inputL, const Sample*
                                              const Sample* sidechainL, const Sample* sidechainR,
                                              Sample* outputL, Sample* outputR, FrameCount numFrames)
 {
-  bool hasIR1 = ir1Loaded_ && irAEnabled_;
-  bool hasIR2 = ir2Loaded_ && irBEnabled_;
+  applyPendingIRUpdates();
+
+  bool hasIR1 = ir1Loaded_.load(std::memory_order_relaxed) && irAEnabled_;
+  bool hasIR2 = ir2Loaded_.load(std::memory_order_relaxed) && irBEnabled_;
 
   if (!hasIR1 && !hasIR2)
   {
@@ -982,12 +1044,14 @@ void IRProcessor::processStereoWithSidechain(const Sample* inputL, const Sample*
 
       if (latencyDiff > 0)
       {
-        writeToDelayBuffer(ir1DelayBufferL_, output1Ptr[0], numFrames);
-        writeToDelayBuffer(ir1DelayBufferR_, output1Ptr[1], numFrames);
+        writeToDelayBuffer(ir1DelayBufferL_, ir1DelayWritePosL_, output1Ptr[0], numFrames);
+        writeToDelayBuffer(ir1DelayBufferR_, ir1DelayWritePosR_, output1Ptr[1], numFrames);
         std::vector<Sample> delayedIR1L(numFrames);
         std::vector<Sample> delayedIR1R(numFrames);
-        readFromDelayBuffer(ir1DelayBufferL_, delayedIR1L.data(), numFrames, latencyDiff);
-        readFromDelayBuffer(ir1DelayBufferR_, delayedIR1R.data(), numFrames, latencyDiff);
+        readFromDelayBuffer(ir1DelayBufferL_, ir1DelayWritePosL_, delayedIR1L.data(), numFrames,
+                            latencyDiff);
+        readFromDelayBuffer(ir1DelayBufferR_, ir1DelayWritePosR_, delayedIR1R.data(), numFrames,
+                            latencyDiff);
 
         for (FrameCount i = 0; i < numFrames; ++i)
         {
@@ -999,12 +1063,14 @@ void IRProcessor::processStereoWithSidechain(const Sample* inputL, const Sample*
       }
       else if (latencyDiff < 0)
       {
-        writeToDelayBuffer(ir2DelayBufferL_, output2Ptr[0], numFrames);
-        writeToDelayBuffer(ir2DelayBufferR_, output2Ptr[1], numFrames);
+        writeToDelayBuffer(ir2DelayBufferL_, ir2DelayWritePosL_, output2Ptr[0], numFrames);
+        writeToDelayBuffer(ir2DelayBufferR_, ir2DelayWritePosR_, output2Ptr[1], numFrames);
         std::vector<Sample> delayedIR2L(numFrames);
         std::vector<Sample> delayedIR2R(numFrames);
-        readFromDelayBuffer(ir2DelayBufferL_, delayedIR2L.data(), numFrames, -latencyDiff);
-        readFromDelayBuffer(ir2DelayBufferR_, delayedIR2R.data(), numFrames, -latencyDiff);
+        readFromDelayBuffer(ir2DelayBufferL_, ir2DelayWritePosL_, delayedIR2L.data(), numFrames,
+                            -latencyDiff);
+        readFromDelayBuffer(ir2DelayBufferR_, ir2DelayWritePosR_, delayedIR2R.data(), numFrames,
+                            -latencyDiff);
 
         for (FrameCount i = 0; i < numFrames; ++i)
         {
@@ -1036,8 +1102,8 @@ void IRProcessor::processStereoWithSidechain(const Sample* inputL, const Sample*
   }
   else if (hasIR1)
   {
-    writeToDelayBuffer(dryDelayBufferL_, inputL, numFrames);
-    writeToDelayBuffer(dryDelayBufferR_, inputR, numFrames);
+    writeToDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, inputL, numFrames);
+    writeToDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, inputR, numFrames);
 
     convolutionEngine1_->Add(inputPtrs.data(), static_cast<int>(numFrames), 2);
 
@@ -1048,8 +1114,10 @@ void IRProcessor::processStereoWithSidechain(const Sample* inputL, const Sample*
 
       std::vector<Sample> delayedDryL(numFrames);
       std::vector<Sample> delayedDryR(numFrames);
-      readFromDelayBuffer(dryDelayBufferL_, delayedDryL.data(), numFrames, latencySamples1_);
-      readFromDelayBuffer(dryDelayBufferR_, delayedDryR.data(), numFrames, latencySamples1_);
+      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, delayedDryL.data(), numFrames,
+                          latencySamples1_);
+      readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, delayedDryR.data(), numFrames,
+                          latencySamples1_);
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -1066,8 +1134,8 @@ void IRProcessor::processStereoWithSidechain(const Sample* inputL, const Sample*
   }
   else
   {
-    writeToDelayBuffer(dryDelayBufferL_, inputL, numFrames);
-    writeToDelayBuffer(dryDelayBufferR_, inputR, numFrames);
+    writeToDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, inputL, numFrames);
+    writeToDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, inputR, numFrames);
 
     convolutionEngine2_->Add(inputPtrs.data(), static_cast<int>(numFrames), 2);
 
@@ -1078,8 +1146,10 @@ void IRProcessor::processStereoWithSidechain(const Sample* inputL, const Sample*
 
       std::vector<Sample> delayedDryL(numFrames);
       std::vector<Sample> delayedDryR(numFrames);
-      readFromDelayBuffer(dryDelayBufferL_, delayedDryL.data(), numFrames, latencySamples2_);
-      readFromDelayBuffer(dryDelayBufferR_, delayedDryR.data(), numFrames, latencySamples2_);
+      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, delayedDryL.data(), numFrames,
+                          latencySamples2_);
+      readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, delayedDryR.data(), numFrames,
+                          latencySamples2_);
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -1118,7 +1188,7 @@ float IRProcessor::calculateDynamicBlend(float inputLevelDb) const
   {
     blendPosition = 0.0f;
   }
-  else if (inputLevelDb >= kneeEnd && inputLevelDb >= thresholdDb_ + rangeDb_)
+  else if (inputLevelDb >= thresholdDb_ + rangeDb_)
   {
     blendPosition = 1.0f;
   }
@@ -1137,7 +1207,7 @@ float IRProcessor::calculateDynamicBlend(float inputLevelDb) const
     blendPosition = std::min(1.0f, blendPosition);
   }
 
-  return blend_ + (highBlend_ - blend_) * blendPosition;
+  return -1.0f + 2.0f * blendPosition;
 }
 
 float IRProcessor::detectPeakLevel(const Sample* buffer, FrameCount numFrames)
@@ -1258,12 +1328,17 @@ void IRProcessor::updateDelayBuffers()
     ir1DelayBufferR_.resize(bufferSize, 0.0f);
     ir2DelayBufferL_.resize(bufferSize, 0.0f);
     ir2DelayBufferR_.resize(bufferSize, 0.0f);
-    delayBufferWritePos_ = 0;
+    dryDelayWritePosL_ = 0;
+    dryDelayWritePosR_ = 0;
+    ir1DelayWritePosL_ = 0;
+    ir1DelayWritePosR_ = 0;
+    ir2DelayWritePosL_ = 0;
+    ir2DelayWritePosR_ = 0;
   }
 }
 
-void IRProcessor::writeToDelayBuffer(std::vector<Sample>& buffer, const Sample* input,
-                                     FrameCount numFrames)
+void IRProcessor::writeToDelayBuffer(std::vector<Sample>& buffer, size_t& writePos,
+                                     const Sample* input, FrameCount numFrames)
 {
   if (buffer.empty())
   {
@@ -1274,13 +1349,13 @@ void IRProcessor::writeToDelayBuffer(std::vector<Sample>& buffer, const Sample* 
 
   for (FrameCount i = 0; i < numFrames; ++i)
   {
-    buffer[delayBufferWritePos_] = input[i];
-    delayBufferWritePos_ = (delayBufferWritePos_ + 1) % bufferSize;
+    buffer[writePos] = input[i];
+    writePos = (writePos + 1) % bufferSize;
   }
 }
 
-void IRProcessor::readFromDelayBuffer(const std::vector<Sample>& buffer, Sample* output,
-                                      FrameCount numFrames, int delaySamples) const
+void IRProcessor::readFromDelayBuffer(const std::vector<Sample>& buffer, size_t writePos,
+                                      Sample* output, FrameCount numFrames, int delaySamples)
 {
   if (buffer.empty() || delaySamples <= 0)
   {
@@ -1292,7 +1367,7 @@ void IRProcessor::readFromDelayBuffer(const std::vector<Sample>& buffer, Sample*
 
   for (FrameCount i = 0; i < numFrames; ++i)
   {
-    const size_t readPos = (delayBufferWritePos_ + bufferSize - clampedDelay + i) % bufferSize;
+    const size_t readPos = (writePos + bufferSize - clampedDelay + i) % bufferSize;
     output[i] = buffer[readPos];
   }
 }

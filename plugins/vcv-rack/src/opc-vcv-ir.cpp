@@ -153,8 +153,6 @@ struct OpcVcvIr final : Module
     irProcessor_.setBlend(params[static_cast<int>(ParamId::BlendParam)].getValue());
     irProcessor_.setIRAEnabled(params[static_cast<int>(ParamId::IrAEnableParam)].getValue() > 0.5f);
     irProcessor_.setIRBEnabled(params[static_cast<int>(ParamId::IrBEnableParam)].getValue() > 0.5f);
-    irProcessor_.setLowBlend(-1.0f);
-    irProcessor_.setHighBlend(1.0f);
     irProcessor_.setThreshold(params[static_cast<int>(ParamId::ThresholdParam)].getValue());
     irProcessor_.setRangeDb(params[static_cast<int>(ParamId::RangeDbParam)].getValue());
     irProcessor_.setKneeWidthDb(params[static_cast<int>(ParamId::KneeWidthDbParam)].getValue());

@@ -11,7 +11,10 @@ OctobIRProcessor::OctobIRProcessor()
 {
 }
 
-OctobIRProcessor::~OctobIRProcessor() {}
+OctobIRProcessor::~OctobIRProcessor()
+{
+  cancelPendingUpdate();
+}
 
 juce::AudioProcessorValueTreeState::ParameterLayout OctobIRProcessor::createParameterLayout()
 {
@@ -28,16 +31,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout OctobIRProcessor::createPara
 
   layout.add(std::make_unique<juce::AudioParameterFloat>(
       "blend", "Static Blend", juce::NormalisableRange<float>(-1.0f, 1.0f, 0.01f), 0.0f,
-      juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 2); }));
-
-  layout.add(std::make_unique<juce::AudioParameterFloat>(
-      "lowBlend", "Low Blend", juce::NormalisableRange<float>(-1.0f, 1.0f, 0.01f), -1.0f,
-      juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 2); }));
-
-  layout.add(std::make_unique<juce::AudioParameterFloat>(
-      "highBlend", "High Blend", juce::NormalisableRange<float>(-1.0f, 1.0f, 0.01f), 1.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) { return juce::String(value, 2); }));
 
@@ -183,8 +176,6 @@ void OctobIRProcessor::processBlock(juce::AudioBuffer<float>& buffer,
   bool dynamicMode = apvts_.getRawParameterValue("dynamicMode")->load() > 0.5f;
   bool sidechainEnabled = apvts_.getRawParameterValue("sidechainEnable")->load() > 0.5f;
   float blend = apvts_.getRawParameterValue("blend")->load();
-  float lowBlend = apvts_.getRawParameterValue("lowBlend")->load();
-  float highBlend = apvts_.getRawParameterValue("highBlend")->load();
   float threshold = apvts_.getRawParameterValue("threshold")->load();
   float rangeDb = apvts_.getRawParameterValue("rangeDb")->load();
   float kneeWidthDb = apvts_.getRawParameterValue("kneeWidthDb")->load();
@@ -200,8 +191,6 @@ void OctobIRProcessor::processBlock(juce::AudioBuffer<float>& buffer,
   irProcessor_.setDynamicModeEnabled(dynamicMode);
   irProcessor_.setSidechainEnabled(sidechainEnabled);
   irProcessor_.setBlend(blend);
-  irProcessor_.setLowBlend(lowBlend);
-  irProcessor_.setHighBlend(highBlend);
   irProcessor_.setThreshold(threshold);
   irProcessor_.setRangeDb(rangeDb);
   irProcessor_.setKneeWidthDb(kneeWidthDb);
@@ -290,37 +279,56 @@ void OctobIRProcessor::setStateInformation(const void* data, int sizeInBytes)
   {
     apvts_.replaceState(state);
 
-    if (!state.hasProperty("threshold") && state.hasProperty("lowThreshold"))
     {
-      float oldLow = state.getProperty("lowThreshold", -40.0f);
-      float oldHigh = state.getProperty("highThreshold", -10.0f);
-
-      float newThreshold = oldLow;
-      float newRange = std::max(1.0f, oldHigh - oldLow);
-
-      if (auto* param = apvts_.getParameter("threshold"))
-      {
-        param->setValueNotifyingHost(param->convertTo0to1(newThreshold));
-      }
-      if (auto* param = apvts_.getParameter("rangeDb"))
-      {
-        param->setValueNotifyingHost(param->convertTo0to1(newRange));
-      }
+      const juce::SpinLock::ScopedLockType lock(pendingStateLock_);
+      pendingState_ = state;
     }
+    triggerAsyncUpdate();
+  }
+}
 
-    juce::String path = state.getProperty("irPath").toString();
-    if (path.isNotEmpty())
+void OctobIRProcessor::handleAsyncUpdate()
+{
+  juce::ValueTree state;
+  {
+    const juce::SpinLock::ScopedLockType lock(pendingStateLock_);
+    state = pendingState_;
+    pendingState_ = juce::ValueTree();
+  }
+
+  if (!state.isValid())
+    return;
+
+  if (!state.hasProperty("threshold") && state.hasProperty("lowThreshold"))
+  {
+    float oldLow = state.getProperty("lowThreshold", -40.0f);
+    float oldHigh = state.getProperty("highThreshold", -10.0f);
+
+    float newThreshold = oldLow;
+    float newRange = std::max(1.0f, oldHigh - oldLow);
+
+    if (auto* param = apvts_.getParameter("threshold"))
     {
-      juce::String error;
-      loadImpulseResponse1(path, error);
+      param->setValueNotifyingHost(param->convertTo0to1(newThreshold));
     }
-
-    juce::String path2 = state.getProperty("ir2Path").toString();
-    if (path2.isNotEmpty())
+    if (auto* param = apvts_.getParameter("rangeDb"))
     {
-      juce::String error;
-      loadImpulseResponse2(path2, error);
+      param->setValueNotifyingHost(param->convertTo0to1(newRange));
     }
+  }
+
+  juce::String path = state.getProperty("irPath").toString();
+  if (path.isNotEmpty())
+  {
+    juce::String error;
+    loadImpulseResponse1(path, error);
+  }
+
+  juce::String path2 = state.getProperty("ir2Path").toString();
+  if (path2.isNotEmpty())
+  {
+    juce::String error;
+    loadImpulseResponse2(path2, error);
   }
 }
 

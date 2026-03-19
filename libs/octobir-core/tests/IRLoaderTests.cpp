@@ -35,18 +35,14 @@ TEST_F(IRLoaderTest, LoadInvalidFile)
 
 TEST_F(IRLoaderTest, CompensationGain_VerifyValue)
 {
-  constexpr float kIrCompensationGainDb = -17.0f;
-  constexpr float kDbToLinear = 0.1151292546497023f;
-  float irCompensationGain = std::exp(kIrCompensationGainDb * kDbToLinear);
+  float irCompensationGain = std::exp(kIrCompensationGainDb * kDbToLinearScalar);
 
-  EXPECT_NEAR(irCompensationGain, 0.14125375446227544f, 0.00001f);
+  EXPECT_NEAR(irCompensationGain, 0.12589254117941673f, 0.00001f);
 }
 
 TEST_F(IRLoaderTest, CompensationGain_VerifyDbConversion)
 {
-  constexpr float kIrCompensationGainDb = -17.0f;
-  constexpr float kDbToLinear = 0.1151292546497023f;
-  float irCompensationGain = std::exp(kIrCompensationGainDb * kDbToLinear);
+  float irCompensationGain = std::exp(kIrCompensationGainDb * kDbToLinearScalar);
 
   float linearGainFromPow = std::pow(10.0f, kIrCompensationGainDb / 20.0f);
 
