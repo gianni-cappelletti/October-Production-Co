@@ -328,11 +328,12 @@ void IRProcessor::processMono(const Sample* input, Sample* output, FrameCount nu
     return;
   }
 
+  currentInputLevelDb_ =
+      (detectionMode_ == 0) ? detectPeakLevel(input, numFrames) : detectRMSLevel(input, numFrames);
+
   float blendToUse = blend_;
   if (dynamicModeEnabled_ && !sidechainEnabled_)
   {
-    currentInputLevelDb_ = (detectionMode_ == 0) ? detectPeakLevel(input, numFrames)
-                                                 : detectRMSLevel(input, numFrames);
     float targetBlend = calculateDynamicBlend(currentInputLevelDb_);
     float coeff = (targetBlend > smoothedBlend_) ? attackCoeff_ : releaseCoeff_;
     float coeffAdjusted = std::pow(coeff, static_cast<float>(numFrames));
@@ -537,14 +538,17 @@ void IRProcessor::processStereo(const Sample* inputL, const Sample* inputR, Samp
     return;
   }
 
-  float blendToUse = blend_;
-  if (dynamicModeEnabled_ && !sidechainEnabled_)
   {
     float levelL = (detectionMode_ == 0) ? detectPeakLevel(inputL, numFrames)
                                          : detectRMSLevel(inputL, numFrames);
     float levelR = (detectionMode_ == 0) ? detectPeakLevel(inputR, numFrames)
                                          : detectRMSLevel(inputR, numFrames);
     currentInputLevelDb_ = std::max(levelL, levelR);
+  }
+
+  float blendToUse = blend_;
+  if (dynamicModeEnabled_ && !sidechainEnabled_)
+  {
     float targetBlend = calculateDynamicBlend(currentInputLevelDb_);
     float coeff = (targetBlend > smoothedBlend_) ? attackCoeff_ : releaseCoeff_;
     float coeffAdjusted = std::pow(coeff, static_cast<float>(numFrames));
@@ -727,11 +731,12 @@ void IRProcessor::processMonoWithSidechain(const Sample* input, const Sample* si
     return;
   }
 
+  currentInputLevelDb_ = (detectionMode_ == 0) ? detectPeakLevel(sidechain, numFrames)
+                                               : detectRMSLevel(sidechain, numFrames);
+
   float blendToUse = blend_;
   if (dynamicModeEnabled_ && sidechainEnabled_)
   {
-    currentInputLevelDb_ = (detectionMode_ == 0) ? detectPeakLevel(sidechain, numFrames)
-                                                 : detectRMSLevel(sidechain, numFrames);
     float targetBlend = calculateDynamicBlend(currentInputLevelDb_);
     float coeff = (targetBlend > smoothedBlend_) ? attackCoeff_ : releaseCoeff_;
     float coeffAdjusted = std::pow(coeff, static_cast<float>(numFrames));
@@ -890,14 +895,17 @@ void IRProcessor::processStereoWithSidechain(const Sample* inputL, const Sample*
     return;
   }
 
-  float blendToUse = blend_;
-  if (dynamicModeEnabled_ && sidechainEnabled_)
   {
     float levelL = (detectionMode_ == 0) ? detectPeakLevel(sidechainL, numFrames)
                                          : detectRMSLevel(sidechainL, numFrames);
     float levelR = (detectionMode_ == 0) ? detectPeakLevel(sidechainR, numFrames)
                                          : detectRMSLevel(sidechainR, numFrames);
     currentInputLevelDb_ = std::max(levelL, levelR);
+  }
+
+  float blendToUse = blend_;
+  if (dynamicModeEnabled_ && sidechainEnabled_)
+  {
     float targetBlend = calculateDynamicBlend(currentInputLevelDb_);
     float coeff = (targetBlend > smoothedBlend_) ? attackCoeff_ : releaseCoeff_;
     float coeffAdjusted = std::pow(coeff, static_cast<float>(numFrames));
