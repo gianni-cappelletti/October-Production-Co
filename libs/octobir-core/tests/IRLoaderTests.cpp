@@ -1,8 +1,13 @@
+// clang-format off
+// <cstdlib> must precede <convoengine.h> — WDL heapbuf.h/fastqueue.h use
+// malloc/free without including <cstdlib> themselves, which fails on GCC/Linux.
+#include <cstdlib>
 #include <convoengine.h>
+// clang-format on
+
 #include <gtest/gtest.h>
 
 #include <cmath>
-#include <cstdlib>
 #include <string>
 #include <vector>
 
