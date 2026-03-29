@@ -37,6 +37,7 @@ target_compile_definitions(octobir-core-tests
 target_include_directories(octobir-core-tests
   SYSTEM PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party
+    ${CMAKE_SOURCE_DIR}/third_party/WDL/WDL
 )
 
 include(GoogleTest)

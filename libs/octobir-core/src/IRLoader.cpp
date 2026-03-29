@@ -11,12 +11,112 @@
 #include <resample.h>
 
 #include "dr_wav.h"
+#include "pffft.h"
 
 namespace octob
 {
 
+namespace
+{
+
+int nextPow2(int n)
+{
+  int p = 1;
+  while (p < n)
+    p <<= 1;
+  return p;
+}
+
+}  // namespace
+
 IRLoader::IRLoader() = default;
 IRLoader::~IRLoader() = default;
+
+void IRLoader::convertToMinimumPhase(std::vector<Sample>& samples, int fftSize)
+{
+  // Cepstrum method: the minimum-phase system with the same magnitude spectrum
+  // is computed by zeroing the anticausal half of the real cepstrum.
+  // Reference: https://ccrma.stanford.edu/~jos/fp/Conversion_Minimum_Phase.html
+  //
+  // pffft normalization:
+  //   PFFFT_FORWARD  → out = DFT(in)           (unscaled)
+  //   PFFFT_BACKWARD → out = N * IDFT(in)       (unnormalized inverse)
+  //
+  // pffft real transform packed output (pffft_transform_ordered, PFFFT_REAL):
+  //   out[0]     = Re(DC)
+  //   out[1]     = Re(Nyquist)
+  //   out[2k]    = Re(bin k)  for k = 1..N/2-1
+  //   out[2k+1]  = Im(bin k)  for k = 1..N/2-1
+
+  const int irLen = static_cast<int>(samples.size());
+
+  PFFFT_Setup* fft = pffft_new_setup(fftSize, PFFFT_REAL);
+  if (fft == nullptr)
+    return;
+
+  std::vector<float> in(fftSize, 0.0f);
+  std::vector<float> out(fftSize, 0.0f);
+  std::vector<float> work(fftSize, 0.0f);
+
+  std::copy(samples.begin(), samples.end(), in.begin());
+
+  // Step 1: Forward FFT → H[k]
+  pffft_transform_ordered(fft, in.data(), out.data(), work.data(), PFFFT_FORWARD);
+
+  // Step 2: log-magnitude spectrum (real-valued, symmetric for real input)
+  std::vector<float> logMag(fftSize, 0.0f);
+  logMag[0] = std::log(std::max(std::abs(out[0]), 1e-10f));  // DC
+  logMag[1] = std::log(std::max(std::abs(out[1]), 1e-10f));  // Nyquist
+  for (int k = 1; k < fftSize / 2; ++k)
+  {
+    const float re = out[2 * k];
+    const float im = out[2 * k + 1];
+    logMag[2 * k] = std::log(std::max(std::hypot(re, im), 1e-10f));
+    logMag[2 * k + 1] = 0.0f;
+  }
+
+  // Step 3: IFFT of log-magnitude → real cepstrum
+  // pffft BACKWARD returns N * IDFT, so cepstrum[n] = fftSize * true_cepstrum[n]
+  pffft_transform_ordered(fft, logMag.data(), in.data(), work.data(), PFFFT_BACKWARD);
+
+  // Step 4: minimum-phase window — double the causal half, zero the anticausal half
+  std::vector<float> winCeps(fftSize, 0.0f);
+  winCeps[0] = in[0];
+  for (int n = 1; n < fftSize / 2; ++n)
+    winCeps[n] = 2.0f * in[n];
+  winCeps[fftSize / 2] = in[fftSize / 2];
+
+  // Step 5: Forward FFT of windowed cepstrum → log of min-phase spectrum
+  // out[k] = N * DFT(true_cepstrum)[k] = N * log(Hmin[k])  (N factor from step 3)
+  pffft_transform_ordered(fft, winCeps.data(), out.data(), work.data(), PFFFT_FORWARD);
+
+  // Step 6: exponentiate to get min-phase spectrum
+  // Divide by fftSize to cancel the N factor from the unnormalized BACKWARD in step 3
+  const float invN = 1.0f / static_cast<float>(fftSize);
+
+  float re, im, expRe;
+  re = out[0] * invN;
+  out[0] = std::exp(re);  // DC (purely real)
+  re = out[1] * invN;
+  out[1] = std::exp(re);  // Nyquist (purely real)
+  for (int k = 1; k < fftSize / 2; ++k)
+  {
+    re = out[2 * k] * invN;
+    im = out[2 * k + 1] * invN;
+    expRe = std::exp(re);
+    out[2 * k] = expRe * std::cos(im);
+    out[2 * k + 1] = expRe * std::sin(im);
+  }
+
+  // Step 7: IFFT → minimum-phase IR
+  // pffft BACKWARD returns N * IDFT; divide by fftSize to normalize
+  pffft_transform_ordered(fft, out.data(), in.data(), work.data(), PFFFT_BACKWARD);
+
+  for (int n = 0; n < irLen; ++n)
+    samples[n] = in[n] * invN;
+
+  pffft_destroy_setup(fft);
+}
 
 IRLoadResult IRLoader::loadFromFile(const std::string& filepath)
 {
@@ -84,6 +184,26 @@ IRLoadResult IRLoader::loadFromFile(const std::string& filepath)
     sample *= irCompensationGain;
   }
 
+  // Convert to minimum phase so that IR energy starts at t=0.
+  // This eliminates comb filtering when blending two IRs with different pre-delays.
+  const int mptFftSize = nextPow2(static_cast<int>(irLength) * 2);
+  if (channels == 1)
+  {
+    convertToMinimumPhase(irBuffer_, mptFftSize);
+  }
+  else
+  {
+    std::vector<Sample> channel(irLength);
+    for (uint32_t ch = 0; ch < channels; ++ch)
+    {
+      for (size_t i = 0; i < irLength; ++i)
+        channel[i] = irBuffer_[i * channels + ch];
+      convertToMinimumPhase(channel, mptFftSize);
+      for (size_t i = 0; i < irLength; ++i)
+        irBuffer_[i * channels + ch] = channel[i];
+    }
+  }
+
   irSampleRate_ = sampleRate;
   numSamples_ = irLength;
   numChannels_ = static_cast<int>(channels);
@@ -133,9 +253,9 @@ bool IRLoader::resampleAndInitialize(WDL_ImpulseBuffer& impulseBuffer, SampleRat
     for (int ch = 0; ch < outputChannels; ch++)
     {
       WDL_Resampler resampler;
-      resampler.SetMode(true, 64, true);
+      resampler.SetMode(false, 1, false);
       resampler.SetRates(irSampleRate_, targetSampleRate);
-      resampler.SetFilterParms(1.0f, 0.0f);
+      resampler.SetFilterParms(1.0, 0.693);
 
       std::vector<WDL_ResampleSample> resampledIr(outFrames + 64, 0.0);
 

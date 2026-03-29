@@ -36,6 +36,10 @@ class IRLoader
   int getNumChannels() const { return numChannels_; }
 
  private:
+  // Converts a single-channel IR to minimum phase in-place using the cepstrum method.
+  // fftSize must be a power of 2, >= 2 * samples.size(), and a multiple of 32.
+  static void convertToMinimumPhase(std::vector<Sample>& samples, int fftSize);
+
   std::vector<Sample> irBuffer_;
   SampleRate irSampleRate_ = 0.0;
   size_t numSamples_ = 0;

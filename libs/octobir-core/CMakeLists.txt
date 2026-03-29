@@ -35,9 +35,23 @@ set(WDL_SOURCES
 
 target_sources(octobir-core PRIVATE ${WDL_SOURCES})
 
-# Suppress warnings in third-party WDL code that we cannot modify
+set(PFFFT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/pffft)
+
+set(PFFFT_SOURCES
+    ${PFFFT_DIR}/src/pffft.c
+    ${PFFFT_DIR}/src/pffft_common.c
+)
+
+target_sources(octobir-core PRIVATE ${PFFFT_SOURCES})
+
+target_include_directories(octobir-core SYSTEM
+    PRIVATE
+        ${PFFFT_DIR}/include/pffft
+)
+
+# Suppress warnings in third-party code that we cannot modify
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
-    set_source_files_properties(${WDL_SOURCES}
+    set_source_files_properties(${WDL_SOURCES} ${PFFFT_SOURCES}
         PROPERTIES
         COMPILE_FLAGS "-Wno-unused-parameter"
     )
