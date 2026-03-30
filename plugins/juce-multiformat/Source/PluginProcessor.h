@@ -50,6 +50,9 @@ class OctobIRProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
   float getCurrentBlend() const { return irProcessor_.getCurrentBlend(); }
   octob::IRProcessor& getIRProcessor() { return irProcessor_; }
 
+  std::atomic<int> lastEditorWidth_{580};
+  std::atomic<int> lastEditorHeight_{694};
+
  private:
   octob::IRProcessor irProcessor_;
   juce::String currentIR1Path_;

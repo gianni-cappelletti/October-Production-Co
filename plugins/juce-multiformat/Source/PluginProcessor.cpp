@@ -299,6 +299,8 @@ void OctobIRProcessor::getStateInformation(juce::MemoryBlock& destData)
   auto state = apvts_.copyState();
   state.setProperty("ir1Path", currentIR1Path_, nullptr);
   state.setProperty("ir2Path", currentIR2Path_, nullptr);
+  state.setProperty("editorWidth", lastEditorWidth_.load(), nullptr);
+  state.setProperty("editorHeight", lastEditorHeight_.load(), nullptr);
 
   juce::MemoryOutputStream stream(destData, false);
   state.writeToStream(stream);
@@ -311,6 +313,12 @@ void OctobIRProcessor::setStateInformation(const void* data, int sizeInBytes)
   if (state.isValid())
   {
     apvts_.replaceState(state);
+
+    lastEditorWidth_.store(static_cast<int>(state.getProperty("editorWidth", 580)));
+    lastEditorHeight_.store(static_cast<int>(state.getProperty("editorHeight", 694)));
+
+    if (auto* editor = getActiveEditor())
+      editor->setSize(lastEditorWidth_.load(), lastEditorHeight_.load());
 
     {
       const juce::SpinLock::ScopedLockType lock(pendingStateLock_);

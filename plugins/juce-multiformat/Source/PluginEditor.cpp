@@ -354,7 +354,13 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
       juce::ImageCache::getFromMemory(BinaryData::OctoberLogo_png, BinaryData::OctoberLogo_pngSize);
 
   startTimerHz(30);
-  setSize(580, 694);
+
+  setResizable(true, true);
+  getConstrainer()->setFixedAspectRatio(static_cast<double>(kDesignWidth) /
+                                        static_cast<double>(kDesignHeight));
+  setSize(audioProcessor.lastEditorWidth_.load(), audioProcessor.lastEditorHeight_.load());
+  setResizeLimits(kDesignWidth * 3 / 4, kDesignHeight * 3 / 4, kDesignWidth * 3 / 2,
+                  kDesignHeight * 3 / 2);
 }
 
 OctobIREditor::~OctobIREditor()
@@ -387,8 +393,11 @@ void OctobIREditor::paint(juce::Graphics& g)
   g.drawLine(inner.getX() + 0.5f, inner.getY() + cornerR, inner.getX() + 0.5f,
              inner.getBottom() - cornerR, 1.0f);
 
-  const float w = static_cast<float>(getWidth());
-  const float h = static_cast<float>(getHeight());
+  const float scale = static_cast<float>(getWidth()) / static_cast<float>(kDesignWidth);
+  g.addTransform(juce::AffineTransform::scale(scale));
+
+  const float w = static_cast<float>(kDesignWidth);
+  const float h = static_cast<float>(kDesignHeight);
   const float screwCyTop = 8.0f + 7.5f;
   const float screwCyBottom = h - 8.0f - 7.5f;
   const float screwCx1 = w / 4.0f;
@@ -421,7 +430,12 @@ void OctobIREditor::paint(juce::Graphics& g)
 
 void OctobIREditor::resized()
 {
-  auto bounds = getLocalBounds().reduced(15);
+  audioProcessor.lastEditorWidth_.store(getWidth());
+  audioProcessor.lastEditorHeight_.store(getHeight());
+
+  const float scale = static_cast<float>(getWidth()) / static_cast<float>(kDesignWidth);
+
+  auto bounds = juce::Rectangle<int>(0, 0, kDesignWidth, kDesignHeight).reduced(15);
   bounds.removeFromTop(16);
   bounds.removeFromBottom(28);
 
@@ -520,6 +534,14 @@ void OctobIREditor::resized()
     auto col = smallRow2;
     detectionModeLabel_.setBounds(col.removeFromTop(16));
     detectionModeCombo_.setBounds(col.withSizeKeepingCentre(130, 28));
+  }
+
+  juce::AffineTransform xform = juce::AffineTransform::scale(scale);
+  for (int i = 0; i < getNumChildComponents(); ++i)
+  {
+    auto* child = getChildComponent(i);
+    if (dynamic_cast<juce::ResizableCornerComponent*>(child) == nullptr)
+      child->setTransform(xform);
   }
 }
 

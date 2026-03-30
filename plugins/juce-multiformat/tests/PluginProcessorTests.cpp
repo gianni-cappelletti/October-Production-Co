@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "PluginEditor.h"
 #include "PluginProcessor.h"
 
 static const std::string kIrAPath = std::string(TEST_DATA_DIR) + "/INPUT_ir_a.wav";
@@ -217,4 +218,79 @@ TEST_F(PluginProcessorTest, StateRoundTrip_Parameters)
   expectParam("outputGain", 0.1f);
   expectParam("irATrimGain", 0.1f);
   expectParam("irBTrimGain", 0.1f);
+}
+
+// Editor size persistence
+
+TEST_F(PluginProcessorTest, EditorOpensAtDesignSize)
+{
+  auto* editor = processor.createEditor();
+  ASSERT_NE(editor, nullptr);
+
+  EXPECT_EQ(editor->getWidth(), OctobIREditor::kDesignWidth);
+  EXPECT_EQ(editor->getHeight(), OctobIREditor::kDesignHeight);
+
+  delete editor;
+}
+
+TEST_F(PluginProcessorTest, EditorSizeRoundTrip)
+{
+  int resizedWidth = 0;
+  int resizedHeight = 0;
+
+  {
+    auto* editor = processor.createEditor();
+    ASSERT_NE(editor, nullptr);
+    editor->setSize(700, 838);
+    resizedWidth = editor->getWidth();
+    resizedHeight = editor->getHeight();
+    delete editor;
+  }
+
+  juce::MemoryBlock state;
+  processor.getStateInformation(state);
+
+  OctobIRProcessor processor2;
+  processor2.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+
+  EXPECT_EQ(processor2.lastEditorWidth_.load(), resizedWidth);
+  EXPECT_EQ(processor2.lastEditorHeight_.load(), resizedHeight);
+
+  auto* editor2 = processor2.createEditor();
+  ASSERT_NE(editor2, nullptr);
+
+  EXPECT_EQ(editor2->getWidth(), resizedWidth);
+  EXPECT_EQ(editor2->getHeight(), resizedHeight);
+
+  delete editor2;
+}
+
+TEST_F(PluginProcessorTest, EditorSizeDefaultsWhenNoSavedState)
+{
+  EXPECT_EQ(processor.lastEditorWidth_.load(), OctobIREditor::kDesignWidth);
+  EXPECT_EQ(processor.lastEditorHeight_.load(), OctobIREditor::kDesignHeight);
+}
+
+TEST_F(PluginProcessorTest, EditorSizeNotCorruptedByConstruction)
+{
+  // Set a custom size via a first editor, then read back the constrainer-adjusted values
+  auto* tempEditor = processor.createEditor();
+  ASSERT_NE(tempEditor, nullptr);
+  tempEditor->setSize(650, 778);
+  const int customWidth = tempEditor->getWidth();
+  const int customHeight = tempEditor->getHeight();
+  delete tempEditor;
+
+  processor.lastEditorWidth_.store(customWidth);
+  processor.lastEditorHeight_.store(customHeight);
+
+  auto* editor = processor.createEditor();
+  ASSERT_NE(editor, nullptr);
+
+  EXPECT_EQ(editor->getWidth(), customWidth);
+  EXPECT_EQ(editor->getHeight(), customHeight);
+  EXPECT_EQ(processor.lastEditorWidth_.load(), customWidth);
+  EXPECT_EQ(processor.lastEditorHeight_.load(), customHeight);
+
+  delete editor;
 }

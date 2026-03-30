@@ -67,6 +67,9 @@ class LCDMeterPanel : public juce::Component
 class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
 {
  public:
+  static constexpr int kDesignWidth = 580;
+  static constexpr int kDesignHeight = 694;
+
   explicit OctobIREditor(OctobIRProcessor&);
   ~OctobIREditor() override;
 
