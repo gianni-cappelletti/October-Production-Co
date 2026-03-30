@@ -222,6 +222,73 @@ TEST_F(PluginProcessorTest, StateRoundTrip_Parameters)
 
 // Editor size persistence
 
+// Bus layout support
+
+TEST_F(PluginProcessorTest, BusLayout_StereoInStereoOut)
+{
+  juce::AudioProcessor::BusesLayout layout;
+  layout.inputBuses.add(juce::AudioChannelSet::stereo());
+  layout.inputBuses.add(juce::AudioChannelSet::disabled());
+  layout.outputBuses.add(juce::AudioChannelSet::stereo());
+  EXPECT_TRUE(processor.checkBusesLayoutSupported(layout));
+}
+
+TEST_F(PluginProcessorTest, BusLayout_MonoInMonoOut)
+{
+  juce::AudioProcessor::BusesLayout layout;
+  layout.inputBuses.add(juce::AudioChannelSet::mono());
+  layout.inputBuses.add(juce::AudioChannelSet::disabled());
+  layout.outputBuses.add(juce::AudioChannelSet::mono());
+  EXPECT_TRUE(processor.checkBusesLayoutSupported(layout));
+}
+
+TEST_F(PluginProcessorTest, BusLayout_MonoInStereoOut)
+{
+  juce::AudioProcessor::BusesLayout layout;
+  layout.inputBuses.add(juce::AudioChannelSet::mono());
+  layout.inputBuses.add(juce::AudioChannelSet::disabled());
+  layout.outputBuses.add(juce::AudioChannelSet::stereo());
+  EXPECT_TRUE(processor.checkBusesLayoutSupported(layout));
+}
+
+TEST_F(PluginProcessorTest, BusLayout_RejectsStereoInMonoOut)
+{
+  juce::AudioProcessor::BusesLayout layout;
+  layout.inputBuses.add(juce::AudioChannelSet::stereo());
+  layout.inputBuses.add(juce::AudioChannelSet::disabled());
+  layout.outputBuses.add(juce::AudioChannelSet::mono());
+  EXPECT_FALSE(processor.checkBusesLayoutSupported(layout));
+}
+
+TEST_F(PluginProcessorTest, BusLayout_StereoWithMonoSidechain)
+{
+  juce::AudioProcessor::BusesLayout layout;
+  layout.inputBuses.add(juce::AudioChannelSet::stereo());
+  layout.inputBuses.add(juce::AudioChannelSet::mono());
+  layout.outputBuses.add(juce::AudioChannelSet::stereo());
+  EXPECT_TRUE(processor.checkBusesLayoutSupported(layout));
+}
+
+TEST_F(PluginProcessorTest, BusLayout_StereoWithStereoSidechain)
+{
+  juce::AudioProcessor::BusesLayout layout;
+  layout.inputBuses.add(juce::AudioChannelSet::stereo());
+  layout.inputBuses.add(juce::AudioChannelSet::stereo());
+  layout.outputBuses.add(juce::AudioChannelSet::stereo());
+  EXPECT_TRUE(processor.checkBusesLayoutSupported(layout));
+}
+
+TEST_F(PluginProcessorTest, BusLayout_MonoInStereoOutWithSidechain)
+{
+  juce::AudioProcessor::BusesLayout layout;
+  layout.inputBuses.add(juce::AudioChannelSet::mono());
+  layout.inputBuses.add(juce::AudioChannelSet::mono());
+  layout.outputBuses.add(juce::AudioChannelSet::stereo());
+  EXPECT_TRUE(processor.checkBusesLayoutSupported(layout));
+}
+
+// Editor size persistence
+
 TEST_F(PluginProcessorTest, EditorOpensAtDesignSize)
 {
   auto* editor = processor.createEditor();

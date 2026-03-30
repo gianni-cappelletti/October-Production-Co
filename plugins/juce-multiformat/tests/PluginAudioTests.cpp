@@ -150,6 +150,140 @@ TEST_F(PluginAudioTest, ProcessBlock_NonSilentWithIRLoaded)
   EXPECT_GT(peak, 1e-6f) << "Output is silent despite IR A being loaded and enabled";
 }
 
+// Scenario: Mono input processing — verify the plugin produces non-silent output
+// when configured with a mono bus layout (1 in, 1 out).
+TEST_F(PluginAudioTest, ProcessBlock_MonoNonSilentWithIRLoaded)
+{
+  OctobIRProcessor processor;
+
+  juce::AudioProcessor::BusesLayout monoLayout;
+  monoLayout.inputBuses.add(juce::AudioChannelSet::mono());
+  monoLayout.inputBuses.add(juce::AudioChannelSet::disabled());
+  monoLayout.outputBuses.add(juce::AudioChannelSet::mono());
+  ASSERT_TRUE(processor.checkBusesLayoutSupported(monoLayout))
+      << "Mono layout not supported — this will prevent the plugin from appearing "
+         "on mono tracks in Logic Pro";
+  processor.setBusesLayout(monoLayout);
+
+  processor.prepareToPlay(kSampleRate, kBlockSize);
+  juce::String err;
+  ASSERT_TRUE(processor.loadImpulseResponse1(kIrAPath, err)) << err;
+
+  const size_t totalFrames = dryInput_.size();
+  std::vector<float> rawOutput;
+  rawOutput.reserve(totalFrames + 2048);
+
+  size_t framesConsumed = 0;
+  while (framesConsumed < totalFrames)
+  {
+    juce::AudioBuffer<float> buf(1, kBlockSize);
+    buf.clear();
+    const size_t toCopy = std::min(static_cast<size_t>(kBlockSize), totalFrames - framesConsumed);
+    for (size_t i = 0; i < toCopy; ++i)
+      buf.setSample(0, static_cast<int>(i), dryInput_[framesConsumed + i]);
+    juce::MidiBuffer midi;
+    processor.processBlock(buf, midi);
+    for (int i = 0; i < kBlockSize; ++i)
+      rawOutput.push_back(buf.getSample(0, i));
+    framesConsumed += kBlockSize;
+  }
+
+  const int latency = processor.getLatencySamples();
+  size_t tailFlushed = 0;
+  while (tailFlushed < static_cast<size_t>(latency))
+  {
+    juce::AudioBuffer<float> buf(1, kBlockSize);
+    buf.clear();
+    juce::MidiBuffer midi;
+    processor.processBlock(buf, midi);
+    for (int i = 0; i < kBlockSize; ++i)
+      rawOutput.push_back(buf.getSample(0, i));
+    tailFlushed += kBlockSize;
+  }
+
+  std::vector<float> aligned(rawOutput.begin() + latency,
+                             rawOutput.begin() + latency + static_cast<ptrdiff_t>(totalFrames));
+
+  float peak = 0.0f;
+  for (float s : aligned)
+    peak = std::max(peak, std::abs(s));
+  EXPECT_GT(peak, 1e-6f) << "Mono output is silent despite IR A being loaded and enabled";
+}
+
+// Scenario: Mono-to-stereo processing — verify the plugin produces non-silent output
+// on both channels when configured with mono input and stereo output.
+TEST_F(PluginAudioTest, ProcessBlock_MonoToStereoNonSilentWithIRLoaded)
+{
+  OctobIRProcessor processor;
+
+  juce::AudioProcessor::BusesLayout m2sLayout;
+  m2sLayout.inputBuses.add(juce::AudioChannelSet::mono());
+  m2sLayout.inputBuses.add(juce::AudioChannelSet::disabled());
+  m2sLayout.outputBuses.add(juce::AudioChannelSet::stereo());
+  ASSERT_TRUE(processor.checkBusesLayoutSupported(m2sLayout))
+      << "Mono-to-stereo layout not supported — this will prevent the plugin from appearing "
+         "as 'Mono -> Stereo' on mono tracks in Logic Pro";
+  processor.setBusesLayout(m2sLayout);
+
+  processor.prepareToPlay(kSampleRate, kBlockSize);
+  juce::String err;
+  ASSERT_TRUE(processor.loadImpulseResponse1(kIrAPath, err)) << err;
+
+  const size_t totalFrames = dryInput_.size();
+  std::vector<float> rawOutputL, rawOutputR;
+  rawOutputL.reserve(totalFrames + 2048);
+  rawOutputR.reserve(totalFrames + 2048);
+
+  size_t framesConsumed = 0;
+  while (framesConsumed < totalFrames)
+  {
+    // 2-channel buffer: ch0 is mono input bus, ch1 is stereo output's R channel
+    juce::AudioBuffer<float> buf(2, kBlockSize);
+    buf.clear();
+    const size_t toCopy = std::min(static_cast<size_t>(kBlockSize), totalFrames - framesConsumed);
+    for (size_t i = 0; i < toCopy; ++i)
+      buf.setSample(0, static_cast<int>(i), dryInput_[framesConsumed + i]);
+    juce::MidiBuffer midi;
+    processor.processBlock(buf, midi);
+    for (int i = 0; i < kBlockSize; ++i)
+    {
+      rawOutputL.push_back(buf.getSample(0, i));
+      rawOutputR.push_back(buf.getSample(1, i));
+    }
+    framesConsumed += kBlockSize;
+  }
+
+  const int latency = processor.getLatencySamples();
+  size_t tailFlushed = 0;
+  while (tailFlushed < static_cast<size_t>(latency))
+  {
+    juce::AudioBuffer<float> buf(2, kBlockSize);
+    buf.clear();
+    juce::MidiBuffer midi;
+    processor.processBlock(buf, midi);
+    for (int i = 0; i < kBlockSize; ++i)
+    {
+      rawOutputL.push_back(buf.getSample(0, i));
+      rawOutputR.push_back(buf.getSample(1, i));
+    }
+    tailFlushed += kBlockSize;
+  }
+
+  std::vector<float> alignedL(rawOutputL.begin() + latency,
+                              rawOutputL.begin() + latency + static_cast<ptrdiff_t>(totalFrames));
+  std::vector<float> alignedR(rawOutputR.begin() + latency,
+                              rawOutputR.begin() + latency + static_cast<ptrdiff_t>(totalFrames));
+
+  float peakL = 0.0f, peakR = 0.0f;
+  for (size_t i = 0; i < alignedL.size(); ++i)
+  {
+    peakL = std::max(peakL, std::abs(alignedL[i]));
+    peakR = std::max(peakR, std::abs(alignedR[i]));
+  }
+  EXPECT_GT(peakL, 1e-6f) << "Left channel is silent in mono-to-stereo mode";
+  EXPECT_GT(peakR, 1e-6f) << "Right channel is silent in mono-to-stereo mode";
+}
+
 // Scenario: Equal-power blend (blend=0.0f) is commutative — swapping IR slots must not
 // change the plugin output.
 //
