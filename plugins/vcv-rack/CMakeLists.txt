@@ -76,6 +76,10 @@ if(TARGET octobir-core)
     add_dependencies(vcv-plugin octobir-core)
 endif()
 
+if(BUILD_VCV_TESTS)
+    add_subdirectory(tests)
+endif()
+
 # Add custom clean target to the overall clean
 set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_CLEAN_FILES
     ${VCV_PLUGIN_OUTPUT}

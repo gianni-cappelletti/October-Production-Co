@@ -1,4 +1,4 @@
-.PHONY: help vcv juce core test test-juce clean tidy format install-juce install-vcv header
+.PHONY: help vcv juce core test test-juce test-vcv clean tidy format install-juce install-vcv header
 
 .DEFAULT_GOAL := help
 
@@ -17,6 +17,7 @@ help: header
 	@echo "  make core        - Clean and build core library only"
 	@echo "  make test        - Build and run octobir-core unit tests"
 	@echo "  make test-juce   - Build and run JUCE plugin unit tests"
+	@echo "  make test-vcv    - Build and run VCV plugin unit tests"
 	@echo ""
 	@echo "Install targets (release builds):"
 	@echo "  make install-juce - Build and install JUCE plugin (release)"
@@ -76,6 +77,19 @@ test:
 	@cmake --build build/test --target octobir-core-tests -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 	@echo "Running tests..."
 	@./build/test/libs/octobir-core/tests/octobir-core-tests
+
+# VCV Plugin Tests
+test-vcv:
+	@rm -rf build/test-vcv
+	@cmake -B build/test-vcv \
+		-DCMAKE_BUILD_TYPE=Debug \
+		-DBUILD_VCV_PLUGIN=OFF \
+		-DBUILD_VCV_TESTS=ON \
+		-DBUILD_JUCE_PLUGIN=OFF \
+		-DBUILD_TESTS=OFF
+	@cmake --build build/test-vcv --target octobir-vcv-tests -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+	@echo "Running VCV plugin tests..."
+	@./build/test-vcv/plugins/vcv-rack/tests/octobir-vcv-tests
 
 # JUCE Plugin Tests
 test-juce:

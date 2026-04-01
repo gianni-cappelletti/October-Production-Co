@@ -12,6 +12,7 @@
 
 static const std::string kIrAPath = std::string(TEST_DATA_DIR) + "/INPUT_ir_a.wav";
 static const std::string kIrBPath = std::string(TEST_DATA_DIR) + "/INPUT_ir_b.wav";
+static const std::string kIrStereoPath = std::string(TEST_DATA_DIR) + "/INPUT_ir_stereo.wav";
 static const std::string kDryPath = std::string(TEST_DATA_DIR) + "/INPUT_amp_output_no_ir.wav";
 
 static constexpr int kSampleRate = 44100;
@@ -358,4 +359,71 @@ TEST_F(PluginAudioTest, LatencyConsistentAfterSwap)
 
   EXPECT_EQ(latencyBefore, latencyAfter)
       << "Latency changed after swap despite the same pair of IRs being loaded";
+}
+
+// Scenario: Mono-to-stereo with a stereo IR — verify L and R outputs are meaningfully
+// different. A mono IR produces L == R; a stereo IR must produce distinct L and R.
+TEST_F(PluginAudioTest, MonoToStereo_ChannelsAreDifferent_StereoIR)
+{
+  OctobIRProcessor processor;
+
+  juce::AudioProcessor::BusesLayout m2sLayout;
+  m2sLayout.inputBuses.add(juce::AudioChannelSet::mono());
+  m2sLayout.inputBuses.add(juce::AudioChannelSet::disabled());
+  m2sLayout.outputBuses.add(juce::AudioChannelSet::stereo());
+  ASSERT_TRUE(processor.checkBusesLayoutSupported(m2sLayout));
+  processor.setBusesLayout(m2sLayout);
+
+  processor.prepareToPlay(kSampleRate, kBlockSize);
+  juce::String err;
+  ASSERT_TRUE(processor.loadImpulseResponse1(kIrStereoPath, err)) << err;
+
+  const size_t totalFrames = dryInput_.size();
+  std::vector<float> rawL, rawR;
+  rawL.reserve(totalFrames + 2048);
+  rawR.reserve(totalFrames + 2048);
+
+  size_t framesConsumed = 0;
+  while (framesConsumed < totalFrames)
+  {
+    juce::AudioBuffer<float> buf(2, kBlockSize);
+    buf.clear();
+    const size_t toCopy = std::min(static_cast<size_t>(kBlockSize), totalFrames - framesConsumed);
+    for (size_t i = 0; i < toCopy; ++i)
+      buf.setSample(0, static_cast<int>(i), dryInput_[framesConsumed + i]);
+    juce::MidiBuffer midi;
+    processor.processBlock(buf, midi);
+    for (int i = 0; i < kBlockSize; ++i)
+    {
+      rawL.push_back(buf.getSample(0, i));
+      rawR.push_back(buf.getSample(1, i));
+    }
+    framesConsumed += kBlockSize;
+  }
+
+  const int latency = processor.getLatencySamples();
+  size_t tailFlushed = 0;
+  while (tailFlushed < static_cast<size_t>(latency))
+  {
+    juce::AudioBuffer<float> buf(2, kBlockSize);
+    buf.clear();
+    juce::MidiBuffer midi;
+    processor.processBlock(buf, midi);
+    for (int i = 0; i < kBlockSize; ++i)
+    {
+      rawL.push_back(buf.getSample(0, i));
+      rawR.push_back(buf.getSample(1, i));
+    }
+    tailFlushed += kBlockSize;
+  }
+
+  std::vector<float> alignedL(rawL.begin() + latency,
+                              rawL.begin() + latency + static_cast<ptrdiff_t>(totalFrames));
+  std::vector<float> alignedR(rawR.begin() + latency,
+                              rawR.begin() + latency + static_cast<ptrdiff_t>(totalFrames));
+
+  const double r = pearsonCorrelation(alignedL, alignedR);
+  EXPECT_LT(r, 0.9999) << "L and R are identical (r=" << r
+                       << ") despite loading a stereo IR — processMonoToStereo may "
+                       << "be ignoring the right IR channel";
 }
