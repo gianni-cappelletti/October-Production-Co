@@ -69,17 +69,32 @@ static bool isAudioExtension(const std::string& name)
   return ext == ".wav" || ext == ".aiff" || ext == ".aif" || ext == ".flac";
 }
 
-struct OpcTrimKnob : RoundSmallBlackKnob
+struct OpcTrimKnob : Trimpot
 {
 };
 
-struct OpcIrEnableSwitch : app::SvgSwitch
+struct OpcIrEnableButton : app::Switch
 {
-  OpcIrEnableSwitch()
+  std::string label;
+  std::string fontPath;
+
+  void draw(const DrawArgs& args) override
   {
-    shadow->opacity = 0.f;
-    addFrame(Svg::load(asset::system("res/ComponentLibrary/CKSS_0.svg")));
-    addFrame(Svg::load(asset::system("res/ComponentLibrary/CKSS_1.svg")));
+    engine::ParamQuantity* pq = getParamQuantity();
+    const bool lit = pq ? pq->getValue() > 0.5f : false;
+    drawRetroButton(args.vg, box.size.x, box.size.y, label.c_str(), lit, false, fontPath);
+  }
+};
+
+struct OpcDetectModeButton : app::Switch
+{
+  std::string fontPath;
+
+  void draw(const DrawArgs& args) override
+  {
+    engine::ParamQuantity* pq = getParamQuantity();
+    const bool lit = pq ? pq->getValue() < 0.5f : true;
+    drawRetroButton(args.vg, box.size.x, box.size.y, "PEAK", lit, false, fontPath);
   }
 };
 
@@ -88,7 +103,7 @@ struct OpcPanelLabel : TransparentWidget
   std::string text;
   std::string fontPath;
   float fontSize = 9.f;
-  NVGcolor color = nvgRGB(0xF0, 0x88, 0x30);
+  NVGcolor color = nvgRGB(0x1a, 0x1a, 0x1a);
   int align = NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE;
 
   void draw(const DrawArgs& args) override
@@ -338,6 +353,7 @@ using OpcIrNextButton = OpcIrNavButton<1>;
 struct OpcMeterDisplay : OpaqueWidget
 {
   OpcVcvIr* module = nullptr;
+  std::string fontPath;
 
   void draw(const DrawArgs& args) override
   {
@@ -355,6 +371,17 @@ struct OpcMeterDisplay : OpaqueWidget
     nvgRect(args.vg, 0.f, 0.f, w, h);
     nvgFillColor(args.vg, dark);
     nvgFill(args.vg);
+
+    int fontId = nvgFindFont(args.vg, "Inconsolata");
+    if (fontId < 0 && !fontPath.empty())
+      fontId = nvgCreateFont(args.vg, "Inconsolata", fontPath.c_str());
+    if (fontId >= 0)
+      nvgFontFaceId(args.vg, fontId);
+    nvgFontSize(args.vg, 8.f);
+    nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+    nvgFillColor(args.vg, orange);
+    nvgText(args.vg, 6.f, barH * 0.5f, "INPUT", nullptr);
+    nvgText(args.vg, 6.f, h * 0.5f + 1.f + barH * 0.5f, "BLEND", nullptr);
 
     drawBar(args.vg, 0.f, barH, w, levelDb, false, orange, dark);
     drawBar(args.vg, h * 0.5f + 1.f, barH, w, blend, true, orange, dark);
@@ -527,41 +554,49 @@ struct OpcVcvIrWidget final : ModuleWidget
       addChild(btn);
     };
 
-    // IR A row (Y-center = 10.0)
-    addParam(createParamCentered<OpcIrEnableSwitch>(
-        mm2px(Vec(5.08f, 10.0f)), module, static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)));
-    addParam(createParamCentered<OpcTrimKnob>(
-        mm2px(Vec(12.70f, 10.0f)), module, static_cast<int>(OpcVcvIr::ParamId::IrATrimGainParam)));
+    auto makeEnableBtn = [&](math::Vec center, bool ir2)
+    {
+      const auto paramId = static_cast<int>(ir2 ? OpcVcvIr::ParamId::IrBEnableParam
+                                                : OpcVcvIr::ParamId::IrAEnableParam);
+      auto* btn = createParam<OpcIrEnableButton>(center - mm2px(Vec(6.0f, 3.0f)), module, paramId);
+      btn->box.size = mm2px(Vec(12.0f, 6.0f));
+      btn->label = "ENBL";
+      btn->fontPath = fp;
+      addParam(btn);
+    };
 
-    auto* fileDisplayA = createWidget<IrFileDisplay>(mm2px(Vec(18.0f, 5.5f)));
-    fileDisplayA->box.size = mm2px(Vec(76.0f, 9.0f));
+    // IR A row (Y-center = 10.0)
+    // Control order: LOAD | CLR | < | > | ENBL | TRIM | LCD
+    makeLoadBtn(mm2px(Vec(10.0f, 10.0f)), false);
+    makeClearBtn(mm2px(Vec(19.0f, 10.0f)), false);
+    makePrevBtn(mm2px(Vec(28.0f, 10.0f)), false);
+    makeNextBtn(mm2px(Vec(37.0f, 10.0f)), false);
+    makeEnableBtn(mm2px(Vec(49.0f, 10.0f)), false);
+    addParam(createParamCentered<OpcTrimKnob>(
+        mm2px(Vec(59.0f, 10.0f)), module, static_cast<int>(OpcVcvIr::ParamId::IrATrimGainParam)));
+
+    auto* fileDisplayA = createWidget<IrFileDisplay>(mm2px(Vec(63.0f, 5.5f)));
+    fileDisplayA->box.size = mm2px(Vec(74.0f, 9.0f));
     fileDisplayA->module = module;
     fileDisplayA->isIR2 = false;
     addChild(fileDisplayA);
 
-    makeLoadBtn(mm2px(Vec(97.5f, 10.0f)), false);
-    makeClearBtn(mm2px(Vec(108.0f, 10.0f)), false);
-    makePrevBtn(mm2px(Vec(118.5f, 10.0f)), false);
-    makeNextBtn(mm2px(Vec(129.0f, 10.0f)), false);
-
     makeLabel(mm2px(Vec(1.0f, 3.5f)), mm2px(Vec(8.0f, 4.0f)), "IR A", 8.f);
 
     // IR B row (Y-center = 20.0)
-    addParam(createParamCentered<OpcIrEnableSwitch>(
-        mm2px(Vec(5.08f, 20.0f)), module, static_cast<int>(OpcVcvIr::ParamId::IrBEnableParam)));
+    makeLoadBtn(mm2px(Vec(10.0f, 20.0f)), true);
+    makeClearBtn(mm2px(Vec(19.0f, 20.0f)), true);
+    makePrevBtn(mm2px(Vec(28.0f, 20.0f)), true);
+    makeNextBtn(mm2px(Vec(37.0f, 20.0f)), true);
+    makeEnableBtn(mm2px(Vec(49.0f, 20.0f)), true);
     addParam(createParamCentered<OpcTrimKnob>(
-        mm2px(Vec(12.70f, 20.0f)), module, static_cast<int>(OpcVcvIr::ParamId::IrBTrimGainParam)));
+        mm2px(Vec(59.0f, 20.0f)), module, static_cast<int>(OpcVcvIr::ParamId::IrBTrimGainParam)));
 
-    auto* fileDisplayB = createWidget<IrFileDisplay>(mm2px(Vec(18.0f, 15.5f)));
-    fileDisplayB->box.size = mm2px(Vec(76.0f, 9.0f));
+    auto* fileDisplayB = createWidget<IrFileDisplay>(mm2px(Vec(63.0f, 15.5f)));
+    fileDisplayB->box.size = mm2px(Vec(74.0f, 9.0f));
     fileDisplayB->module = module;
     fileDisplayB->isIR2 = true;
     addChild(fileDisplayB);
-
-    makeLoadBtn(mm2px(Vec(97.5f, 20.0f)), true);
-    makeClearBtn(mm2px(Vec(108.0f, 20.0f)), true);
-    makePrevBtn(mm2px(Vec(118.5f, 20.0f)), true);
-    makeNextBtn(mm2px(Vec(129.0f, 20.0f)), true);
 
     makeLabel(mm2px(Vec(1.0f, 13.5f)), mm2px(Vec(8.0f, 4.0f)), "IR B", 8.f);
 
@@ -599,11 +634,9 @@ struct OpcVcvIrWidget final : ModuleWidget
       auto* meter = createWidget<OpcMeterDisplay>(mm2px(Vec(5.0f, 33.5f)));
       meter->box.size = mm2px(Vec(132.24f, 14.0f));
       meter->module = module;
+      meter->fontPath = fp;
       addChild(meter);
     }
-
-    makeLabel(mm2px(Vec(5.0f, 48.5f)), mm2px(Vec(66.12f, 4.0f)), "INPUT", 8.f);
-    makeLabel(mm2px(Vec(71.12f, 48.5f)), mm2px(Vec(66.12f, 4.0f)), "BLEND", 8.f);
 
     // Large knobs (Y-center = 56.5)
     addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(35.56f, 56.5f)), module,
@@ -631,9 +664,14 @@ struct OpcVcvIrWidget final : ModuleWidget
         mm2px(Vec(25.40f, 89.5f)), module, static_cast<int>(OpcVcvIr::ParamId::AttackTimeParam)));
     addParam(createParamCentered<RoundSmallBlackKnob>(
         mm2px(Vec(71.12f, 89.5f)), module, static_cast<int>(OpcVcvIr::ParamId::ReleaseTimeParam)));
-    addParam(createParamCentered<OpcIrEnableSwitch>(
-        mm2px(Vec(116.84f, 89.5f)), module,
-        static_cast<int>(OpcVcvIr::ParamId::DetectionModeParam)));
+    {
+      auto* detectBtn =
+          createParam<OpcDetectModeButton>(mm2px(Vec(116.84f - 10.0f, 89.5f - 4.0f)), module,
+                                           static_cast<int>(OpcVcvIr::ParamId::DetectionModeParam));
+      detectBtn->box.size = mm2px(Vec(20.0f, 8.0f));
+      detectBtn->fontPath = fp;
+      addParam(detectBtn);
+    }
 
     makeLabel(mm2px(Vec(15.40f, 85.0f)), mm2px(Vec(20.0f, 4.0f)), "ATTACK", 8.f);
     makeLabel(mm2px(Vec(61.12f, 85.0f)), mm2px(Vec(20.0f, 4.0f)), "RELEASE", 8.f);
