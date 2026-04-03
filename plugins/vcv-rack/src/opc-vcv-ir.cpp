@@ -6,45 +6,448 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <vector>
 
-static void drawRetroButton(NVGcontext* vg, float w, float h, const char* label, bool lit,
-                            bool pressed, const std::string& fontPath)
+// ---------------------------------------------------------------------------
+// Font helpers
+// ---------------------------------------------------------------------------
+
+static int ensureFont(NVGcontext* vg, const char* name, const std::string& path)
 {
-  const NVGcolor bg = nvgRGB(0x1c, 0x1c, 0x30);
-  const NVGcolor fg = nvgRGB(0xF0, 0x88, 0x30);
-  const NVGcolor litBg = nvgRGBA(0xF0, 0x88, 0x30, 0x80);
+  int id = nvgFindFont(vg, name);
+  if (id < 0 && !path.empty())
+    id = nvgCreateFont(vg, name, path.c_str());
+  return id;
+}
 
-  nvgBeginPath(vg);
-  nvgRect(vg, 0.f, 0.f, w, h);
-  nvgFillColor(vg, pressed ? fg : bg);
-  nvgFill(vg);
+// ---------------------------------------------------------------------------
+// Drawing helpers — NanoVG translations of JUCE LookAndFeel
+// ---------------------------------------------------------------------------
 
-  if (lit && !pressed)
+static void drawJuceButton(NVGcontext* vg, float w, float h, const char* label, bool pressed,
+                           bool isLoadButton, const std::string& fontPath)
+{
+  const float cr = 4.0f;
+
+  // Drop shadow (when not pressed)
+  if (!pressed)
   {
+    NVGpaint shadow =
+        nvgBoxGradient(vg, 0.f, 2.f, w, h, cr, 4.f, nvgRGBA(0, 0, 0, 115), nvgRGBA(0, 0, 0, 0));
     nvgBeginPath(vg);
-    nvgRect(vg, 0.f, 0.f, w, h);
-    nvgFillColor(vg, litBg);
+    nvgRoundedRect(vg, -2.f, 0.f, w + 4.f, h + 4.f, cr);
+    nvgFillPaint(vg, shadow);
     nvgFill(vg);
   }
 
+  // Gradient fill
+  NVGcolor top = pressed ? nvgRGB(0x24, 0x24, 0x24) : nvgRGB(0x38, 0x38, 0x38);
+  NVGcolor bot = pressed ? nvgRGB(0x30, 0x30, 0x30) : nvgRGB(0x24, 0x24, 0x24);
+  NVGpaint grad = nvgLinearGradient(vg, 0.f, 0.5f, 0.f, h - 0.5f, top, bot);
   nvgBeginPath(vg);
-  nvgRect(vg, 0.5f, 0.5f, w - 1.f, h - 1.f);
-  nvgStrokeColor(vg, fg);
-  nvgStrokeWidth(vg, 1.5f);
+  nvgRoundedRect(vg, 0.5f, 0.5f, w - 1.f, h - 1.f, cr);
+  nvgFillPaint(vg, grad);
+  nvgFill(vg);
+
+  // Top/left highlight
+  nvgStrokeWidth(vg, 1.f);
+  nvgStrokeColor(vg, nvgRGB(0x50, 0x50, 0x50));
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, cr + 0.5f, 1.5f);
+  nvgLineTo(vg, w - cr - 0.5f, 1.5f);
+  nvgStroke(vg);
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, 1.5f, cr + 0.5f);
+  nvgLineTo(vg, 1.5f, h - cr - 0.5f);
   nvgStroke(vg);
 
-  int fontId = nvgFindFont(vg, "Inconsolata");
-  if (fontId < 0)
-    fontId = nvgCreateFont(vg, "Inconsolata", fontPath.c_str());
+  // Bottom/right shadow
+  nvgStrokeColor(vg, nvgRGB(0x14, 0x14, 0x14));
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, cr + 0.5f, h - 1.5f);
+  nvgLineTo(vg, w - cr - 0.5f, h - 1.5f);
+  nvgStroke(vg);
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, w - 1.5f, cr + 0.5f);
+  nvgLineTo(vg, w - 1.5f, h - cr - 0.5f);
+  nvgStroke(vg);
+
+  // Border
+  nvgBeginPath(vg);
+  nvgRoundedRect(vg, 0.5f, 0.5f, w - 1.f, h - 1.f, cr);
+  nvgStrokeColor(vg, nvgRGB(0x18, 0x18, 0x18));
+  nvgStrokeWidth(vg, 1.f);
+  nvgStroke(vg);
+
+  const float offset = pressed ? 1.f : 0.f;
+
+  if (isLoadButton)
+  {
+    // Folder icon (translated from JUCE drawButtonText folder path)
+    const float pad = 3.5f;
+    float side = std::min(w, h) - pad * 2.f;
+    float bx = (w - side) * 0.5f + offset;
+    float by = (h - side) * 0.5f + offset;
+    float r = std::min(1.5f, side * 0.15f);
+    float tabW = side * 0.44f;
+    float tabH = side * 0.20f;
+    float slopeW = tabH * 0.75f;
+
+    nvgBeginPath(vg);
+    nvgMoveTo(vg, bx, by + r);
+    nvgQuadTo(vg, bx, by, bx + r, by);
+    nvgLineTo(vg, bx + tabW, by);
+    nvgBezierTo(vg, bx + tabW + slopeW * 0.5f, by, bx + tabW + slopeW, by + tabH - r,
+                bx + tabW + slopeW, by + tabH);
+    nvgLineTo(vg, bx + side - r, by + tabH);
+    nvgQuadTo(vg, bx + side, by + tabH, bx + side, by + tabH + r);
+    nvgLineTo(vg, bx + side, by + side - r);
+    nvgQuadTo(vg, bx + side, by + side, bx + side - r, by + side);
+    nvgLineTo(vg, bx + r, by + side);
+    nvgQuadTo(vg, bx, by + side, bx, by + side - r);
+    nvgClosePath(vg);
+    nvgFillColor(vg, nvgRGBA(0xff, 0xff, 0xff, 0xff));
+    nvgFill(vg);
+  }
+  else if (label != nullptr)
+  {
+    int fontId = ensureFont(vg, "CourierPrime", fontPath);
+    if (fontId >= 0)
+      nvgFontFaceId(vg, fontId);
+    nvgFontSize(vg, 11.f);
+    nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+    nvgFillColor(vg, nvgRGBA(0xff, 0xff, 0xff, 0xff));
+    nvgText(vg, w * 0.5f + offset, h * 0.5f + offset, label, nullptr);
+  }
+}
+
+static void drawToggleButton(NVGcontext* vg, float w, float h, const char* label, bool isOn,
+                             const std::string& fontPath)
+{
+  const float cr = 4.0f;
+  const float ledW = std::max(4.f, w * 0.12f);
+
+  // Drop shadow (when OFF)
+  if (!isOn)
+  {
+    NVGpaint shadow =
+        nvgBoxGradient(vg, 0.f, 2.f, w, h, cr, 4.f, nvgRGBA(0, 0, 0, 115), nvgRGBA(0, 0, 0, 0));
+    nvgBeginPath(vg);
+    nvgRoundedRect(vg, -2.f, 0.f, w + 4.f, h + 4.f, cr);
+    nvgFillPaint(vg, shadow);
+    nvgFill(vg);
+  }
+
+  // Gradient fill
+  NVGcolor top, bot;
+  if (isOn)
+  {
+    top = nvgRGB(0x1e, 0x1e, 0x1e);
+    bot = nvgRGB(0x2e, 0x2e, 0x2e);
+  }
+  else
+  {
+    top = nvgRGB(0x38, 0x38, 0x38);
+    bot = nvgRGB(0x24, 0x24, 0x24);
+  }
+  NVGpaint grad = nvgLinearGradient(vg, 0.f, 0.5f, 0.f, h - 0.5f, top, bot);
+  nvgBeginPath(vg);
+  nvgRoundedRect(vg, 0.5f, 0.5f, w - 1.f, h - 1.f, cr);
+  nvgFillPaint(vg, grad);
+  nvgFill(vg);
+
+  // Edge highlights/shadows (inverted when ON)
+  NVGcolor hiColor = isOn ? nvgRGB(0x14, 0x14, 0x14) : nvgRGB(0x50, 0x50, 0x50);
+  NVGcolor loColor = isOn ? nvgRGB(0x50, 0x50, 0x50) : nvgRGB(0x14, 0x14, 0x14);
+
+  nvgStrokeWidth(vg, 1.f);
+  nvgStrokeColor(vg, hiColor);
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, cr + 0.5f, 1.5f);
+  nvgLineTo(vg, w - cr - 0.5f, 1.5f);
+  nvgStroke(vg);
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, 1.5f, cr + 0.5f);
+  nvgLineTo(vg, 1.5f, h - cr - 0.5f);
+  nvgStroke(vg);
+
+  nvgStrokeColor(vg, loColor);
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, cr + 0.5f, h - 1.5f);
+  nvgLineTo(vg, w - cr - 0.5f, h - 1.5f);
+  nvgStroke(vg);
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, w - 1.5f, cr + 0.5f);
+  nvgLineTo(vg, w - 1.5f, h - cr - 0.5f);
+  nvgStroke(vg);
+
+  // Border
+  nvgBeginPath(vg);
+  nvgRoundedRect(vg, 0.5f, 0.5f, w - 1.f, h - 1.f, cr);
+  nvgStrokeColor(vg, nvgRGB(0x18, 0x18, 0x18));
+  nvgStrokeWidth(vg, 1.f);
+  nvgStroke(vg);
+
+  // LED strip on left
+  float ledCx = ledW * 0.5f + 0.5f;
+  float ledCy = h * 0.5f;
+  if (isOn)
+  {
+    // Glow
+    NVGpaint glow = nvgRadialGradient(vg, ledCx, ledCy, 0.f, ledW * 3.f,
+                                      nvgRGBA(0xe0, 0x70, 0x30, 72), nvgRGBA(0xe0, 0x70, 0x30, 0));
+    nvgBeginPath(vg);
+    nvgRect(vg, -ledW, 0.f, ledW * 5.f, h);
+    nvgFillPaint(vg, glow);
+    nvgFill(vg);
+
+    // Bright strip
+    NVGpaint stripGrad =
+        nvgRadialGradient(vg, ledCx, ledCy - h * 0.2f, 0.f, h * 0.6f,
+                          nvgRGBA(0xff, 0xb0, 0x60, 0xff), nvgRGBA(0xe0, 0x70, 0x30, 0xff));
+    nvgBeginPath(vg);
+    nvgRoundedRect(vg, 0.5f, 0.5f, ledW, h - 1.f, cr);
+    nvgFillPaint(vg, stripGrad);
+    nvgFill(vg);
+  }
+  else
+  {
+    // Dim LED
+    nvgBeginPath(vg);
+    nvgRoundedRect(vg, 0.5f, 0.5f, ledW, h - 1.f, cr);
+    nvgFillColor(vg, nvgRGBA(0x30, 0x1a, 0x0a, 0xff));
+    nvgFill(vg);
+  }
+
+  // Text (shifted right past LED strip)
+  int fontId = ensureFont(vg, "CourierPrime", fontPath);
   if (fontId >= 0)
     nvgFontFaceId(vg, fontId);
-
-  nvgFontSize(vg, 9.f);
+  nvgFontSize(vg, 11.f);
   nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-  nvgFillColor(vg, pressed ? bg : fg);
-  nvgText(vg, w * 0.5f, h * 0.5f, label, nullptr);
+  nvgFillColor(vg, nvgRGBA(0xff, 0xff, 0xff, 230));
+  nvgText(vg, (w + ledW) * 0.5f, h * 0.5f, label, nullptr);
 }
+
+static void drawLCDBackground(NVGcontext* vg, float x, float y, float w, float h)
+{
+  const float cr = 3.0f;
+
+  // Orange fill
+  nvgBeginPath(vg);
+  nvgRoundedRect(vg, x, y, w, h, cr);
+  nvgFillColor(vg, nvgRGB(0xF0, 0x88, 0x30));
+  nvgFill(vg);
+
+  // Dark border
+  nvgBeginPath(vg);
+  nvgRoundedRect(vg, x, y, w, h, cr);
+  nvgStrokeColor(vg, nvgRGB(0x1a, 0x1a, 0x1a));
+  nvgStrokeWidth(vg, 1.f);
+  nvgStroke(vg);
+
+  // Top inset shadow
+  float ix = x + 1.f;
+  float iy = y + 1.f;
+  float iw = w - 2.f;
+  float ih = h - 2.f;
+  NVGpaint topShadow =
+      nvgLinearGradient(vg, ix, iy, ix, iy + 5.f, nvgRGBA(0, 0, 0, 56), nvgRGBA(0, 0, 0, 0));
+  nvgBeginPath(vg);
+  nvgRoundedRect(vg, ix, iy, iw, ih, cr - 1.f);
+  nvgFillPaint(vg, topShadow);
+  nvgFill(vg);
+
+  // Left inset shadow
+  NVGpaint leftShadow =
+      nvgLinearGradient(vg, ix, iy, ix + 5.f, iy, nvgRGBA(0, 0, 0, 31), nvgRGBA(0, 0, 0, 0));
+  nvgBeginPath(vg);
+  nvgRoundedRect(vg, ix, iy, iw, ih, cr - 1.f);
+  nvgFillPaint(vg, leftShadow);
+  nvgFill(vg);
+
+  // Scan lines
+  nvgBeginPath(vg);
+  for (float sy = y + 1.f; sy < y + h - 1.f; sy += 2.f)
+  {
+    nvgMoveTo(vg, x + 1.f, sy);
+    nvgLineTo(vg, x + w - 1.f, sy);
+  }
+  nvgStrokeColor(vg, nvgRGBA(0, 0, 0, 6));
+  nvgStrokeWidth(vg, 1.f);
+  nvgStroke(vg);
+}
+
+static void drawCustomKnob(NVGcontext* vg, float cx, float cy, float radius, float angle,
+                           bool isCompact, float startAngle, float endAngle)
+{
+  const float outerR = radius;
+  const float knurlingOuter = radius * 0.68f;
+  const float knurlingInner = radius * 0.60f;
+  const float capR = radius * 0.60f;
+  const int knurlingCount = isCompact ? 28 : 55;
+
+  // Drop shadow
+  nvgBeginPath(vg);
+  nvgCircle(vg, cx + 0.5f, cy + 2.f, outerR + 1.5f);
+  nvgFillColor(vg, nvgRGBA(0, 0, 0, 56));
+  nvgFill(vg);
+
+  // Outer skirt with radial gradient (offset center for 3D effect)
+  NVGpaint skirt =
+      nvgRadialGradient(vg, cx - outerR * 0.3f, cy - outerR * 0.3f, outerR * 0.1f, outerR * 1.2f,
+                        nvgRGB(0x2c, 0x2c, 0x2c), nvgRGB(0x0a, 0x0a, 0x0a));
+  nvgBeginPath(vg);
+  nvgCircle(vg, cx, cy, outerR);
+  nvgFillPaint(vg, skirt);
+  nvgFill(vg);
+
+  // Rim highlight
+  nvgBeginPath(vg);
+  nvgCircle(vg, cx, cy, outerR);
+  nvgStrokeColor(vg, nvgRGB(0x48, 0x48, 0x48));
+  nvgStrokeWidth(vg, 1.f);
+  nvgStroke(vg);
+
+  // Knurling band
+  nvgStrokeColor(vg, nvgRGB(0x40, 0x40, 0x40));
+  nvgStrokeWidth(vg, 1.5f);
+  for (int i = 0; i < knurlingCount; ++i)
+  {
+    float a =
+        static_cast<float>(M_PI) * 2.f * static_cast<float>(i) / static_cast<float>(knurlingCount) -
+        static_cast<float>(M_PI) * 0.5f;
+    float cosA = std::cos(a);
+    float sinA = std::sin(a);
+    nvgBeginPath(vg);
+    nvgMoveTo(vg, cx + knurlingInner * cosA, cy + knurlingInner * sinA);
+    nvgLineTo(vg, cx + knurlingOuter * cosA, cy + knurlingOuter * sinA);
+    nvgStroke(vg);
+  }
+
+  // Silver cap with radial gradient (offset center for convex look)
+  NVGpaint cap = nvgRadialGradient(vg, cx - capR * 0.30f, cy - capR * 0.35f, capR * 0.1f,
+                                   capR * 1.2f, nvgRGB(0xfa, 0xfa, 0xfa), nvgRGB(0x8c, 0x8c, 0x8c));
+  nvgBeginPath(vg);
+  nvgCircle(vg, cx, cy, capR);
+  nvgFillPaint(vg, cap);
+  nvgFill(vg);
+
+  // Cap border
+  nvgBeginPath(vg);
+  nvgCircle(vg, cx, cy, capR);
+  nvgStrokeColor(vg, nvgRGB(0x88, 0x88, 0x88));
+  nvgStrokeWidth(vg, 1.f);
+  nvgStroke(vg);
+
+  // White indicator line on outer skirt
+  float cosA = std::cos(angle - static_cast<float>(M_PI) * 0.5f);
+  float sinA = std::sin(angle - static_cast<float>(M_PI) * 0.5f);
+  nvgStrokeColor(vg, nvgRGBA(0xff, 0xff, 0xff, 0xff));
+  nvgStrokeWidth(vg, 1.5f);
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, cx + knurlingOuter * cosA, cy + knurlingOuter * sinA);
+  nvgLineTo(vg, cx + outerR * 0.90f * cosA, cy + outerR * 0.90f * sinA);
+  nvgStroke(vg);
+
+  // External tick marks (large knobs only)
+  if (!isCompact)
+  {
+    const int numTicks = 11;
+    const float tickInner = outerR + 2.f;
+    const float tickOuter = outerR + 6.f;
+    nvgStrokeColor(vg, nvgRGB(0x88, 0x88, 0x88));
+    nvgStrokeWidth(vg, 1.5f);
+    for (int i = 0; i < numTicks; ++i)
+    {
+      float tickAngle = startAngle + static_cast<float>(i) / static_cast<float>(numTicks - 1) *
+                                         (endAngle - startAngle);
+      float tCos = std::cos(tickAngle - static_cast<float>(M_PI) * 0.5f);
+      float tSin = std::sin(tickAngle - static_cast<float>(M_PI) * 0.5f);
+      nvgBeginPath(vg);
+      nvgMoveTo(vg, cx + tickInner * tCos, cy + tickInner * tSin);
+      nvgLineTo(vg, cx + tickOuter * tCos, cy + tickOuter * tSin);
+      nvgStroke(vg);
+    }
+  }
+}
+
+static void drawComboBoxButton(NVGcontext* vg, float w, float h, const char* label,
+                               const std::string& fontPath)
+{
+  const float cr = 3.0f;
+
+  // Drop shadow
+  NVGpaint shadow =
+      nvgBoxGradient(vg, 0.f, 2.f, w, h, cr, 4.f, nvgRGBA(0, 0, 0, 115), nvgRGBA(0, 0, 0, 0));
+  nvgBeginPath(vg);
+  nvgRoundedRect(vg, -2.f, 0.f, w + 4.f, h + 4.f, cr);
+  nvgFillPaint(vg, shadow);
+  nvgFill(vg);
+
+  // Gradient fill
+  NVGpaint grad = nvgLinearGradient(vg, 0.f, 0.5f, 0.f, h - 0.5f, nvgRGB(0x38, 0x38, 0x38),
+                                    nvgRGB(0x24, 0x24, 0x24));
+  nvgBeginPath(vg);
+  nvgRoundedRect(vg, 0.5f, 0.5f, w - 1.f, h - 1.f, cr);
+  nvgFillPaint(vg, grad);
+  nvgFill(vg);
+
+  // Edge highlights
+  nvgStrokeWidth(vg, 1.f);
+  nvgStrokeColor(vg, nvgRGB(0x50, 0x50, 0x50));
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, cr + 0.5f, 1.5f);
+  nvgLineTo(vg, w - cr - 0.5f, 1.5f);
+  nvgStroke(vg);
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, 1.5f, cr + 0.5f);
+  nvgLineTo(vg, 1.5f, h - cr - 0.5f);
+  nvgStroke(vg);
+
+  // Edge shadows
+  nvgStrokeColor(vg, nvgRGB(0x14, 0x14, 0x14));
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, cr + 0.5f, h - 1.5f);
+  nvgLineTo(vg, w - cr - 0.5f, h - 1.5f);
+  nvgStroke(vg);
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, w - 1.5f, cr + 0.5f);
+  nvgLineTo(vg, w - 1.5f, h - cr - 0.5f);
+  nvgStroke(vg);
+
+  // Border
+  nvgBeginPath(vg);
+  nvgRoundedRect(vg, 0.5f, 0.5f, w - 1.f, h - 1.f, cr);
+  nvgStrokeColor(vg, nvgRGB(0x18, 0x18, 0x18));
+  nvgStrokeWidth(vg, 1.f);
+  nvgStroke(vg);
+
+  // Text (left-aligned with padding)
+  int fontId = ensureFont(vg, "CourierPrime", fontPath);
+  if (fontId >= 0)
+    nvgFontFaceId(vg, fontId);
+  nvgFontSize(vg, 11.f);
+  nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+  nvgFillColor(vg, nvgRGBA(0xff, 0xff, 0xff, 0xff));
+  nvgText(vg, 6.f, h * 0.5f, label, nullptr);
+
+  // Dropdown arrow (chevron on right side)
+  const float arrowX = w - 12.f;
+  const float arrowCy = h * 0.5f;
+  nvgBeginPath(vg);
+  nvgMoveTo(vg, arrowX - 4.f, arrowCy - 2.f);
+  nvgLineTo(vg, arrowX, arrowCy + 2.f);
+  nvgLineTo(vg, arrowX + 4.f, arrowCy - 2.f);
+  nvgStrokeColor(vg, nvgRGBA(0xaa, 0xaa, 0xaa, 230));
+  nvgStrokeWidth(vg, 2.f);
+  nvgStroke(vg);
+}
+
+// ---------------------------------------------------------------------------
+// Utility
+// ---------------------------------------------------------------------------
 
 static std::string getParentDir(const std::string& path)
 {
@@ -69,48 +472,80 @@ static bool isAudioExtension(const std::string& name)
   return ext == ".wav" || ext == ".aiff" || ext == ".aif" || ext == ".flac";
 }
 
-struct OpcTrimKnob : Trimpot
-{
-};
+// ---------------------------------------------------------------------------
+// Custom knob widgets
+// ---------------------------------------------------------------------------
 
-struct OpcIrEnableButton : app::Switch
+struct OpcCustomKnob : app::Knob
 {
-  std::string label;
   std::string fontPath;
+  static constexpr float kStartAngle = static_cast<float>(M_PI) * 1.25f;
+  static constexpr float kEndAngle = static_cast<float>(M_PI) * 2.75f;
+
+  OpcCustomKnob()
+  {
+    box.size = mm2px(math::Vec(16.0f, 16.0f));
+    minAngle = -0.75f * static_cast<float>(M_PI);
+    maxAngle = 0.75f * static_cast<float>(M_PI);
+    snap = false;
+  }
 
   void draw(const DrawArgs& args) override
   {
+    float radius = std::min(box.size.x, box.size.y) * 0.5f - 8.f;
+    float cx = box.size.x * 0.5f;
+    float cy = box.size.y * 0.5f;
+
     engine::ParamQuantity* pq = getParamQuantity();
-    const bool lit = pq ? pq->getValue() > 0.5f : false;
-    drawRetroButton(args.vg, box.size.x, box.size.y, label.c_str(), lit, false, fontPath);
+    float normalized = pq ? pq->getScaledValue() : 0.5f;
+    float angle = kStartAngle + normalized * (kEndAngle - kStartAngle);
+
+    drawCustomKnob(args.vg, cx, cy, radius, angle, false, kStartAngle, kEndAngle);
   }
 };
 
-struct OpcDetectModeButton : app::Switch
+struct OpcCustomTrimKnob : app::Knob
 {
-  std::string fontPath;
+  static constexpr float kStartAngle = static_cast<float>(M_PI) * 1.25f;
+  static constexpr float kEndAngle = static_cast<float>(M_PI) * 2.75f;
+
+  OpcCustomTrimKnob()
+  {
+    box.size = mm2px(math::Vec(7.0f, 7.0f));
+    minAngle = -0.75f * static_cast<float>(M_PI);
+    maxAngle = 0.75f * static_cast<float>(M_PI);
+    snap = false;
+  }
 
   void draw(const DrawArgs& args) override
   {
+    float radius = std::min(box.size.x, box.size.y) * 0.5f - 2.f;
+    float cx = box.size.x * 0.5f;
+    float cy = box.size.y * 0.5f;
+
     engine::ParamQuantity* pq = getParamQuantity();
-    const bool lit = pq ? pq->getValue() < 0.5f : true;
-    drawRetroButton(args.vg, box.size.x, box.size.y, "PEAK", lit, false, fontPath);
+    float normalized = pq ? pq->getScaledValue() : 0.5f;
+    float angle = kStartAngle + normalized * (kEndAngle - kStartAngle);
+
+    drawCustomKnob(args.vg, cx, cy, radius, angle, true, kStartAngle, kEndAngle);
   }
 };
+
+// ---------------------------------------------------------------------------
+// Panel label
+// ---------------------------------------------------------------------------
 
 struct OpcPanelLabel : TransparentWidget
 {
   std::string text;
   std::string fontPath;
-  float fontSize = 9.f;
+  float fontSize = 10.f;
   NVGcolor color = nvgRGB(0x1a, 0x1a, 0x1a);
   int align = NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE;
 
   void draw(const DrawArgs& args) override
   {
-    int fontId = nvgFindFont(args.vg, "Inconsolata");
-    if (fontId < 0)
-      fontId = nvgCreateFont(args.vg, "Inconsolata", fontPath.c_str());
+    int fontId = ensureFont(args.vg, "CourierPrime", fontPath);
     if (fontId >= 0)
       nvgFontFaceId(args.vg, fontId);
 
@@ -121,23 +556,37 @@ struct OpcPanelLabel : TransparentWidget
   }
 };
 
-struct IrFileDisplay : app::LedDisplayChoice
+// ---------------------------------------------------------------------------
+// IR file display (LCD style)
+// ---------------------------------------------------------------------------
+
+struct IrFileDisplay : OpaqueWidget
 {
   OpcVcvIr* module = nullptr;
   bool isIR2;
+  std::string lcdFontPath;
+  std::string text;
 
-  IrFileDisplay(bool ir2 = false) : isIR2(ir2)
+  IrFileDisplay(bool ir2 = false) : isIR2(ir2) { text = "<No IR selected>"; }
+
+  void draw(const DrawArgs& args) override
   {
-    fontPath = asset::plugin(pluginInstance, "res/font/Inconsolata_Condensed-Bold.ttf");
-    color = nvgRGB(0x1c, 0x1c, 0x30);
-    bgColor = nvgRGB(0xF0, 0x88, 0x30);
-    text = "<No IR selected>";
+    drawLCDBackground(args.vg, 0.f, 0.f, box.size.x, box.size.y);
+
+    int fontId = ensureFont(args.vg, "PressStart2P", lcdFontPath);
+    if (fontId >= 0)
+      nvgFontFaceId(args.vg, fontId);
+    nvgFontSize(args.vg, 7.f);
+    nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+    nvgFillColor(args.vg, nvgRGB(0x1c, 0x1c, 0x30));
+    nvgText(args.vg, 4.f, box.size.y * 0.5f, text.c_str(), nullptr);
   }
 
   void onButton(const widget::Widget::ButtonEvent& e) override
   {
     if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT && module != nullptr)
     {
+      e.consume(this);
       openFileDialog();
     }
     else if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_RIGHT && module != nullptr)
@@ -191,9 +640,8 @@ struct IrFileDisplay : app::LedDisplayChoice
     {
       const size_t pos = path.find_last_of("/\\");
       std::string filename = (pos != std::string::npos) ? path.substr(pos + 1) : path;
-
-      if (filename.length() > 30)
-        filename = filename.substr(0, 27) + "...";
+      if (filename.length() > 24)
+        filename = filename.substr(0, 21) + "...";
       text = filename;
     }
   }
@@ -201,7 +649,36 @@ struct IrFileDisplay : app::LedDisplayChoice
   void step() override
   {
     updateDisplayText();
-    app::LedDisplayChoice::step();
+    OpaqueWidget::step();
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Button widgets
+// ---------------------------------------------------------------------------
+
+struct OpcIrEnableButton : app::Switch
+{
+  std::string label;
+  std::string fontPath;
+
+  void draw(const DrawArgs& args) override
+  {
+    engine::ParamQuantity* pq = getParamQuantity();
+    const bool lit = pq ? pq->getValue() > 0.5f : false;
+    drawToggleButton(args.vg, box.size.x, box.size.y, label.c_str(), lit, fontPath);
+  }
+};
+
+struct OpcDetectModeButton : app::Switch
+{
+  std::string fontPath;
+
+  void draw(const DrawArgs& args) override
+  {
+    engine::ParamQuantity* pq = getParamQuantity();
+    const bool isPeak = pq ? pq->getValue() < 0.5f : true;
+    drawComboBoxButton(args.vg, box.size.x, box.size.y, isPeak ? "PEAK" : "RMS", fontPath);
   }
 };
 
@@ -210,10 +687,23 @@ struct OpcIrLoadButton : OpaqueWidget
   OpcVcvIr* module = nullptr;
   bool isIR2 = false;
   std::string fontPath;
+  bool pressed_ = false;
 
   void draw(const DrawArgs& args) override
   {
-    drawRetroButton(args.vg, box.size.x, box.size.y, "LOAD", false, false, fontPath);
+    drawJuceButton(args.vg, box.size.x, box.size.y, nullptr, pressed_, true, fontPath);
+  }
+
+  void onDragStart(const DragStartEvent& e) override
+  {
+    pressed_ = true;
+    OpaqueWidget::onDragStart(e);
+  }
+
+  void onDragEnd(const DragEndEvent& e) override
+  {
+    pressed_ = false;
+    OpaqueWidget::onDragEnd(e);
   }
 
   void onButton(const ButtonEvent& e) override
@@ -247,10 +737,23 @@ struct OpcIrClearButton : OpaqueWidget
   OpcVcvIr* module = nullptr;
   bool isIR2 = false;
   std::string fontPath;
+  bool pressed_ = false;
 
   void draw(const DrawArgs& args) override
   {
-    drawRetroButton(args.vg, box.size.x, box.size.y, "CLR", false, false, fontPath);
+    drawJuceButton(args.vg, box.size.x, box.size.y, "CLR", pressed_, false, fontPath);
+  }
+
+  void onDragStart(const DragStartEvent& e) override
+  {
+    pressed_ = true;
+    OpaqueWidget::onDragStart(e);
+  }
+
+  void onDragEnd(const DragEndEvent& e) override
+  {
+    pressed_ = false;
+    OpaqueWidget::onDragEnd(e);
   }
 
   void onButton(const ButtonEvent& e) override
@@ -272,15 +775,28 @@ struct OpcIrNavButton : OpaqueWidget
   OpcVcvIr* module = nullptr;
   bool isIR2 = false;
   std::string fontPath;
+  bool pressed_ = false;
 
   void draw(const DrawArgs& args) override
   {
     const bool hasIr = module != nullptr &&
                        !(isIR2 ? module->loaded_file_path2_ : module->loaded_file_path_).empty();
     nvgGlobalAlpha(args.vg, hasIr ? 1.f : 0.4f);
-    drawRetroButton(args.vg, box.size.x, box.size.y, Direction < 0 ? "<" : ">", false, false,
-                    fontPath);
+    drawJuceButton(args.vg, box.size.x, box.size.y, Direction < 0 ? "<" : ">", pressed_, false,
+                   fontPath);
     nvgGlobalAlpha(args.vg, 1.f);
+  }
+
+  void onDragStart(const DragStartEvent& e) override
+  {
+    pressed_ = true;
+    OpaqueWidget::onDragStart(e);
+  }
+
+  void onDragEnd(const DragEndEvent& e) override
+  {
+    pressed_ = false;
+    OpaqueWidget::onDragEnd(e);
   }
 
   void onButton(const ButtonEvent& e) override
@@ -350,99 +866,152 @@ struct OpcIrNavButton : OpaqueWidget
 using OpcIrPrevButton = OpcIrNavButton<-1>;
 using OpcIrNextButton = OpcIrNavButton<1>;
 
+// ---------------------------------------------------------------------------
+// Meter display (LCD style with discrete segments)
+// ---------------------------------------------------------------------------
+
 struct OpcMeterDisplay : OpaqueWidget
 {
   OpcVcvIr* module = nullptr;
-  std::string fontPath;
+  std::string lcdFontPath;
 
   void draw(const DrawArgs& args) override
   {
+    const float w = box.size.x;
+    const float h = box.size.y;
+
+    drawLCDBackground(args.vg, 0.f, 0.f, w, h);
+
     const float levelDb = module ? module->currentInputLevelDb_.load() : -60.f;
     const float blend = module ? module->currentBlend_.load() : 0.f;
 
-    const float w = box.size.x;
-    const float h = box.size.y;
-    const float barH = h * 0.5f - 1.f;
+    const float padH = 4.f;
+    const float padV = 4.f;
+    const float labelH = 8.f;
+    const float gapLB = 2.f;
+    const float barH = (h - padV * 2.f - labelH * 2.f - gapLB * 2.f - 4.f) * 0.5f;
 
-    const NVGcolor orange = nvgRGB(0xF0, 0x88, 0x30);
-    const NVGcolor dark = nvgRGB(0x1c, 0x1c, 0x30);
+    float cy = padV;
 
-    nvgBeginPath(args.vg);
-    nvgRect(args.vg, 0.f, 0.f, w, h);
-    nvgFillColor(args.vg, dark);
-    nvgFill(args.vg);
-
-    int fontId = nvgFindFont(args.vg, "Inconsolata");
-    if (fontId < 0 && !fontPath.empty())
-      fontId = nvgCreateFont(args.vg, "Inconsolata", fontPath.c_str());
+    // INPUT label
+    int fontId = ensureFont(args.vg, "PressStart2P", lcdFontPath);
     if (fontId >= 0)
       nvgFontFaceId(args.vg, fontId);
-    nvgFontSize(args.vg, 8.f);
+    nvgFontSize(args.vg, 7.f);
     nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-    nvgFillColor(args.vg, orange);
-    nvgText(args.vg, 6.f, barH * 0.5f, "INPUT", nullptr);
-    nvgText(args.vg, 6.f, h * 0.5f + 1.f + barH * 0.5f, "BLEND", nullptr);
+    nvgFillColor(args.vg, nvgRGB(0x1c, 0x1c, 0x30));
+    nvgText(args.vg, padH, cy + labelH * 0.5f, "INPUT", nullptr);
+    cy += labelH + gapLB;
 
-    drawBar(args.vg, 0.f, barH, w, levelDb, false, orange, dark);
-    drawBar(args.vg, h * 0.5f + 1.f, barH, w, blend, true, orange, dark);
+    drawMeterBar(args.vg, padH, cy, w - padH * 2.f, barH, levelDb, false);
+
+    // Check for threshold markers
+    if (module != nullptr)
+    {
+      float dynMode =
+          module->params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].getValue();
+      if (dynMode > 0.5f)
+      {
+        float threshold =
+            module->params[static_cast<int>(OpcVcvIr::ParamId::ThresholdParam)].getValue();
+        float rangeDb =
+            module->params[static_cast<int>(OpcVcvIr::ParamId::RangeDbParam)].getValue();
+        float barX = padH;
+        float barW = w - padH * 2.f;
+        drawThresholdMarker(args.vg, barX, cy, barW, barH, threshold);
+        drawThresholdMarker(args.vg, barX, cy, barW, barH, threshold + rangeDb);
+      }
+    }
+
+    cy += barH + 4.f;
+
+    // BLEND label
+    nvgFillColor(args.vg, nvgRGB(0x1c, 0x1c, 0x30));
+    nvgText(args.vg, padH, cy + labelH * 0.5f, "BLEND", nullptr);
+    cy += labelH + gapLB;
+
+    drawMeterBar(args.vg, padH, cy, w - padH * 2.f, barH, blend, true);
   }
 
  private:
   static const int kSegments = 19;
-  static const float kDbMin;
-  static const float kDbMax;
+  static constexpr float kDbMin = -60.f;
+  static constexpr float kDbMax = 0.f;
 
-  void drawBar(NVGcontext* vg, float y, float h, float w, float value, bool isCenterBalanced,
-               NVGcolor fill, NVGcolor bg) const
+  void drawMeterBar(NVGcontext* vg, float x, float y, float w, float h, float value,
+                    bool isCenterBalanced) const
   {
+    // Bar outline
     nvgBeginPath(vg);
-    nvgRect(vg, 0.f, y, w, h);
-    nvgFillColor(vg, bg);
-    nvgFill(vg);
+    nvgRoundedRect(vg, x, y, w, h, 2.f);
+    nvgStrokeColor(vg, nvgRGB(0x1a, 0x1a, 0x1a));
+    nvgStrokeWidth(vg, 1.f);
+    nvgStroke(vg);
 
-    float fillFrac;
-    float startX;
-    float fillW;
+    const float innerX = x + 2.f;
+    const float innerY = y + 2.f;
+    const float innerW = w - 4.f;
+    const float innerH = h - 4.f;
+    const float segGap = 2.f;
+    const float segW =
+        (innerW - static_cast<float>(kSegments - 1) * segGap) / static_cast<float>(kSegments);
 
+    float normValue;
     if (isCenterBalanced)
     {
-      fillFrac = std::abs(value);
-      fillFrac = fillFrac > 1.f ? 1.f : fillFrac;
-      startX = (value >= 0.f) ? w * 0.5f : w * 0.5f * (1.f - fillFrac);
-      fillW = w * 0.5f * fillFrac;
+      normValue = (value + 1.f) * 0.5f;
     }
     else
     {
-      fillFrac = (value - kDbMin) / (kDbMax - kDbMin);
-      fillFrac = fillFrac < 0.f ? 0.f : (fillFrac > 1.f ? 1.f : fillFrac);
-      startX = 0.f;
-      fillW = w * fillFrac;
+      normValue = (value - kDbMin) / (kDbMax - kDbMin);
     }
+    normValue = std::max(0.f, std::min(1.f, normValue));
 
-    if (fillW > 0.f)
+    for (int i = 0; i < kSegments; ++i)
     {
-      nvgBeginPath(vg);
-      nvgRect(vg, startX, y, fillW, h);
-      nvgFillColor(vg, fill);
-      nvgFill(vg);
-    }
+      float sx = innerX + static_cast<float>(i) * (segW + segGap);
 
-    const float segW = w / static_cast<float>(kSegments + 1);
-    nvgStrokeColor(vg, bg);
-    nvgStrokeWidth(vg, 1.5f);
-    for (int i = 1; i <= kSegments; ++i)
-    {
-      const float sx = segW * static_cast<float>(i);
-      nvgBeginPath(vg);
-      nvgMoveTo(vg, sx, y);
-      nvgLineTo(vg, sx, y + h);
-      nvgStroke(vg);
+      bool isLit = false;
+      if (isCenterBalanced)
+      {
+        int centre = kSegments / 2;
+        float normPos = normValue * static_cast<float>(kSegments);
+        isLit = (i == centre) ||
+                (normValue < 0.5f && static_cast<float>(i) >= normPos && i < centre) ||
+                (normValue > 0.5f && i > centre && static_cast<float>(i) < normPos);
+      }
+      else
+      {
+        isLit = static_cast<float>(i) < normValue * static_cast<float>(kSegments);
+      }
+
+      if (isLit)
+      {
+        nvgBeginPath(vg);
+        nvgRect(vg, sx, innerY, segW, innerH);
+        nvgFillColor(vg, nvgRGB(0x1c, 0x1c, 0x30));
+        nvgFill(vg);
+      }
     }
+  }
+
+  void drawThresholdMarker(NVGcontext* vg, float barX, float barY, float barW, float barH,
+                           float thresholdDb) const
+  {
+    float norm = (thresholdDb - kDbMin) / (kDbMax - kDbMin);
+    norm = std::max(0.f, std::min(1.f, norm));
+    float mx = barX + 2.f + norm * (barW - 4.f);
+
+    nvgBeginPath(vg);
+    nvgRect(vg, mx - 1.f, barY - 3.f, 2.f, barH + 6.f);
+    nvgFillColor(vg, nvgRGB(0x1c, 0x1c, 0x30));
+    nvgFill(vg);
   }
 };
 
-const float OpcMeterDisplay::kDbMin = -60.f;
-const float OpcMeterDisplay::kDbMax = 0.f;
+// ---------------------------------------------------------------------------
+// Toggle buttons (DYNAMIC, SIDECHAIN)
+// ---------------------------------------------------------------------------
 
 struct OpcRetroButton : app::Switch
 {
@@ -453,9 +1022,13 @@ struct OpcRetroButton : app::Switch
   {
     engine::ParamQuantity* pq = getParamQuantity();
     const bool lit = pq ? pq->getValue() > 0.5f : false;
-    drawRetroButton(args.vg, box.size.x, box.size.y, label.c_str(), lit, false, fontPath);
+    drawToggleButton(args.vg, box.size.x, box.size.y, label.c_str(), lit, fontPath);
   }
 };
+
+// ---------------------------------------------------------------------------
+// Swap button
+// ---------------------------------------------------------------------------
 
 struct OpcSwapButton : OpaqueWidget
 {
@@ -465,7 +1038,7 @@ struct OpcSwapButton : OpaqueWidget
 
   void draw(const DrawArgs& args) override
   {
-    drawRetroButton(args.vg, box.size.x, box.size.y, "SWAP", false, pressed_, fontPath);
+    drawJuceButton(args.vg, box.size.x, box.size.y, "SWAP", pressed_, false, fontPath);
   }
 
   void onDragStart(const DragStartEvent& e) override
@@ -490,6 +1063,25 @@ struct OpcSwapButton : OpaqueWidget
   }
 };
 
+// ---------------------------------------------------------------------------
+// Output background
+// ---------------------------------------------------------------------------
+
+struct OpcOutputBackground : TransparentWidget
+{
+  void draw(const DrawArgs& args) override
+  {
+    nvgBeginPath(args.vg);
+    nvgRoundedRect(args.vg, 0.f, 0.f, box.size.x, box.size.y, 3.f);
+    nvgFillColor(args.vg, nvgRGB(0x28, 0x28, 0x2c));
+    nvgFill(args.vg);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Main widget
+// ---------------------------------------------------------------------------
+
 struct OpcVcvIrWidget final : ModuleWidget
 {
   explicit OpcVcvIrWidget(OpcVcvIr* module)
@@ -497,60 +1089,65 @@ struct OpcVcvIrWidget final : ModuleWidget
     setModule(module);
     setPanel(createPanel(asset::plugin(pluginInstance, "res/opc-vcv-ir-panel.svg")));
 
-    const std::string fp = asset::plugin(pluginInstance, "res/font/Inconsolata_Condensed-Bold.ttf");
+    const std::string fpCourier =
+        asset::plugin(pluginInstance, "res/font/CourierPrime-Regular.ttf");
+    const std::string fpLCD = asset::plugin(pluginInstance, "res/font/PressStart2P-Regular.ttf");
 
-    addChild(createWidget<ScrewSilver>(mm2px(Vec(33.02f, 0.5f))));
-    addChild(createWidget<ScrewSilver>(mm2px(Vec(104.14f, 0.5f))));
-    addChild(createWidget<ScrewSilver>(mm2px(Vec(33.02f, 122.92f))));
-    addChild(createWidget<ScrewSilver>(mm2px(Vec(104.14f, 122.92f))));
+    // Screws
+    addChild(createWidget<ScrewSilver>(mm2px(Vec(7.62f, 0.5f))));
+    addChild(createWidget<ScrewSilver>(mm2px(Vec(195.58f, 0.5f))));
+    addChild(createWidget<ScrewSilver>(mm2px(Vec(7.62f, 122.92f))));
+    addChild(createWidget<ScrewSilver>(mm2px(Vec(195.58f, 122.92f))));
 
-    auto makeLabel = [&](math::Vec pos, math::Vec size, const char* txt, float fs = 9.f)
+    // --- Helper lambdas ---
+
+    auto makeLabel = [&](math::Vec pos, math::Vec size, const char* txt, float fs = 10.f)
     {
       auto* lbl = createWidget<OpcPanelLabel>(pos);
       lbl->box.size = size;
       lbl->text = txt;
-      lbl->fontPath = fp;
+      lbl->fontPath = fpCourier;
       lbl->fontSize = fs;
       addChild(lbl);
     };
 
     auto makeLoadBtn = [&](math::Vec center, bool ir2)
     {
-      auto* btn = createWidget<OpcIrLoadButton>(center - mm2px(Vec(4.0f, 3.0f)));
-      btn->box.size = mm2px(Vec(8.0f, 6.0f));
+      auto* btn = createWidget<OpcIrLoadButton>(center - mm2px(Vec(3.5f, 2.5f)));
+      btn->box.size = mm2px(Vec(7.0f, 5.0f));
       btn->module = module;
       btn->isIR2 = ir2;
-      btn->fontPath = fp;
+      btn->fontPath = fpCourier;
       addChild(btn);
     };
 
     auto makeClearBtn = [&](math::Vec center, bool ir2)
     {
-      auto* btn = createWidget<OpcIrClearButton>(center - mm2px(Vec(4.0f, 3.0f)));
-      btn->box.size = mm2px(Vec(8.0f, 6.0f));
+      auto* btn = createWidget<OpcIrClearButton>(center - mm2px(Vec(4.5f, 2.5f)));
+      btn->box.size = mm2px(Vec(9.0f, 5.0f));
       btn->module = module;
       btn->isIR2 = ir2;
-      btn->fontPath = fp;
+      btn->fontPath = fpCourier;
       addChild(btn);
     };
 
     auto makePrevBtn = [&](math::Vec center, bool ir2)
     {
-      auto* btn = createWidget<OpcIrPrevButton>(center - mm2px(Vec(4.0f, 3.0f)));
-      btn->box.size = mm2px(Vec(8.0f, 6.0f));
+      auto* btn = createWidget<OpcIrPrevButton>(center - mm2px(Vec(2.5f, 2.5f)));
+      btn->box.size = mm2px(Vec(5.0f, 5.0f));
       btn->module = module;
       btn->isIR2 = ir2;
-      btn->fontPath = fp;
+      btn->fontPath = fpCourier;
       addChild(btn);
     };
 
     auto makeNextBtn = [&](math::Vec center, bool ir2)
     {
-      auto* btn = createWidget<OpcIrNextButton>(center - mm2px(Vec(4.0f, 3.0f)));
-      btn->box.size = mm2px(Vec(8.0f, 6.0f));
+      auto* btn = createWidget<OpcIrNextButton>(center - mm2px(Vec(2.5f, 2.5f)));
+      btn->box.size = mm2px(Vec(5.0f, 5.0f));
       btn->module = module;
       btn->isIR2 = ir2;
-      btn->fontPath = fp;
+      btn->fontPath = fpCourier;
       addChild(btn);
     };
 
@@ -558,155 +1155,243 @@ struct OpcVcvIrWidget final : ModuleWidget
     {
       const auto paramId = static_cast<int>(ir2 ? OpcVcvIr::ParamId::IrBEnableParam
                                                 : OpcVcvIr::ParamId::IrAEnableParam);
-      auto* btn = createParam<OpcIrEnableButton>(center - mm2px(Vec(6.0f, 3.0f)), module, paramId);
-      btn->box.size = mm2px(Vec(12.0f, 6.0f));
-      btn->label = "ENBL";
-      btn->fontPath = fp;
+      auto* btn = createParam<OpcIrEnableButton>(center - mm2px(Vec(6.0f, 2.5f)), module, paramId);
+      btn->box.size = mm2px(Vec(12.0f, 5.0f));
+      btn->label = "ENABLE";
+      btn->fontPath = fpCourier;
       addParam(btn);
     };
 
-    // IR A row (Y-center = 10.0)
-    // Control order: LOAD | CLR | < | > | ENBL | TRIM | LCD
-    makeLoadBtn(mm2px(Vec(10.0f, 10.0f)), false);
-    makeClearBtn(mm2px(Vec(19.0f, 10.0f)), false);
-    makePrevBtn(mm2px(Vec(28.0f, 10.0f)), false);
-    makeNextBtn(mm2px(Vec(37.0f, 10.0f)), false);
-    makeEnableBtn(mm2px(Vec(49.0f, 10.0f)), false);
-    addParam(createParamCentered<OpcTrimKnob>(
-        mm2px(Vec(59.0f, 10.0f)), module, static_cast<int>(OpcVcvIr::ParamId::IrATrimGainParam)));
+    // =====================================================================
+    // Layout constants
+    // Panel: 203.2mm wide x 128.5mm tall
+    // Usable vertical: ~3mm to ~126mm (leaving room for screws)
+    // =====================================================================
 
-    auto* fileDisplayA = createWidget<IrFileDisplay>(mm2px(Vec(63.0f, 5.5f)));
-    fileDisplayA->box.size = mm2px(Vec(74.0f, 9.0f));
+    const float colAStart = 3.f;
+    const float colBStart = 104.f;
+
+    // --- IR A row (Y-center = 8.0) ---
+    makeLabel(mm2px(Vec(colAStart, 3.0f)), mm2px(Vec(8.0f, 4.0f)), "IR A", 11.f);
+    makeLoadBtn(mm2px(Vec(colAStart + 7.f, 8.0f)), false);
+    makeClearBtn(mm2px(Vec(colAStart + 16.5f, 8.0f)), false);
+    makePrevBtn(mm2px(Vec(colAStart + 24.f, 8.0f)), false);
+    makeNextBtn(mm2px(Vec(colAStart + 30.f, 8.0f)), false);
+    makeEnableBtn(mm2px(Vec(colAStart + 40.f, 8.0f)), false);
+    addParam(createParamCentered<OpcCustomTrimKnob>(
+        mm2px(Vec(colAStart + 53.f, 8.0f)), module,
+        static_cast<int>(OpcVcvIr::ParamId::IrATrimGainParam)));
+
+    auto* fileDisplayA = createWidget<IrFileDisplay>(mm2px(Vec(colAStart + 57.f, 4.0f)));
+    fileDisplayA->box.size = mm2px(Vec(39.0f, 8.0f));
     fileDisplayA->module = module;
     fileDisplayA->isIR2 = false;
+    fileDisplayA->lcdFontPath = fpLCD;
     addChild(fileDisplayA);
 
-    makeLabel(mm2px(Vec(1.0f, 3.5f)), mm2px(Vec(8.0f, 4.0f)), "IR A", 10.f);
+    // --- IR B row (Y-center = 8.0, right column) ---
+    makeLabel(mm2px(Vec(colBStart, 3.0f)), mm2px(Vec(8.0f, 4.0f)), "IR B", 11.f);
+    makeLoadBtn(mm2px(Vec(colBStart + 7.f, 8.0f)), true);
+    makeClearBtn(mm2px(Vec(colBStart + 16.5f, 8.0f)), true);
+    makePrevBtn(mm2px(Vec(colBStart + 24.f, 8.0f)), true);
+    makeNextBtn(mm2px(Vec(colBStart + 30.f, 8.0f)), true);
+    makeEnableBtn(mm2px(Vec(colBStart + 40.f, 8.0f)), true);
+    addParam(createParamCentered<OpcCustomTrimKnob>(
+        mm2px(Vec(colBStart + 53.f, 8.0f)), module,
+        static_cast<int>(OpcVcvIr::ParamId::IrBTrimGainParam)));
 
-    // IR B row (Y-center = 20.0)
-    makeLoadBtn(mm2px(Vec(10.0f, 20.0f)), true);
-    makeClearBtn(mm2px(Vec(19.0f, 20.0f)), true);
-    makePrevBtn(mm2px(Vec(28.0f, 20.0f)), true);
-    makeNextBtn(mm2px(Vec(37.0f, 20.0f)), true);
-    makeEnableBtn(mm2px(Vec(49.0f, 20.0f)), true);
-    addParam(createParamCentered<OpcTrimKnob>(
-        mm2px(Vec(59.0f, 20.0f)), module, static_cast<int>(OpcVcvIr::ParamId::IrBTrimGainParam)));
-
-    auto* fileDisplayB = createWidget<IrFileDisplay>(mm2px(Vec(63.0f, 15.5f)));
-    fileDisplayB->box.size = mm2px(Vec(74.0f, 9.0f));
+    auto* fileDisplayB = createWidget<IrFileDisplay>(mm2px(Vec(colBStart + 57.f, 4.0f)));
+    fileDisplayB->box.size = mm2px(Vec(39.0f, 8.0f));
     fileDisplayB->module = module;
     fileDisplayB->isIR2 = true;
+    fileDisplayB->lcdFontPath = fpLCD;
     addChild(fileDisplayB);
 
-    makeLabel(mm2px(Vec(1.0f, 13.5f)), mm2px(Vec(8.0f, 4.0f)), "IR B", 10.f);
+    // --- Mode row (Y-center = 17.0) ---
+    const float modeY = 17.0f;
+    const float modeW = 56.0f;
+    const float modeH = 7.0f;
+    const float modeX1 = 34.f;
+    const float modeX2 = 102.f;
+    const float modeX3 = 170.f;
 
-    // Mode row (Y-center = 29.0)
     {
-      auto* dynBtn =
-          createParam<OpcRetroButton>(mm2px(Vec(25.40f - 14.0f, 29.0f - 4.0f)), module,
-                                      static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam));
-      dynBtn->box.size = mm2px(Vec(28.0f, 8.0f));
+      auto* dynBtn = createParam<OpcRetroButton>(
+          mm2px(Vec(modeX1 - modeW * 0.5f, modeY - modeH * 0.5f)), module,
+          static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam));
+      dynBtn->box.size = mm2px(Vec(modeW, modeH));
       dynBtn->label = "DYNAMIC";
-      dynBtn->fontPath = fp;
+      dynBtn->fontPath = fpCourier;
       addParam(dynBtn);
     }
 
     {
-      auto* swapBtn = createWidget<OpcSwapButton>(mm2px(Vec(71.12f - 14.0f, 29.0f - 4.0f)));
-      swapBtn->box.size = mm2px(Vec(28.0f, 8.0f));
+      auto* swapBtn =
+          createWidget<OpcSwapButton>(mm2px(Vec(modeX2 - modeW * 0.5f, modeY - modeH * 0.5f)));
+      swapBtn->box.size = mm2px(Vec(modeW, modeH));
       swapBtn->module = module;
-      swapBtn->fontPath = fp;
+      swapBtn->fontPath = fpCourier;
       addChild(swapBtn);
     }
 
     {
-      auto* scBtn =
-          createParam<OpcRetroButton>(mm2px(Vec(116.84f - 14.0f, 29.0f - 4.0f)), module,
-                                      static_cast<int>(OpcVcvIr::ParamId::SidechainEnableParam));
-      scBtn->box.size = mm2px(Vec(28.0f, 8.0f));
+      auto* scBtn = createParam<OpcRetroButton>(
+          mm2px(Vec(modeX3 - modeW * 0.5f, modeY - modeH * 0.5f)), module,
+          static_cast<int>(OpcVcvIr::ParamId::SidechainEnableParam));
+      scBtn->box.size = mm2px(Vec(modeW, modeH));
       scBtn->label = "SIDECHAIN";
-      scBtn->fontPath = fp;
+      scBtn->fontPath = fpCourier;
       addParam(scBtn);
     }
 
-    // Meter display
+    // --- Meter display (Y = 23, height 14mm) ---
     {
-      auto* meter = createWidget<OpcMeterDisplay>(mm2px(Vec(5.0f, 33.5f)));
-      meter->box.size = mm2px(Vec(132.24f, 14.0f));
+      auto* meter = createWidget<OpcMeterDisplay>(mm2px(Vec(5.0f, 23.0f)));
+      meter->box.size = mm2px(Vec(193.2f, 14.0f));
       meter->module = module;
-      meter->fontPath = fp;
+      meter->lcdFontPath = fpLCD;
       addChild(meter);
     }
 
-    // Large knobs (Y-center = 56.5)
-    addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(35.56f, 56.5f)), module,
-                                                 static_cast<int>(OpcVcvIr::ParamId::BlendParam)));
-    addParam(createParamCentered<RoundBlackKnob>(
-        mm2px(Vec(106.68f, 56.5f)), module, static_cast<int>(OpcVcvIr::ParamId::OutputGainParam)));
+    // --- Large knobs: BLEND and OUTPUT ---
+    // Knob is 16mm box. Label 4mm above, knob center, then gap.
+    // Label Y = 39, knob center Y = 47
+    const float blendX = 51.f;
+    const float outGainX = 152.f;
+    const float largeKnobY = 47.0f;
 
-    makeLabel(mm2px(Vec(25.56f, 48.0f)), mm2px(Vec(20.0f, 4.0f)), "BLEND", 10.f);
-    makeLabel(mm2px(Vec(96.68f, 48.0f)), mm2px(Vec(20.0f, 4.0f)), "OUT GAIN", 10.f);
+    makeLabel(mm2px(Vec(blendX - 10.f, 38.5f)), mm2px(Vec(20.0f, 4.0f)), "BLEND", 11.f);
+    makeLabel(mm2px(Vec(outGainX - 10.f, 38.5f)), mm2px(Vec(20.0f, 4.0f)), "OUTPUT", 11.f);
 
-    // Knob row 1 (Y-center = 75.0)
-    addParam(createParamCentered<RoundBlackKnob>(
-        mm2px(Vec(25.40f, 75.0f)), module, static_cast<int>(OpcVcvIr::ParamId::ThresholdParam)));
-    addParam(createParamCentered<RoundBlackKnob>(
-        mm2px(Vec(71.12f, 75.0f)), module, static_cast<int>(OpcVcvIr::ParamId::RangeDbParam)));
-    addParam(createParamCentered<RoundBlackKnob>(
-        mm2px(Vec(116.84f, 75.0f)), module, static_cast<int>(OpcVcvIr::ParamId::KneeWidthDbParam)));
+    addParam(createParamCentered<OpcCustomKnob>(mm2px(Vec(blendX, largeKnobY)), module,
+                                                static_cast<int>(OpcVcvIr::ParamId::BlendParam)));
+    addParam(
+        createParamCentered<OpcCustomKnob>(mm2px(Vec(outGainX, largeKnobY)), module,
+                                           static_cast<int>(OpcVcvIr::ParamId::OutputGainParam)));
 
-    makeLabel(mm2px(Vec(15.40f, 64.0f)), mm2px(Vec(20.0f, 4.0f)), "THRESH", 10.f);
-    makeLabel(mm2px(Vec(61.12f, 64.0f)), mm2px(Vec(20.0f, 4.0f)), "RANGE", 10.f);
-    makeLabel(mm2px(Vec(106.84f, 64.0f)), mm2px(Vec(20.0f, 4.0f)), "KNEE", 10.f);
+    // --- Knob row 1: THRESHOLD, RANGE, KNEE ---
+    // Label Y = 57, knob center Y = 65
+    const float row1LabelY = 57.0f;
+    const float row1Y = 65.0f;
+    const float knobX1 = 34.f;
+    const float knobX2 = 102.f;
+    const float knobX3 = 170.f;
 
-    // Knob row 2 (Y-center = 93.0)
-    addParam(createParamCentered<RoundBlackKnob>(
-        mm2px(Vec(25.40f, 93.0f)), module, static_cast<int>(OpcVcvIr::ParamId::AttackTimeParam)));
-    addParam(createParamCentered<RoundBlackKnob>(
-        mm2px(Vec(71.12f, 93.0f)), module, static_cast<int>(OpcVcvIr::ParamId::ReleaseTimeParam)));
+    makeLabel(mm2px(Vec(knobX1 - 12.f, row1LabelY)), mm2px(Vec(24.0f, 4.0f)), "THRESHOLD", 10.f);
+    makeLabel(mm2px(Vec(knobX2 - 10.f, row1LabelY)), mm2px(Vec(20.0f, 4.0f)), "RANGE", 10.f);
+    makeLabel(mm2px(Vec(knobX3 - 10.f, row1LabelY)), mm2px(Vec(20.0f, 4.0f)), "KNEE", 10.f);
+
+    addParam(createParamCentered<OpcCustomKnob>(
+        mm2px(Vec(knobX1, row1Y)), module, static_cast<int>(OpcVcvIr::ParamId::ThresholdParam)));
+    addParam(createParamCentered<OpcCustomKnob>(mm2px(Vec(knobX2, row1Y)), module,
+                                                static_cast<int>(OpcVcvIr::ParamId::RangeDbParam)));
+    addParam(createParamCentered<OpcCustomKnob>(
+        mm2px(Vec(knobX3, row1Y)), module, static_cast<int>(OpcVcvIr::ParamId::KneeWidthDbParam)));
+
+    // --- Knob row 2: ATTACK, RELEASE, DETECTION ---
+    // Label Y = 75, knob center Y = 83
+    const float row2LabelY = 75.0f;
+    const float row2Y = 83.0f;
+
+    makeLabel(mm2px(Vec(knobX1 - 10.f, row2LabelY)), mm2px(Vec(20.0f, 4.0f)), "ATTACK", 10.f);
+    makeLabel(mm2px(Vec(knobX2 - 10.f, row2LabelY)), mm2px(Vec(20.0f, 4.0f)), "RELEASE", 10.f);
+    makeLabel(mm2px(Vec(knobX3 - 12.f, row2LabelY)), mm2px(Vec(24.0f, 4.0f)), "DETECTION", 10.f);
+
+    addParam(createParamCentered<OpcCustomKnob>(
+        mm2px(Vec(knobX1, row2Y)), module, static_cast<int>(OpcVcvIr::ParamId::AttackTimeParam)));
+    addParam(createParamCentered<OpcCustomKnob>(
+        mm2px(Vec(knobX2, row2Y)), module, static_cast<int>(OpcVcvIr::ParamId::ReleaseTimeParam)));
+
     {
       auto* detectBtn =
-          createParam<OpcDetectModeButton>(mm2px(Vec(116.84f - 10.0f, 93.0f - 4.0f)), module,
+          createParam<OpcDetectModeButton>(mm2px(Vec(knobX3 - 12.f, row2Y - 4.f)), module,
                                            static_cast<int>(OpcVcvIr::ParamId::DetectionModeParam));
-      detectBtn->box.size = mm2px(Vec(20.0f, 8.0f));
-      detectBtn->fontPath = fp;
+      detectBtn->box.size = mm2px(Vec(24.0f, 8.0f));
+      detectBtn->fontPath = fpCourier;
       addParam(detectBtn);
     }
 
-    makeLabel(mm2px(Vec(15.40f, 82.0f)), mm2px(Vec(20.0f, 4.0f)), "ATTACK", 10.f);
-    makeLabel(mm2px(Vec(61.12f, 82.0f)), mm2px(Vec(20.0f, 4.0f)), "RELEASE", 10.f);
-    makeLabel(mm2px(Vec(106.84f, 82.0f)), mm2px(Vec(20.0f, 4.0f)), "DETECT", 10.f);
+    // --- CV input row (Y-center = 97.0) ---
+    const float cvY = 97.0f;
+    const float cvX1 = 25.f;
+    const float cvX2 = 68.f;
+    const float cvX3 = 111.f;
+    const float cvX4 = 154.f;
 
-    // Port row 1 (Y-center = 106.0)
-    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(23.71f, 106.0f)), module,
-                                             static_cast<int>(OpcVcvIr::InputId::AudioInL)));
-    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(47.41f, 106.0f)), module,
-                                             static_cast<int>(OpcVcvIr::InputId::AudioInR)));
-    addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(71.12f, 106.0f)), module,
-                                               static_cast<int>(OpcVcvIr::OutputId::OutputL)));
-    addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(94.82f, 106.0f)), module,
-                                               static_cast<int>(OpcVcvIr::OutputId::OutputR)));
-    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(118.53f, 106.0f)), module,
+    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cvX1, cvY)), module,
                                              static_cast<int>(OpcVcvIr::InputId::SidechainIn)));
-
-    makeLabel(mm2px(Vec(17.71f, 111.0f)), mm2px(Vec(12.0f, 4.0f)), "IN L", 10.f);
-    makeLabel(mm2px(Vec(41.41f, 111.0f)), mm2px(Vec(12.0f, 4.0f)), "IN R", 10.f);
-    makeLabel(mm2px(Vec(65.12f, 111.0f)), mm2px(Vec(12.0f, 4.0f)), "OUT L", 10.f);
-    makeLabel(mm2px(Vec(88.82f, 111.0f)), mm2px(Vec(12.0f, 4.0f)), "OUT R", 10.f);
-    makeLabel(mm2px(Vec(112.53f, 111.0f)), mm2px(Vec(12.0f, 4.0f)), "SC IN", 10.f);
-
-    // Port row 2 (Y-center = 119.0)
-    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(35.56f, 119.0f)), module,
+    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cvX2, cvY)), module,
                                              static_cast<int>(OpcVcvIr::InputId::ThresholdCvIn)));
-    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(71.12f, 119.0f)), module,
+    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cvX3, cvY)), module,
                                              static_cast<int>(OpcVcvIr::InputId::BlendCvIn)));
-    addInput(
-        createInputCentered<PJ301MPort>(mm2px(Vec(106.68f, 119.0f)), module,
-                                        static_cast<int>(OpcVcvIr::InputId::DynamicsEnableCvIn)));
+    addInput(createInputCentered<PJ301MPort>(
+        mm2px(Vec(cvX4, cvY)), module, static_cast<int>(OpcVcvIr::InputId::DynamicsEnableCvIn)));
 
-    makeLabel(mm2px(Vec(29.56f, 124.0f)), mm2px(Vec(12.0f, 4.0f)), "THR CV", 10.f);
-    makeLabel(mm2px(Vec(65.12f, 124.0f)), mm2px(Vec(12.0f, 4.0f)), "BLD CV", 10.f);
-    makeLabel(mm2px(Vec(100.68f, 124.0f)), mm2px(Vec(12.0f, 4.0f)), "DYN EN", 10.f);
+    makeLabel(mm2px(Vec(cvX1 - 6.f, cvY + 5.f)), mm2px(Vec(12.0f, 4.0f)), "SC IN", 9.f);
+    makeLabel(mm2px(Vec(cvX2 - 6.f, cvY + 5.f)), mm2px(Vec(12.0f, 4.0f)), "THR CV", 9.f);
+    makeLabel(mm2px(Vec(cvX3 - 6.f, cvY + 5.f)), mm2px(Vec(12.0f, 4.0f)), "BLD CV", 9.f);
+    makeLabel(mm2px(Vec(cvX4 - 6.f, cvY + 5.f)), mm2px(Vec(12.0f, 4.0f)), "DYN EN", 9.f);
+
+    // --- Audio I/O row (Y-center = 113.0) ---
+    const float ioY = 113.0f;
+    const float inLX = 34.f;
+    const float inRX = 68.f;
+    const float outLX = 135.f;
+    const float outRX = 170.f;
+
+    {
+      auto* outBg = createWidget<OpcOutputBackground>(mm2px(Vec(outLX - 14.f, ioY - 6.f)));
+      outBg->box.size = mm2px(Vec(outRX - outLX + 28.f, 12.5f));
+      addChild(outBg);
+    }
+
+    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(inLX, ioY)), module,
+                                             static_cast<int>(OpcVcvIr::InputId::AudioInL)));
+    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(inRX, ioY)), module,
+                                             static_cast<int>(OpcVcvIr::InputId::AudioInR)));
+    addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(outLX, ioY)), module,
+                                               static_cast<int>(OpcVcvIr::OutputId::OutputL)));
+    addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(outRX, ioY)), module,
+                                               static_cast<int>(OpcVcvIr::OutputId::OutputR)));
+
+    makeLabel(mm2px(Vec(inLX - 6.f, ioY + 5.f)), mm2px(Vec(12.0f, 4.0f)), "IN L", 9.f);
+    makeLabel(mm2px(Vec(inRX - 6.f, ioY + 5.f)), mm2px(Vec(12.0f, 4.0f)), "IN R", 9.f);
+    makeLabel(mm2px(Vec(outLX - 6.f, ioY + 5.f)), mm2px(Vec(12.0f, 4.0f)), "OUT L", 9.f);
+    makeLabel(mm2px(Vec(outRX - 6.f, ioY + 5.f)), mm2px(Vec(12.0f, 4.0f)), "OUT R", 9.f);
+  }
+
+  void draw(const DrawArgs& args) override
+  {
+    ModuleWidget::draw(args);
+
+    NVGcontext* vg = args.vg;
+    float w = box.size.x;
+    float h = box.size.y;
+
+    // Panel bevel: layered dark inner shadow
+    const float cr = 3.0f;
+    float alphas[] = {0.28f, 0.14f, 0.06f};
+    for (int i = 0; i < 3; ++i)
+    {
+      float inset = 0.5f + static_cast<float>(i) * 1.0f;
+      nvgBeginPath(vg);
+      nvgRoundedRect(vg, inset, inset, w - 2.f * inset, h - 2.f * inset, cr);
+      nvgStrokeColor(vg, nvgRGBA(0, 0, 0, static_cast<int>(alphas[i] * 255.f)));
+      nvgStrokeWidth(vg, 1.f);
+      nvgStroke(vg);
+    }
+
+    // Top/left highlight
+    nvgStrokeColor(vg, nvgRGBA(255, 255, 255, 77));
+    nvgStrokeWidth(vg, 1.f);
+    nvgBeginPath(vg);
+    nvgMoveTo(vg, cr + 1.f, 1.5f);
+    nvgLineTo(vg, w - cr - 1.f, 1.5f);
+    nvgStroke(vg);
+    nvgBeginPath(vg);
+    nvgMoveTo(vg, 1.5f, cr + 1.f);
+    nvgLineTo(vg, 1.5f, h - cr - 1.f);
+    nvgStroke(vg);
   }
 
   void appendContextMenu(Menu* menu) override

@@ -1,13 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
-     width="142.24mm" height="128.5mm"
-     viewBox="0 0 142.24 128.5">
-  <!-- Background -->
-  <rect x="0" y="0" width="142.24" height="128.5" fill="#f0f0f2"/>
-  <!-- IR A LCD zone -->
-  <rect x="63.0" y="5.5" width="74.0" height="9.0" fill="#F08830"/>
-  <!-- IR B LCD zone -->
-  <rect x="63.0" y="15.5" width="74.0" height="9.0" fill="#F08830"/>
-  <!-- Meter LCD zone -->
-  <rect x="5.0" y="33.5" width="132.24" height="14.0" fill="#F08830"/>
+     width="203.2mm" height="128.5mm"
+     viewBox="0 0 203.2 128.5">
+  <rect x="0" y="0" width="203.2" height="128.5" fill="#f0f0f2"/>
 </svg>
