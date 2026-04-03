@@ -1113,8 +1113,8 @@ struct OpcVcvIrWidget final : ModuleWidget
 
     auto makeLoadBtn = [&](math::Vec center, bool ir2)
     {
-      auto* btn = createWidget<OpcIrLoadButton>(center - mm2px(Vec(3.5f, 2.5f)));
-      btn->box.size = mm2px(Vec(7.0f, 5.0f));
+      auto* btn = createWidget<OpcIrLoadButton>(center - mm2px(Vec(5.0f, 3.0f)));
+      btn->box.size = mm2px(Vec(10.0f, 6.0f));
       btn->module = module;
       btn->isIR2 = ir2;
       btn->fontPath = fpCourier;
@@ -1123,8 +1123,8 @@ struct OpcVcvIrWidget final : ModuleWidget
 
     auto makeClearBtn = [&](math::Vec center, bool ir2)
     {
-      auto* btn = createWidget<OpcIrClearButton>(center - mm2px(Vec(4.5f, 2.5f)));
-      btn->box.size = mm2px(Vec(9.0f, 5.0f));
+      auto* btn = createWidget<OpcIrClearButton>(center - mm2px(Vec(6.0f, 3.0f)));
+      btn->box.size = mm2px(Vec(12.0f, 6.0f));
       btn->module = module;
       btn->isIR2 = ir2;
       btn->fontPath = fpCourier;
@@ -1133,8 +1133,8 @@ struct OpcVcvIrWidget final : ModuleWidget
 
     auto makePrevBtn = [&](math::Vec center, bool ir2)
     {
-      auto* btn = createWidget<OpcIrPrevButton>(center - mm2px(Vec(2.5f, 2.5f)));
-      btn->box.size = mm2px(Vec(5.0f, 5.0f));
+      auto* btn = createWidget<OpcIrPrevButton>(center - mm2px(Vec(3.5f, 3.0f)));
+      btn->box.size = mm2px(Vec(7.0f, 6.0f));
       btn->module = module;
       btn->isIR2 = ir2;
       btn->fontPath = fpCourier;
@@ -1143,8 +1143,8 @@ struct OpcVcvIrWidget final : ModuleWidget
 
     auto makeNextBtn = [&](math::Vec center, bool ir2)
     {
-      auto* btn = createWidget<OpcIrNextButton>(center - mm2px(Vec(2.5f, 2.5f)));
-      btn->box.size = mm2px(Vec(5.0f, 5.0f));
+      auto* btn = createWidget<OpcIrNextButton>(center - mm2px(Vec(3.5f, 3.0f)));
+      btn->box.size = mm2px(Vec(7.0f, 6.0f));
       btn->module = module;
       btn->isIR2 = ir2;
       btn->fontPath = fpCourier;
@@ -1155,8 +1155,8 @@ struct OpcVcvIrWidget final : ModuleWidget
     {
       const auto paramId = static_cast<int>(ir2 ? OpcVcvIr::ParamId::IrBEnableParam
                                                 : OpcVcvIr::ParamId::IrAEnableParam);
-      auto* btn = createParam<OpcIrEnableButton>(center - mm2px(Vec(8.0f, 2.5f)), module, paramId);
-      btn->box.size = mm2px(Vec(16.0f, 5.0f));
+      auto* btn = createParam<OpcIrEnableButton>(center - mm2px(Vec(10.0f, 3.0f)), module, paramId);
+      btn->box.size = mm2px(Vec(20.0f, 6.0f));
       btn->label = "ENABLE";
       btn->fontPath = fpCourier;
       addParam(btn);
@@ -1171,43 +1171,43 @@ struct OpcVcvIrWidget final : ModuleWidget
     const float colAStart = 3.f;
     const float colBStart = 104.f;
 
-    // --- IR A controls row (Y-center = 7.0) ---
-    makeLoadBtn(mm2px(Vec(colAStart + 4.f, 7.0f)), false);
-    makeClearBtn(mm2px(Vec(colAStart + 13.5f, 7.0f)), false);
-    makePrevBtn(mm2px(Vec(colAStart + 21.f, 7.0f)), false);
-    makeNextBtn(mm2px(Vec(colAStart + 27.f, 7.0f)), false);
-    makeEnableBtn(mm2px(Vec(colAStart + 40.f, 7.0f)), false);
+    // --- IR A controls row (Y-center = 10.0) ---
+    makeLoadBtn(mm2px(Vec(colAStart + 7.f, 10.0f)), false);
+    makeClearBtn(mm2px(Vec(colAStart + 20.f, 10.0f)), false);
+    makePrevBtn(mm2px(Vec(colAStart + 31.f, 10.0f)), false);
+    makeNextBtn(mm2px(Vec(colAStart + 40.f, 10.0f)), false);
+    makeEnableBtn(mm2px(Vec(colAStart + 55.f, 10.0f)), false);
     addParam(createParamCentered<OpcCustomTrimKnob>(
-        mm2px(Vec(colAStart + 53.f, 7.0f)), module,
+        mm2px(Vec(colAStart + 70.f, 10.0f)), module,
         static_cast<int>(OpcVcvIr::ParamId::IrATrimGainParam)));
 
-    // --- IR B controls row (Y-center = 7.0, right column) ---
-    makeLoadBtn(mm2px(Vec(colBStart + 4.f, 7.0f)), true);
-    makeClearBtn(mm2px(Vec(colBStart + 13.5f, 7.0f)), true);
-    makePrevBtn(mm2px(Vec(colBStart + 21.f, 7.0f)), true);
-    makeNextBtn(mm2px(Vec(colBStart + 27.f, 7.0f)), true);
-    makeEnableBtn(mm2px(Vec(colBStart + 40.f, 7.0f)), true);
+    // --- IR B controls row (Y-center = 10.0, right column) ---
+    makeLoadBtn(mm2px(Vec(colBStart + 7.f, 10.0f)), true);
+    makeClearBtn(mm2px(Vec(colBStart + 20.f, 10.0f)), true);
+    makePrevBtn(mm2px(Vec(colBStart + 31.f, 10.0f)), true);
+    makeNextBtn(mm2px(Vec(colBStart + 40.f, 10.0f)), true);
+    makeEnableBtn(mm2px(Vec(colBStart + 55.f, 10.0f)), true);
     addParam(createParamCentered<OpcCustomTrimKnob>(
-        mm2px(Vec(colBStart + 53.f, 7.0f)), module,
+        mm2px(Vec(colBStart + 70.f, 10.0f)), module,
         static_cast<int>(OpcVcvIr::ParamId::IrBTrimGainParam)));
 
-    // --- IR file display row (Y = 12.0, spans full width of each half) ---
-    auto* fileDisplayA = createWidget<IrFileDisplay>(mm2px(Vec(colAStart, 12.0f)));
+    // --- IR file display row (Y = 16.0, spans full width of each half) ---
+    auto* fileDisplayA = createWidget<IrFileDisplay>(mm2px(Vec(colAStart, 16.0f)));
     fileDisplayA->box.size = mm2px(Vec(97.0f, 8.0f));
     fileDisplayA->module = module;
     fileDisplayA->isIR2 = false;
     fileDisplayA->lcdFontPath = fpLCD;
     addChild(fileDisplayA);
 
-    auto* fileDisplayB = createWidget<IrFileDisplay>(mm2px(Vec(colBStart, 12.0f)));
+    auto* fileDisplayB = createWidget<IrFileDisplay>(mm2px(Vec(colBStart, 16.0f)));
     fileDisplayB->box.size = mm2px(Vec(96.2f, 8.0f));
     fileDisplayB->module = module;
     fileDisplayB->isIR2 = true;
     fileDisplayB->lcdFontPath = fpLCD;
     addChild(fileDisplayB);
 
-    // --- Mode row (Y-center = 25.0) ---
-    const float modeY = 25.0f;
+    // --- Mode row (Y-center = 31.0) ---
+    const float modeY = 31.0f;
     const float modeW = 56.0f;
     const float modeH = 7.0f;
     const float modeX1 = 34.f;
@@ -1243,18 +1243,18 @@ struct OpcVcvIrWidget final : ModuleWidget
       addParam(scBtn);
     }
 
-    // --- Meter display (Y = 31, height 22mm) ---
+    // --- Meter display (Y = 38, height 18mm) ---
     {
-      auto* meter = createWidget<OpcMeterDisplay>(mm2px(Vec(5.0f, 31.0f)));
-      meter->box.size = mm2px(Vec(193.2f, 22.0f));
+      auto* meter = createWidget<OpcMeterDisplay>(mm2px(Vec(5.0f, 38.0f)));
+      meter->box.size = mm2px(Vec(193.2f, 18.0f));
       meter->module = module;
       meter->lcdFontPath = fpLCD;
       addChild(meter);
     }
 
     // --- Knob row 1: BLEND, THRESHOLD, RANGE, KNEE, OUTPUT (5 across) ---
-    const float row1LabelY = 56.0f;
-    const float row1Y = 64.0f;
+    const float row1LabelY = 58.0f;
+    const float row1Y = 71.0f;
     const float kr1X1 = 28.f;   // BLEND
     const float kr1X2 = 68.f;   // THRESHOLD
     const float kr1X3 = 102.f;  // RANGE
@@ -1279,8 +1279,8 @@ struct OpcVcvIrWidget final : ModuleWidget
         mm2px(Vec(kr1X5, row1Y)), module, static_cast<int>(OpcVcvIr::ParamId::OutputGainParam)));
 
     // --- Knob row 2: ATTACK, RELEASE, DETECTION (3 across) ---
-    const float row2LabelY = 76.0f;
-    const float row2Y = 84.0f;
+    const float row2LabelY = 84.0f;
+    const float row2Y = 97.0f;
     const float kr2X1 = 52.f;   // ATTACK
     const float kr2X2 = 102.f;  // RELEASE
     const float kr2X3 = 152.f;  // DETECTION
@@ -1304,7 +1304,7 @@ struct OpcVcvIrWidget final : ModuleWidget
     }
 
     // --- Port row: all CV + Audio I/O (8 across) ---
-    const float portY = 100.0f;
+    const float portY = 112.0f;
     const float portLabelY = portY + 5.f;
     const float pX1 = 16.f;   // SC IN
     const float pX2 = 40.f;   // THR CV
