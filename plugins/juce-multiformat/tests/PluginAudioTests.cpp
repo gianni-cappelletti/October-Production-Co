@@ -285,6 +285,51 @@ TEST_F(PluginAudioTest, ProcessBlock_MonoToStereoNonSilentWithIRLoaded)
   EXPECT_GT(peakR, 1e-6f) << "Right channel is silent in mono-to-stereo mode";
 }
 
+// Scenario: IR A loaded, slot B enabled but empty, blend fully toward slot B.
+// The empty-but-enabled slot should act as dry passthrough — output must match the input.
+TEST_F(PluginAudioTest, EmptyEnabledSlot_BlendFullB_OutputMatchesDry)
+{
+  OctobIRProcessor processor;
+  processor.prepareToPlay(kSampleRate, kBlockSize);
+
+  auto& apvts = processor.getAPVTS();
+  apvts.getParameter("irAEnable")->setValueNotifyingHost(1.f);
+  apvts.getParameter("irBEnable")->setValueNotifyingHost(1.f);
+  auto* blendParam = apvts.getParameter("blend");
+  blendParam->setValueNotifyingHost(blendParam->convertTo0to1(1.f));
+
+  juce::String err;
+  ASSERT_TRUE(processor.loadImpulseResponse1(kIrAPath, err)) << err;
+
+  auto output = processAndAlign(processor, dryInput_);
+
+  float peak = 0.0f;
+  for (float s : output)
+    peak = std::max(peak, std::abs(s));
+  ASSERT_GT(peak, 1e-6f)
+      << "Output is silent — empty-but-enabled slot B should produce dry passthrough, not silence";
+
+  std::vector<float> dryRef(dryInput_.begin(),
+                            dryInput_.begin() + static_cast<ptrdiff_t>(output.size()));
+  std::vector<float> normalizedOut = output;
+
+  auto normalizePeak = [](std::vector<float>& v)
+  {
+    float pk = 0.0f;
+    for (float s : v)
+      pk = std::max(pk, std::abs(s));
+    if (pk > 0.0f)
+      for (float& s : v)
+        s /= pk;
+  };
+  normalizePeak(normalizedOut);
+  normalizePeak(dryRef);
+
+  double r = pearsonCorrelation(normalizedOut, dryRef);
+  EXPECT_GT(r, 0.999) << "With blend fully toward empty-but-enabled slot B, "
+                      << "output should match dry input (r=" << r << ")";
+}
+
 // Scenario: Equal-power blend (blend=0.0f) is commutative — swapping IR slots must not
 // change the plugin output.
 //

@@ -522,8 +522,11 @@ void IRProcessor::processMono(const Sample* input, Sample* output, FrameCount nu
         for (FrameCount i = 0; i < numFrames; ++i)
           outputPtr[0][i] = (outputPtr[0][i] + outputPtr[1][i]) * 0.5f;
 
-      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
-                          latencySamples1_);
+      if (latencySamples1_ > 0)
+        readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
+                            latencySamples1_);
+      else
+        std::copy(input, input + numFrames, scratchL_.data());
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -551,8 +554,11 @@ void IRProcessor::processMono(const Sample* input, Sample* output, FrameCount nu
         for (FrameCount i = 0; i < numFrames; ++i)
           outputPtr[0][i] = (outputPtr[0][i] + outputPtr[1][i]) * 0.5f;
 
-      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
-                          latencySamples2_);
+      if (latencySamples2_ > 0)
+        readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
+                            latencySamples2_);
+      else
+        std::copy(input, input + numFrames, scratchL_.data());
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -798,10 +804,18 @@ void IRProcessor::processStereo(const Sample* inputL, const Sample* inputR, Samp
     {
       WDL_FFT_REAL** outputPtr = convolutionEngine1_->Get();
 
-      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
-                          latencySamples1_);
-      readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
-                          latencySamples1_);
+      if (latencySamples1_ > 0)
+      {
+        readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
+                            latencySamples1_);
+        readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
+                            latencySamples1_);
+      }
+      else
+      {
+        std::copy(inputL, inputL + numFrames, scratchL_.data());
+        std::copy(inputR, inputR + numFrames, scratchR_.data());
+      }
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -828,10 +842,18 @@ void IRProcessor::processStereo(const Sample* inputL, const Sample* inputR, Samp
     {
       WDL_FFT_REAL** outputPtr = convolutionEngine2_->Get();
 
-      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
-                          latencySamples2_);
-      readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
-                          latencySamples2_);
+      if (latencySamples2_ > 0)
+      {
+        readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
+                            latencySamples2_);
+        readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
+                            latencySamples2_);
+      }
+      else
+      {
+        std::copy(inputL, inputL + numFrames, scratchL_.data());
+        std::copy(inputR, inputR + numFrames, scratchR_.data());
+      }
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -966,10 +988,18 @@ void IRProcessor::processMonoToStereo(const Sample* input, Sample* outputL, Samp
     {
       WDL_FFT_REAL** outputPtr = convolutionEngine1_->Get();
 
-      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
-                          latencySamples1_);
-      readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
-                          latencySamples1_);
+      if (latencySamples1_ > 0)
+      {
+        readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
+                            latencySamples1_);
+        readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
+                            latencySamples1_);
+      }
+      else
+      {
+        std::copy(input, input + numFrames, scratchL_.data());
+        std::copy(input, input + numFrames, scratchR_.data());
+      }
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -996,10 +1026,18 @@ void IRProcessor::processMonoToStereo(const Sample* input, Sample* outputL, Samp
     {
       WDL_FFT_REAL** outputPtr = convolutionEngine2_->Get();
 
-      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
-                          latencySamples2_);
-      readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
-                          latencySamples2_);
+      if (latencySamples2_ > 0)
+      {
+        readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
+                            latencySamples2_);
+        readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
+                            latencySamples2_);
+      }
+      else
+      {
+        std::copy(input, input + numFrames, scratchL_.data());
+        std::copy(input, input + numFrames, scratchR_.data());
+      }
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -1123,8 +1161,11 @@ void IRProcessor::processMonoWithSidechain(const Sample* input, const Sample* si
         for (FrameCount i = 0; i < numFrames; ++i)
           outputPtr[0][i] = (outputPtr[0][i] + outputPtr[1][i]) * 0.5f;
 
-      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
-                          latencySamples1_);
+      if (latencySamples1_ > 0)
+        readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
+                            latencySamples1_);
+      else
+        std::copy(input, input + numFrames, scratchL_.data());
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -1152,8 +1193,11 @@ void IRProcessor::processMonoWithSidechain(const Sample* input, const Sample* si
         for (FrameCount i = 0; i < numFrames; ++i)
           outputPtr[0][i] = (outputPtr[0][i] + outputPtr[1][i]) * 0.5f;
 
-      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
-                          latencySamples2_);
+      if (latencySamples2_ > 0)
+        readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
+                            latencySamples2_);
+      else
+        std::copy(input, input + numFrames, scratchL_.data());
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -1280,10 +1324,18 @@ void IRProcessor::processMonoToStereoWithSidechain(const Sample* input, const Sa
     {
       WDL_FFT_REAL** outputPtr = convolutionEngine1_->Get();
 
-      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
-                          latencySamples1_);
-      readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
-                          latencySamples1_);
+      if (latencySamples1_ > 0)
+      {
+        readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
+                            latencySamples1_);
+        readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
+                            latencySamples1_);
+      }
+      else
+      {
+        std::copy(input, input + numFrames, scratchL_.data());
+        std::copy(input, input + numFrames, scratchR_.data());
+      }
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -1310,10 +1362,18 @@ void IRProcessor::processMonoToStereoWithSidechain(const Sample* input, const Sa
     {
       WDL_FFT_REAL** outputPtr = convolutionEngine2_->Get();
 
-      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
-                          latencySamples2_);
-      readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
-                          latencySamples2_);
+      if (latencySamples2_ > 0)
+      {
+        readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
+                            latencySamples2_);
+        readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
+                            latencySamples2_);
+      }
+      else
+      {
+        std::copy(input, input + numFrames, scratchL_.data());
+        std::copy(input, input + numFrames, scratchR_.data());
+      }
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -1448,10 +1508,18 @@ void IRProcessor::processStereoWithSidechain(const Sample* inputL, const Sample*
     {
       WDL_FFT_REAL** outputPtr = convolutionEngine1_->Get();
 
-      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
-                          latencySamples1_);
-      readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
-                          latencySamples1_);
+      if (latencySamples1_ > 0)
+      {
+        readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
+                            latencySamples1_);
+        readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
+                            latencySamples1_);
+      }
+      else
+      {
+        std::copy(inputL, inputL + numFrames, scratchL_.data());
+        std::copy(inputR, inputR + numFrames, scratchR_.data());
+      }
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {
@@ -1478,10 +1546,18 @@ void IRProcessor::processStereoWithSidechain(const Sample* inputL, const Sample*
     {
       WDL_FFT_REAL** outputPtr = convolutionEngine2_->Get();
 
-      readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
-                          latencySamples2_);
-      readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
-                          latencySamples2_);
+      if (latencySamples2_ > 0)
+      {
+        readFromDelayBuffer(dryDelayBufferL_, dryDelayWritePosL_, scratchL_.data(), numFrames,
+                            latencySamples2_);
+        readFromDelayBuffer(dryDelayBufferR_, dryDelayWritePosR_, scratchR_.data(), numFrames,
+                            latencySamples2_);
+      }
+      else
+      {
+        std::copy(inputL, inputL + numFrames, scratchL_.data());
+        std::copy(inputR, inputR + numFrames, scratchR_.data());
+      }
 
       for (FrameCount i = 0; i < numFrames; ++i)
       {

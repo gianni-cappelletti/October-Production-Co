@@ -991,3 +991,91 @@ TEST_F(VcvAudioTest, MeteringAtomics_UpdatedAfterProcessing)
   EXPECT_NEAR(module.currentBlend_.load(std::memory_order_relaxed), 0.3f, 0.05f)
       << "Blend metering should reflect the blend param";
 }
+
+// ---------------------------------------------------------------------------
+// Empty-but-enabled slot dry passthrough
+// ---------------------------------------------------------------------------
+
+// IR A loaded, slot B enabled but empty, blend fully toward slot B.
+// The empty-but-enabled slot should act as dry passthrough — output must match the input.
+TEST_F(VcvAudioTest, EmptyEnabledSlotB_BlendFullB_OutputMatchesDry)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+  module.loadIR(kIrAPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrBEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(1.f);
+
+  auto out = processMonoInput(module, dryInput_);
+
+  float peak = 0.0f;
+  for (float s : out.L)
+    peak = std::max(peak, std::abs(s));
+  ASSERT_GT(peak, 1e-6f)
+      << "Output is silent — empty-but-enabled slot B should produce dry passthrough, not silence";
+
+  auto normalizePeak = [](std::vector<float>& v)
+  {
+    float pk = 0.0f;
+    for (float s : v)
+      pk = std::max(pk, std::abs(s));
+    if (pk > 0.0f)
+      for (float& s : v)
+        s /= pk;
+  };
+
+  std::vector<float> normalizedOut = out.L;
+  std::vector<float> dryRef = dryInput_;
+  normalizedOut.resize(std::min(normalizedOut.size(), dryRef.size()));
+  dryRef.resize(normalizedOut.size());
+  normalizePeak(normalizedOut);
+  normalizePeak(dryRef);
+
+  double r = pearsonCorrelation(normalizedOut, dryRef);
+  EXPECT_GT(r, 0.999) << "With blend fully toward empty-but-enabled slot B, "
+                      << "output should match dry input (r=" << r << ")";
+}
+
+// IR B loaded, slot A enabled but empty, blend fully toward slot A.
+// The empty-but-enabled slot should act as dry passthrough.
+TEST_F(VcvAudioTest, EmptyEnabledSlotA_BlendFullA_OutputMatchesDry)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+  module.loadIR2(kIrBPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrBEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(-1.f);
+
+  auto out = processMonoInput(module, dryInput_);
+
+  float peak = 0.0f;
+  for (float s : out.L)
+    peak = std::max(peak, std::abs(s));
+  ASSERT_GT(peak, 1e-6f)
+      << "Output is silent — empty-but-enabled slot A should produce dry passthrough, not silence";
+
+  auto normalizePeak = [](std::vector<float>& v)
+  {
+    float pk = 0.0f;
+    for (float s : v)
+      pk = std::max(pk, std::abs(s));
+    if (pk > 0.0f)
+      for (float& s : v)
+        s /= pk;
+  };
+
+  std::vector<float> normalizedOut = out.L;
+  std::vector<float> dryRef = dryInput_;
+  normalizedOut.resize(std::min(normalizedOut.size(), dryRef.size()));
+  dryRef.resize(normalizedOut.size());
+  normalizePeak(normalizedOut);
+  normalizePeak(dryRef);
+
+  double r = pearsonCorrelation(normalizedOut, dryRef);
+  EXPECT_GT(r, 0.999) << "With blend fully toward empty-but-enabled slot A, "
+                      << "output should match dry input (r=" << r << ")";
+}
