@@ -975,7 +975,7 @@ struct OpcMeterDisplay : OpaqueWidget
         int centre = kSegments / 2;
         float normPos = normValue * static_cast<float>(kSegments);
         isLit = (i == centre) ||
-                (normValue < 0.5f && static_cast<float>(i) >= normPos && i < centre) ||
+                (normValue < 0.5f && static_cast<float>(i + 1) > normPos && i < centre) ||
                 (normValue > 0.5f && i > centre && static_cast<float>(i) < normPos);
       }
       else
