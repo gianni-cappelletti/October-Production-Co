@@ -16,7 +16,6 @@ LDFLAGS +=
 SOURCES += $(wildcard src/*.cpp)
 
 # Add octobir-core library sources
-SOURCES += ../../libs/octobir-core/src/AudioBuffer.cpp
 SOURCES += ../../libs/octobir-core/src/IRLoader.cpp
 SOURCES += ../../libs/octobir-core/src/IRProcessor.cpp
 
