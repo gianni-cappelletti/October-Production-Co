@@ -381,6 +381,101 @@ TEST_F(VcvAudioTest, BlendCv_ShiftsBlendToMax)
       << "Blend CV at +5V should set blend to 1.0";
 }
 
+TEST_F(VcvAudioTest, ThresholdCv_MidRangeScaling)
+{
+  // +2.5V at threshold CV with knob at -30 dB -> -30 + 15 = -15 dB
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ThresholdParam)].setValue(-30.f);
+  const int threshCvIn = static_cast<int>(OpcVcvIr::InputId::ThresholdCvIn);
+  module.inputs[static_cast<size_t>(threshCvIn)].connected = true;
+  module.inputs[static_cast<size_t>(threshCvIn)].voltage = 2.5f;
+
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.process(args);
+
+  EXPECT_NEAR(module.irProcessor_.getThreshold(), -15.f, 0.01f)
+      << "Threshold CV at +2.5V should add 15 dB to knob value";
+}
+
+TEST_F(VcvAudioTest, ThresholdCv_AddsToNonZeroBase)
+{
+  // -2V at threshold CV with knob at -10 dB -> -10 + (-12) = -22 dB
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ThresholdParam)].setValue(-10.f);
+  const int threshCvIn = static_cast<int>(OpcVcvIr::InputId::ThresholdCvIn);
+  module.inputs[static_cast<size_t>(threshCvIn)].connected = true;
+  module.inputs[static_cast<size_t>(threshCvIn)].voltage = -2.0f;
+
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.process(args);
+
+  EXPECT_NEAR(module.irProcessor_.getThreshold(), -22.f, 0.01f)
+      << "Threshold CV at -2V should subtract 12 dB from knob value of -10";
+}
+
+TEST_F(VcvAudioTest, BlendCv_MidRangeScaling)
+{
+  // +2.5V at blend CV with knob at 0.0 -> 0.0 + 0.5 = 0.5
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+
+  module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(0.f);
+  const int blendCvIn = static_cast<int>(OpcVcvIr::InputId::BlendCvIn);
+  module.inputs[static_cast<size_t>(blendCvIn)].connected = true;
+  module.inputs[static_cast<size_t>(blendCvIn)].voltage = 2.5f;
+
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.process(args);
+
+  EXPECT_NEAR(module.irProcessor_.getBlend(), 0.5f, 0.01f)
+      << "Blend CV at +2.5V should set blend to 0.5";
+}
+
+TEST_F(VcvAudioTest, BlendCv_AddsToNonZeroBase)
+{
+  // +2V at blend CV with knob at -0.5 -> -0.5 + 0.4 = -0.1
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+
+  module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(-0.5f);
+  const int blendCvIn = static_cast<int>(OpcVcvIr::InputId::BlendCvIn);
+  module.inputs[static_cast<size_t>(blendCvIn)].connected = true;
+  module.inputs[static_cast<size_t>(blendCvIn)].voltage = 2.0f;
+
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.process(args);
+
+  EXPECT_NEAR(module.irProcessor_.getBlend(), -0.1f, 0.01f)
+      << "Blend CV at +2V should add 0.4 to knob value of -0.5";
+}
+
+TEST_F(VcvAudioTest, BlendCv_ClampWhenBaseAndCvExceedRange)
+{
+  // +5V at blend CV with knob at 0.5 -> 0.5 + 1.0 = 1.5, clamped to 1.0
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+
+  module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(0.5f);
+  const int blendCvIn = static_cast<int>(OpcVcvIr::InputId::BlendCvIn);
+  module.inputs[static_cast<size_t>(blendCvIn)].connected = true;
+  module.inputs[static_cast<size_t>(blendCvIn)].voltage = 5.0f;
+
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.process(args);
+
+  EXPECT_NEAR(module.irProcessor_.getBlend(), 1.0f, 0.01f)
+      << "Blend CV should clamp to 1.0 when base + CV exceeds range";
+}
+
 TEST_F(VcvAudioTest, DynamicsEnableGate_HighOverridesParamOff)
 {
   OpcVcvIr module;
@@ -415,6 +510,59 @@ TEST_F(VcvAudioTest, DynamicsEnableGate_LowOverridesParamOn)
 
   EXPECT_FALSE(module.irProcessor_.getDynamicModeEnabled())
       << "Gate at 0V should disable dynamic mode even when param is ON";
+}
+
+TEST_F(VcvAudioTest, DynamicsEnableGate_JustBelowThreshold)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(0.f);
+  const int dynGateIn = static_cast<int>(OpcVcvIr::InputId::DynamicsEnableCvIn);
+  module.inputs[static_cast<size_t>(dynGateIn)].connected = true;
+  module.inputs[static_cast<size_t>(dynGateIn)].voltage = 0.9f;
+
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.process(args);
+
+  EXPECT_FALSE(module.irProcessor_.getDynamicModeEnabled())
+      << "Gate at 0.9V (below 1.0V threshold) should not enable dynamic mode";
+}
+
+TEST_F(VcvAudioTest, DynamicsEnableGate_JustAboveThreshold)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(0.f);
+  const int dynGateIn = static_cast<int>(OpcVcvIr::InputId::DynamicsEnableCvIn);
+  module.inputs[static_cast<size_t>(dynGateIn)].connected = true;
+  module.inputs[static_cast<size_t>(dynGateIn)].voltage = 1.1f;
+
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.process(args);
+
+  EXPECT_TRUE(module.irProcessor_.getDynamicModeEnabled())
+      << "Gate at 1.1V (above 1.0V threshold) should enable dynamic mode";
+}
+
+TEST_F(VcvAudioTest, DynamicsEnableGate_DisconnectedFallsBackToParam)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(1.f);
+  const int dynGateIn = static_cast<int>(OpcVcvIr::InputId::DynamicsEnableCvIn);
+  module.inputs[static_cast<size_t>(dynGateIn)].connected = false;
+
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.process(args);
+
+  EXPECT_TRUE(module.irProcessor_.getDynamicModeEnabled())
+      << "With gate disconnected, dynamic mode should follow the param";
 }
 
 // ---------------------------------------------------------------------------
@@ -574,6 +722,140 @@ TEST_F(VcvAudioTest, DynamicModeNoSidechain_NonSilentOutput)
   for (float s : out.L)
     peak = std::max(peak, std::abs(s));
   EXPECT_GT(peak, 1e-6f) << "Output is silent in dynamic mode without sidechain";
+}
+
+// ---------------------------------------------------------------------------
+// Sidechain button / connection interaction with dynamic mode
+// ---------------------------------------------------------------------------
+
+TEST_F(VcvAudioTest, DynamicMode_ButtonOff_InputDrivesBlend)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+  module.loadIR(kIrAPath);
+  module.loadIR2(kIrBPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrBEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::SidechainEnableParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ThresholdParam)].setValue(-60.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::RangeDbParam)].setValue(20.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::KneeWidthDbParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::AttackTimeParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ReleaseTimeParam)].setValue(1.f);
+
+  auto out = processMonoInput(module, dryInput_);
+
+  float blend = module.currentBlend_.load(std::memory_order_relaxed);
+  EXPECT_GT(blend, 0.1f)
+      << "With sidechain button OFF, loud input should drive dynamic blend away from center";
+}
+
+TEST_F(VcvAudioTest, DynamicMode_ButtonOn_SCConnected_SidechainDrivesBlend)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+  module.loadIR(kIrAPath);
+  module.loadIR2(kIrBPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrBEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::SidechainEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ThresholdParam)].setValue(-60.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::RangeDbParam)].setValue(20.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::KneeWidthDbParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::AttackTimeParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ReleaseTimeParam)].setValue(1.f);
+
+  // Silent main input, loud sidechain -- blend should move from sidechain signal
+  std::vector<float> silence(dryInput_.size(), 0.0f);
+  auto out = processMonoWithSidechain(module, silence, dryInput_);
+
+  float blend = module.currentBlend_.load(std::memory_order_relaxed);
+  EXPECT_GT(blend, 0.1f)
+      << "With sidechain button ON and SC connected, loud sidechain should drive blend";
+}
+
+TEST_F(VcvAudioTest, DynamicMode_ButtonOn_SCNotConnected_InputStillDrivesBlend)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+  module.loadIR(kIrAPath);
+  module.loadIR2(kIrBPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrBEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::SidechainEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ThresholdParam)].setValue(-60.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::RangeDbParam)].setValue(20.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::KneeWidthDbParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::AttackTimeParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ReleaseTimeParam)].setValue(1.f);
+
+  // Sidechain button ON but nothing connected -- input signal should still drive blend
+  auto out = processMonoInput(module, dryInput_);
+
+  EXPECT_FALSE(module.irProcessor_.getSidechainEnabled())
+      << "Core should see sidechain as disabled when SC input is not connected";
+  float blend = module.currentBlend_.load(std::memory_order_relaxed);
+  EXPECT_GT(blend, 0.1f)
+      << "With SC button ON but not connected, loud input should still drive dynamic blend";
+}
+
+TEST_F(VcvAudioTest, SCConnected_ButtonOff_ConnectionDoesNotActivateSidechain)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+  module.loadIR(kIrAPath);
+  module.loadIR2(kIrBPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrBEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::SidechainEnableParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ThresholdParam)].setValue(-60.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::RangeDbParam)].setValue(20.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::KneeWidthDbParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::AttackTimeParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ReleaseTimeParam)].setValue(1.f);
+
+  // SC connected + button OFF: loud main, silent sidechain -- blend driven by main input
+  std::vector<float> silence(dryInput_.size(), 0.0f);
+  auto out = processMonoWithSidechain(module, dryInput_, silence);
+
+  EXPECT_FALSE(module.irProcessor_.getSidechainEnabled())
+      << "Core should see sidechain as disabled when button is OFF, even if SC is connected";
+  float blend = module.currentBlend_.load(std::memory_order_relaxed);
+  EXPECT_GT(blend, 0.1f)
+      << "With button OFF, loud main input should drive blend regardless of SC connection";
+}
+
+TEST_F(VcvAudioTest, DynamicModeOff_NoDynamicBlendRegardless)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+  module.loadIR(kIrAPath);
+  module.loadIR2(kIrBPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrBEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::SidechainEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(0.3f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ThresholdParam)].setValue(-60.f);
+
+  auto out = processMonoWithSidechain(module, dryInput_, dryInput_);
+
+  float blend = module.currentBlend_.load(std::memory_order_relaxed);
+  EXPECT_NEAR(blend, 0.3f, 0.05f)
+      << "With dynamic mode OFF, blend should stay at static value regardless of sidechain";
 }
 
 // ---------------------------------------------------------------------------

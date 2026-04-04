@@ -219,8 +219,12 @@ struct OpcVcvIr final : Module
                        : 0.0f);
     blend = clamp(blend, -1.f, 1.f);
 
+    const bool leftConnected = inputs[static_cast<int>(InputId::AudioInL)].isConnected();
+    const bool rightConnected = inputs[static_cast<int>(InputId::AudioInR)].isConnected();
+    const bool scConnected = inputs[static_cast<int>(InputId::SidechainIn)].isConnected();
+
     irProcessor_.setDynamicModeEnabled(dynamicMode);
-    irProcessor_.setSidechainEnabled(sidechainEnabled);
+    irProcessor_.setSidechainEnabled(dynamicMode && sidechainEnabled && scConnected);
     irProcessor_.setBlend(blend);
     irProcessor_.setIRAEnabled(params[static_cast<int>(ParamId::IrAEnableParam)].getValue() > 0.5f);
     irProcessor_.setIRBEnabled(params[static_cast<int>(ParamId::IrBEnableParam)].getValue() > 0.5f);
@@ -237,10 +241,6 @@ struct OpcVcvIr final : Module
 
     lights[static_cast<int>(LightId::DynamicModeLight)].setBrightness(dynamicMode ? 1.0f : 0.0f);
     lights[static_cast<int>(LightId::SidechainLight)].setBrightness(sidechainEnabled ? 1.0f : 0.0f);
-
-    const bool leftConnected = inputs[static_cast<int>(InputId::AudioInL)].isConnected();
-    const bool rightConnected = inputs[static_cast<int>(InputId::AudioInR)].isConnected();
-    const bool scConnected = inputs[static_cast<int>(InputId::SidechainIn)].isConnected();
 
     if (dynamicMode && sidechainEnabled && scConnected)
     {

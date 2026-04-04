@@ -194,10 +194,14 @@ void OctobIRProcessor::processBlock(juce::AudioBuffer<float>& buffer,
   float irATrimGain = apvts_.getRawParameterValue("irATrimGain")->load();
   float irBTrimGain = apvts_.getRawParameterValue("irBTrimGain")->load();
 
+  auto mainInputChannels = getBusBuffer(buffer, true, 0);
+  auto sidechainBuffer = getBusBuffer(buffer, true, 1);
+  bool hasSidechain = sidechainBuffer.getNumChannels() != 0;
+
   irProcessor_.setIRAEnabled(irAEnable);
   irProcessor_.setIRBEnabled(irBEnable);
   irProcessor_.setDynamicModeEnabled(dynamicMode);
-  irProcessor_.setSidechainEnabled(sidechainEnabled);
+  irProcessor_.setSidechainEnabled(dynamicMode && sidechainEnabled && hasSidechain);
   irProcessor_.setBlend(blend);
   irProcessor_.setThreshold(threshold);
   irProcessor_.setRangeDb(rangeDb);
@@ -208,10 +212,6 @@ void OctobIRProcessor::processBlock(juce::AudioBuffer<float>& buffer,
   irProcessor_.setOutputGain(outputGain);
   irProcessor_.setIRATrimGain(irATrimGain);
   irProcessor_.setIRBTrimGain(irBTrimGain);
-
-  auto mainInputChannels = getBusBuffer(buffer, true, 0);
-  auto sidechainBuffer = getBusBuffer(buffer, true, 1);
-  bool hasSidechain = sidechainBuffer.getNumChannels() != 0;
 
   int numInputChannels = mainInputChannels.getNumChannels();
   bool monoToStereo = numInputChannels == 1 && totalNumOutputChannels >= 2;
