@@ -199,6 +199,99 @@ TEST_F(BlendExtremeTest, FullyIRA_MatchesSingleIRPath)
                       << "). IR B is not being fully muted.";
 }
 
+// IR A loaded, slot B enabled but empty, blend=+1.0 (fully toward empty slot).
+// The empty-but-enabled slot should act as dry passthrough, so the output must
+// match the latency-compensated dry input.
+TEST_F(BlendExtremeTest, IRALoaded_SlotBEnabledEmpty_BlendFullB_OutputMatchesDry)
+{
+  unsigned int drySampleRate = 0;
+  drwav_uint64 dryFrameCount = 0;
+  std::vector<float> dryInput = loadWavMono(dryPath_, drySampleRate, dryFrameCount);
+  ASSERT_FALSE(dryInput.empty());
+  ASSERT_EQ(drySampleRate, 44100u);
+
+  constexpr int kBlockSize = 512;
+
+  IRProcessor p;
+  p.setSampleRate(44100.0);
+  p.setMaxBlockSize(kBlockSize);
+  p.setIRAEnabled(true);
+  p.setIRBEnabled(true);
+  p.setBlend(1.0f);
+  std::string err;
+  ASSERT_TRUE(p.loadImpulseResponse1(irAPath_, err)) << err;
+
+  std::vector<float> output = processAndAlign(p, dryInput, kBlockSize);
+
+  float peakOutput = 0.0f;
+  for (float s : output)
+    peakOutput = std::max(peakOutput, std::abs(s));
+  ASSERT_GT(peakOutput, 1e-6f)
+      << "Output is silent — empty-but-enabled slot should produce dry passthrough, not silence";
+
+  size_t compareLen = std::min(output.size(), dryInput.size());
+  output.resize(compareLen);
+  std::vector<float> dryRef(dryInput.begin(),
+                            dryInput.begin() + static_cast<ptrdiff_t>(compareLen));
+
+  normalizeToUnitPeak(output);
+  normalizeToUnitPeak(dryRef);
+
+  double r = pearsonCorrelation(output, dryRef);
+
+  std::cout << "[EmptySlotB] Pearson r (output vs dry input): " << r << "\n";
+
+  EXPECT_GT(r, 0.999)
+      << "With blend fully toward empty-but-enabled slot B, output should match dry input (r=" << r
+      << ")";
+}
+
+// IR B loaded, slot A enabled but empty, blend=-1.0 (fully toward empty slot).
+// Same as above but mirrored: empty slot A should act as dry passthrough.
+TEST_F(BlendExtremeTest, IRBLoaded_SlotAEnabledEmpty_BlendFullA_OutputMatchesDry)
+{
+  unsigned int drySampleRate = 0;
+  drwav_uint64 dryFrameCount = 0;
+  std::vector<float> dryInput = loadWavMono(dryPath_, drySampleRate, dryFrameCount);
+  ASSERT_FALSE(dryInput.empty());
+  ASSERT_EQ(drySampleRate, 44100u);
+
+  constexpr int kBlockSize = 512;
+
+  IRProcessor p;
+  p.setSampleRate(44100.0);
+  p.setMaxBlockSize(kBlockSize);
+  p.setIRAEnabled(true);
+  p.setIRBEnabled(true);
+  p.setBlend(-1.0f);
+  std::string err;
+  ASSERT_TRUE(p.loadImpulseResponse2(irBPath_, err)) << err;
+
+  std::vector<float> output = processAndAlign(p, dryInput, kBlockSize);
+
+  float peakOutput = 0.0f;
+  for (float s : output)
+    peakOutput = std::max(peakOutput, std::abs(s));
+  ASSERT_GT(peakOutput, 1e-6f)
+      << "Output is silent — empty-but-enabled slot should produce dry passthrough, not silence";
+
+  size_t compareLen = std::min(output.size(), dryInput.size());
+  output.resize(compareLen);
+  std::vector<float> dryRef(dryInput.begin(),
+                            dryInput.begin() + static_cast<ptrdiff_t>(compareLen));
+
+  normalizeToUnitPeak(output);
+  normalizeToUnitPeak(dryRef);
+
+  double r = pearsonCorrelation(output, dryRef);
+
+  std::cout << "[EmptySlotA] Pearson r (output vs dry input): " << r << "\n";
+
+  EXPECT_GT(r, 0.999)
+      << "With blend fully toward empty-but-enabled slot A, output should match dry input (r=" << r
+      << ")";
+}
+
 // blend=+1.0: gain_A=0.0, gain_B=1.0.
 // Output should match what you get from the single-IR-B path (IR A disabled).
 TEST_F(BlendExtremeTest, FullyIRB_MatchesSingleIRBPath)
