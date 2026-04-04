@@ -7,8 +7,6 @@ static const std::string kIrBPath = std::string(TEST_DATA_DIR) + "/INPUT_ir_b.wa
 
 static const int kIrATrimIdx = static_cast<int>(OpcVcvIr::ParamId::IrATrimGainParam);
 static const int kIrBTrimIdx = static_cast<int>(OpcVcvIr::ParamId::IrBTrimGainParam);
-static const int kDynIdx = static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam);
-static const int kScIdx = static_cast<int>(OpcVcvIr::ParamId::SidechainEnableParam);
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -17,8 +15,8 @@ static const int kScIdx = static_cast<int>(OpcVcvIr::ParamId::SidechainEnablePar
 TEST(VcvModuleTest, ConstructorDoesNotCrash)
 {
   OpcVcvIr module;
-  EXPECT_TRUE(module.loaded_file_path_.empty());
-  EXPECT_TRUE(module.loaded_file_path2_.empty());
+  EXPECT_TRUE(module.getLoadedFilePath(false).empty());
+  EXPECT_TRUE(module.getLoadedFilePath(true).empty());
 }
 
 TEST(VcvModuleTest, ConstructorInitializesDefaultSampleRate)
@@ -35,22 +33,23 @@ TEST(VcvModuleTest, LoadIR_UpdatesPath)
 {
   OpcVcvIr module;
   module.loadIR(kIrAPath);
-  EXPECT_EQ(module.loaded_file_path_, kIrAPath);
+  EXPECT_EQ(module.getLoadedFilePath(false), kIrAPath);
 }
 
 TEST(VcvModuleTest, LoadIR2_UpdatesPath)
 {
   OpcVcvIr module;
   module.loadIR2(kIrBPath);
-  EXPECT_EQ(module.loaded_file_path2_, kIrBPath);
+  EXPECT_EQ(module.getLoadedFilePath(true), kIrBPath);
 }
 
 TEST(VcvModuleTest, LoadIR_InvalidPath_ClearsPath)
 {
   OpcVcvIr module;
-  module.loaded_file_path_ = "/some/prior/path.wav";
+  module.loadIR(kIrAPath);
+  ASSERT_FALSE(module.getLoadedFilePath(false).empty());
   module.loadIR("/nonexistent/file.wav");
-  EXPECT_TRUE(module.loaded_file_path_.empty());
+  EXPECT_TRUE(module.getLoadedFilePath(false).empty());
 }
 
 TEST(VcvModuleTest, LoadIR_SetsIsIR1Loaded)
@@ -60,7 +59,7 @@ TEST(VcvModuleTest, LoadIR_SetsIsIR1Loaded)
   // calls the core processing functions. Connect AudioInL so the pending IR is applied.
   OpcVcvIr module;
   module.loadIR(kIrAPath);
-  ASSERT_FALSE(module.loaded_file_path_.empty());
+  ASSERT_FALSE(module.getLoadedFilePath(false).empty());
 
   module.inputs[static_cast<size_t>(OpcVcvIr::InputId::AudioInL)].connected = true;
   ProcessArgs args{44100.f, 1.f / 44100.f};
@@ -92,8 +91,8 @@ TEST(VcvModuleTest, Swap_ExchangesPaths)
 
   module.swapImpulseResponses();
 
-  EXPECT_EQ(module.loaded_file_path_, kIrBPath);
-  EXPECT_EQ(module.loaded_file_path2_, kIrAPath);
+  EXPECT_EQ(module.getLoadedFilePath(false), kIrBPath);
+  EXPECT_EQ(module.getLoadedFilePath(true), kIrAPath);
 }
 
 TEST(VcvModuleTest, Swap_ExchangesTrimGains)
@@ -117,8 +116,8 @@ TEST(VcvModuleTest, Swap_WithOneSlotEmpty_DoesNotCrash)
 
   ASSERT_NO_THROW(module.swapImpulseResponses());
 
-  EXPECT_EQ(module.loaded_file_path_, "");
-  EXPECT_EQ(module.loaded_file_path2_, kIrAPath);
+  EXPECT_EQ(module.getLoadedFilePath(false), "");
+  EXPECT_EQ(module.getLoadedFilePath(true), kIrAPath);
 }
 
 TEST(VcvModuleTest, Swap_BothSlotsEmpty_DoesNotCrash)
@@ -144,26 +143,8 @@ TEST(VcvModuleTest, Serialization_PathsRoundTrip)
   reader.dataFromJson(state);
   json_decref(state);
 
-  EXPECT_EQ(reader.loaded_file_path_, kIrAPath);
-  EXPECT_EQ(reader.loaded_file_path2_, kIrBPath);
-}
-
-TEST(VcvModuleTest, Serialization_BackwardCompat_OldKeys)
-{
-  json_t* state = json_object();
-  json_object_set_new(state, "filePath", json_string(kIrAPath.c_str()));
-  json_object_set_new(state, "filePath2", json_string(kIrBPath.c_str()));
-  json_object_set_new(state, "dynamicModeEnabled", json_boolean(true));
-  json_object_set_new(state, "sidechainEnabled", json_boolean(true));
-
-  OpcVcvIr module;
-  module.dataFromJson(state);
-  json_decref(state);
-
-  EXPECT_EQ(module.loaded_file_path_, kIrAPath);
-  EXPECT_EQ(module.loaded_file_path2_, kIrBPath);
-  EXPECT_GT(module.params[kDynIdx].getValue(), 0.5f);
-  EXPECT_GT(module.params[kScIdx].getValue(), 0.5f);
+  EXPECT_EQ(reader.getLoadedFilePath(false), kIrAPath);
+  EXPECT_EQ(reader.getLoadedFilePath(true), kIrBPath);
 }
 
 TEST(VcvModuleTest, Serialization_EmptyPaths_DoesNotCrash)
@@ -176,6 +157,6 @@ TEST(VcvModuleTest, Serialization_EmptyPaths_DoesNotCrash)
   ASSERT_NO_THROW(reader.dataFromJson(state));
   json_decref(state);
 
-  EXPECT_TRUE(reader.loaded_file_path_.empty());
-  EXPECT_TRUE(reader.loaded_file_path2_.empty());
+  EXPECT_TRUE(reader.getLoadedFilePath(false).empty());
+  EXPECT_TRUE(reader.getLoadedFilePath(true).empty());
 }

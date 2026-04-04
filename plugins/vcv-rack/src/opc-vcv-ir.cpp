@@ -473,6 +473,27 @@ static bool isAudioExtension(const std::string& name)
   return ext == ".wav" || ext == ".aiff" || ext == ".aif" || ext == ".flac";
 }
 
+static void openIRFileDialog(OpcVcvIr* module, bool isIR2)
+{
+  osdialog_filters* filters = osdialog_filters_parse("Audio files:wav,aiff,aif,flac;All files:*");
+  if (filters == nullptr)
+  {
+    WARN("openIRFileDialog: failed to parse file dialog filters");
+    return;
+  }
+
+  char* path = osdialog_file(OSDIALOG_OPEN, nullptr, nullptr, filters);
+  if (path != nullptr)
+  {
+    if (isIR2)
+      module->loadIR2(std::string(path));
+    else
+      module->loadIR(std::string(path));
+    free(path);
+  }
+  osdialog_filters_free(filters);
+}
+
 // ---------------------------------------------------------------------------
 // Custom knob widgets
 // ---------------------------------------------------------------------------
@@ -608,20 +629,8 @@ struct IrFileDisplay : OpaqueWidget
 
   void openFileDialog()
   {
-    osdialog_filters* filters = osdialog_filters_parse("Audio files:wav,aiff,flac;All files:*");
-    char* path = osdialog_file(OSDIALOG_OPEN, nullptr, nullptr, filters);
-
-    if (path != nullptr)
-    {
-      if (isIR2)
-        module->loadIR2(std::string(path));
-      else
-        module->loadIR(std::string(path));
-      updateDisplayText();
-      free(path);
-    }
-
-    osdialog_filters_free(filters);
+    openIRFileDialog(module, isIR2);
+    updateDisplayText();
   }
 
   void updateDisplayText()
@@ -632,7 +641,7 @@ struct IrFileDisplay : OpaqueWidget
       return;
     }
 
-    std::string& path = isIR2 ? module->loaded_file_path2_ : module->loaded_file_path_;
+    std::string path = module->getLoadedFilePath(isIR2);
     if (path.empty())
     {
       text = "<No IR selected>";
@@ -658,7 +667,7 @@ struct IrFileDisplay : OpaqueWidget
 // Button widgets
 // ---------------------------------------------------------------------------
 
-struct OpcIrEnableButton : app::Switch
+struct OpcToggleButton : app::Switch
 {
   std::string label;
   std::string fontPath;
@@ -717,20 +726,7 @@ struct OpcIrLoadButton : OpaqueWidget
   }
 
  private:
-  void openFileDialog()
-  {
-    osdialog_filters* filters = osdialog_filters_parse("Audio files:wav,aiff,flac;All files:*");
-    char* path = osdialog_file(OSDIALOG_OPEN, nullptr, nullptr, filters);
-    if (path != nullptr)
-    {
-      if (isIR2)
-        module->loadIR2(std::string(path));
-      else
-        module->loadIR(std::string(path));
-      free(path);
-    }
-    osdialog_filters_free(filters);
-  }
+  void openFileDialog() { openIRFileDialog(module, isIR2); }
 };
 
 struct OpcIrClearButton : OpaqueWidget
@@ -780,8 +776,7 @@ struct OpcIrNavButton : OpaqueWidget
 
   void draw(const DrawArgs& args) override
   {
-    const bool hasIr = module != nullptr &&
-                       !(isIR2 ? module->loaded_file_path2_ : module->loaded_file_path_).empty();
+    const bool hasIr = module != nullptr && !module->getLoadedFilePath(isIR2).empty();
     nvgGlobalAlpha(args.vg, hasIr ? 1.f : 0.4f);
     drawJuceButton(args.vg, box.size.x, box.size.y, Direction < 0 ? "<" : ">", pressed_, false,
                    fontPath);
@@ -812,7 +807,7 @@ struct OpcIrNavButton : OpaqueWidget
  private:
   void loadAdjacentFile()
   {
-    const std::string& currentPath = isIR2 ? module->loaded_file_path2_ : module->loaded_file_path_;
+    const std::string currentPath = module->getLoadedFilePath(isIR2);
     if (currentPath.empty())
       return;
 
@@ -883,8 +878,9 @@ struct OpcMeterDisplay : OpaqueWidget
 
     drawLCDBackground(args.vg, 0.f, 0.f, w, h);
 
-    const float levelDb = module ? module->currentInputLevelDb_.load() : -60.f;
-    const float blend = module ? module->currentBlend_.load() : 0.f;
+    const float levelDb =
+        module ? module->currentInputLevelDb_.load(std::memory_order_relaxed) : -60.f;
+    const float blend = module ? module->currentBlend_.load(std::memory_order_relaxed) : 0.f;
 
     const float padH = 4.f;
     const float padTop = 8.f;
@@ -1014,19 +1010,6 @@ struct OpcMeterDisplay : OpaqueWidget
 // ---------------------------------------------------------------------------
 // Toggle buttons (DYNAMIC, SIDECHAIN)
 // ---------------------------------------------------------------------------
-
-struct OpcRetroButton : app::Switch
-{
-  std::string label;
-  std::string fontPath;
-
-  void draw(const DrawArgs& args) override
-  {
-    engine::ParamQuantity* pq = getParamQuantity();
-    const bool lit = pq ? pq->getValue() > 0.5f : false;
-    drawToggleButton(args.vg, box.size.x, box.size.y, label.c_str(), lit, fontPath);
-  }
-};
 
 // ---------------------------------------------------------------------------
 // Swap button
@@ -1164,7 +1147,7 @@ struct OpcVcvIrWidget final : ModuleWidget
     {
       const auto paramId = static_cast<int>(ir2 ? OpcVcvIr::ParamId::IrBEnableParam
                                                 : OpcVcvIr::ParamId::IrAEnableParam);
-      auto* btn = createParam<OpcIrEnableButton>(center - mm2px(Vec(10.0f, 3.0f)), module, paramId);
+      auto* btn = createParam<OpcToggleButton>(center - mm2px(Vec(10.0f, 3.0f)), module, paramId);
       btn->box.size = mm2px(Vec(20.0f, 6.0f));
       btn->label = "ENABLE";
       btn->fontPath = fpCourier;
@@ -1224,7 +1207,7 @@ struct OpcVcvIrWidget final : ModuleWidget
     const float modeX3 = 170.f;
 
     {
-      auto* dynBtn = createParam<OpcRetroButton>(
+      auto* dynBtn = createParam<OpcToggleButton>(
           mm2px(Vec(modeX1 - modeW * 0.5f, modeY - modeH * 0.5f)), module,
           static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam));
       dynBtn->box.size = mm2px(Vec(modeW, modeH));
@@ -1243,7 +1226,7 @@ struct OpcVcvIrWidget final : ModuleWidget
     }
 
     {
-      auto* scBtn = createParam<OpcRetroButton>(
+      auto* scBtn = createParam<OpcToggleButton>(
           mm2px(Vec(modeX3 - modeW * 0.5f, modeY - modeH * 0.5f)), module,
           static_cast<int>(OpcVcvIr::ParamId::SidechainEnableParam));
       scBtn->box.size = mm2px(Vec(modeW, modeH));

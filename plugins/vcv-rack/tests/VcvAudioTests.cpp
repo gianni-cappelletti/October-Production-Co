@@ -330,10 +330,8 @@ TEST_F(VcvAudioTest, MonoToStereo_ChannelsAreDifferent)
   ProcessArgs flushArgs{kSampleRate, 1.f / kSampleRate};
   module.process(flushArgs);
 
-  if (module.irProcessor_.getNumIR1Channels() < 2)
-  {
-    GTEST_SKIP() << "Stereo IR failed to load or was decoded as mono";
-  }
+  ASSERT_GE(module.irProcessor_.getNumIR1Channels(), 2u)
+      << "Stereo IR fixture failed to load or was decoded as mono";
 
   auto out = processMonoInput(module, dryInput_);
   const double r = pearsonCorrelation(out.L, out.R);
@@ -383,9 +381,8 @@ TEST_F(VcvAudioTest, BlendCv_ShiftsBlendToMax)
       << "Blend CV at +5V should set blend to 1.0";
 }
 
-TEST_F(VcvAudioTest, DynamicsEnableGate_OverridesParam)
+TEST_F(VcvAudioTest, DynamicsEnableGate_HighOverridesParamOff)
 {
-  // Param OFF, gate high -> dynamic mode should be active
   OpcVcvIr module;
   SampleRateChangeEvent sr{kSampleRate};
   module.onSampleRateChange(sr);
@@ -402,6 +399,24 @@ TEST_F(VcvAudioTest, DynamicsEnableGate_OverridesParam)
       << "Gate at +5V should enable dynamic mode when param is OFF";
 }
 
+TEST_F(VcvAudioTest, DynamicsEnableGate_LowOverridesParamOn)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(1.f);
+  const int dynGateIn = static_cast<int>(OpcVcvIr::InputId::DynamicsEnableCvIn);
+  module.inputs[static_cast<size_t>(dynGateIn)].connected = true;
+  module.inputs[static_cast<size_t>(dynGateIn)].voltage = 0.0f;
+
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.process(args);
+
+  EXPECT_FALSE(module.irProcessor_.getDynamicModeEnabled())
+      << "Gate at 0V should disable dynamic mode even when param is ON";
+}
+
 // ---------------------------------------------------------------------------
 // Swap symmetry
 // ---------------------------------------------------------------------------
@@ -411,7 +426,7 @@ TEST_F(VcvAudioTest, SwapSymmetry_AudioOutput)
   // At blend=0.0 (equal-power center), output is slot-order invariant.
   // Pearson r between AB and BA orderings must be > 0.9999.
 
-  std::vector<float> outputAB;
+  StereoOutput outAB;
   {
     OpcVcvIr module;
     SampleRateChangeEvent sr{kSampleRate};
@@ -421,15 +436,14 @@ TEST_F(VcvAudioTest, SwapSymmetry_AudioOutput)
     module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
     module.params[static_cast<int>(OpcVcvIr::ParamId::IrBEnableParam)].setValue(1.f);
     module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(0.f);
-    auto out = processMonoInput(module, dryInput_);
-    outputAB = out.L;
+    outAB = processMonoInput(module, dryInput_);
     float peak = 0.0f;
-    for (float s : outputAB)
+    for (float s : outAB.L)
       peak = std::max(peak, std::abs(s));
     ASSERT_GT(peak, 1e-6f) << "Pre-swap output is silent";
   }
 
-  std::vector<float> outputBA;
+  StereoOutput outBA;
   {
     OpcVcvIr module;
     SampleRateChangeEvent sr{kSampleRate};
@@ -439,13 +453,13 @@ TEST_F(VcvAudioTest, SwapSymmetry_AudioOutput)
     module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
     module.params[static_cast<int>(OpcVcvIr::ParamId::IrBEnableParam)].setValue(1.f);
     module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(0.f);
-    auto out = processMonoInput(module, dryInput_);
-    outputBA = out.L;
+    outBA = processMonoInput(module, dryInput_);
   }
 
-  const double r = pearsonCorrelation(outputAB, outputBA);
-  EXPECT_GT(r, 0.9999) << "Swap symmetry failed: r=" << r
-                       << " (AB and BA should be equivalent at blend=0)";
+  const double rL = pearsonCorrelation(outAB.L, outBA.L);
+  const double rR = pearsonCorrelation(outAB.R, outBA.R);
+  EXPECT_GT(rL, 0.9999) << "Swap symmetry failed on L: r=" << rL;
+  EXPECT_GT(rR, 0.9999) << "Swap symmetry failed on R: r=" << rR;
 }
 
 // ---------------------------------------------------------------------------
@@ -537,4 +551,161 @@ TEST_F(VcvAudioTest, SidechainStereo_NonSilentOutput)
   }
   EXPECT_GT(peakL, 1e-6f) << "Left output is silent in sidechain stereo path";
   EXPECT_GT(peakR, 1e-6f) << "Right output is silent in sidechain stereo path";
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic mode without sidechain
+// ---------------------------------------------------------------------------
+
+TEST_F(VcvAudioTest, DynamicModeNoSidechain_NonSilentOutput)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+  module.loadIR(kIrAPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::SidechainEnableParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ThresholdParam)].setValue(0.f);
+
+  auto out = processMonoInput(module, dryInput_);
+
+  float peak = 0.0f;
+  for (float s : out.L)
+    peak = std::max(peak, std::abs(s));
+  EXPECT_GT(peak, 1e-6f) << "Output is silent in dynamic mode without sidechain";
+}
+
+// ---------------------------------------------------------------------------
+// Sample rate change after IR loaded
+// ---------------------------------------------------------------------------
+
+TEST_F(VcvAudioTest, SampleRateChange_AfterIRLoaded_StillProducesOutput)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr1{kSampleRate};
+  module.onSampleRateChange(sr1);
+  module.loadIR(kIrAPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
+
+  SampleRateChangeEvent sr2{48000.f};
+  module.onSampleRateChange(sr2);
+
+  const int inL = static_cast<int>(OpcVcvIr::InputId::AudioInL);
+  const int outL = static_cast<int>(OpcVcvIr::OutputId::OutputL);
+  module.inputs[static_cast<size_t>(inL)].connected = true;
+
+  ProcessArgs args{48000.f, 1.f / 48000.f};
+
+  // Flush latency — also promotes the pending IR after sample rate change
+  for (size_t i = 0; i < kLatencyFlushFrames; ++i)
+    module.process(args);
+
+  ASSERT_TRUE(module.irProcessor_.isIR1Loaded())
+      << "IR should be loaded after sample rate change and processing";
+
+  float peak = 0.0f;
+  for (float sample : dryInput_)
+  {
+    module.inputs[static_cast<size_t>(inL)].voltage = sample;
+    module.process(args);
+    peak = std::max(peak, std::abs(module.outputs[static_cast<size_t>(outL)].getVoltage()));
+  }
+  EXPECT_GT(peak, 1e-6f) << "Output is silent after sample rate change";
+}
+
+// ---------------------------------------------------------------------------
+// IR enable switch OFF
+// ---------------------------------------------------------------------------
+
+TEST_F(VcvAudioTest, IrADisabled_OutputMatchesDryPassthrough)
+{
+  // With IR loaded but disabled, output should be dry passthrough —
+  // identical to having no IR loaded at all.
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+  module.loadIR(kIrAPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(0.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrBEnableParam)].setValue(0.f);
+
+  auto outDisabled = processMonoInput(module, dryInput_);
+
+  OpcVcvIr moduleNoIR;
+  moduleNoIR.onSampleRateChange(sr);
+  auto outNoIR = processMonoInput(moduleNoIR, dryInput_);
+
+  const double r = pearsonCorrelation(outDisabled.L, outNoIR.L);
+  EXPECT_GT(r, 0.9999) << "Disabled IR output should match no-IR passthrough (r=" << r << ")";
+}
+
+// ---------------------------------------------------------------------------
+// Negative CV direction
+// ---------------------------------------------------------------------------
+
+TEST_F(VcvAudioTest, ThresholdCv_NegativeClampedToMin)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+
+  module.params[static_cast<int>(OpcVcvIr::ParamId::ThresholdParam)].setValue(-30.f);
+  const int threshCvIn = static_cast<int>(OpcVcvIr::InputId::ThresholdCvIn);
+  module.inputs[static_cast<size_t>(threshCvIn)].connected = true;
+  module.inputs[static_cast<size_t>(threshCvIn)].voltage = -5.0f;
+
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.process(args);
+
+  EXPECT_NEAR(module.irProcessor_.getThreshold(), -60.f, 0.01f)
+      << "Threshold CV at -5V should clamp to -60 dB";
+}
+
+TEST_F(VcvAudioTest, BlendCv_NegativeClampedToMin)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+
+  module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(0.f);
+  const int blendCvIn = static_cast<int>(OpcVcvIr::InputId::BlendCvIn);
+  module.inputs[static_cast<size_t>(blendCvIn)].connected = true;
+  module.inputs[static_cast<size_t>(blendCvIn)].voltage = -5.0f;
+
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.process(args);
+
+  EXPECT_NEAR(module.irProcessor_.getBlend(), -1.f, 0.01f)
+      << "Blend CV at -5V should clamp to -1.0";
+}
+
+// ---------------------------------------------------------------------------
+// Metering atomics
+// ---------------------------------------------------------------------------
+
+TEST_F(VcvAudioTest, MeteringAtomics_UpdatedAfterProcessing)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+  module.loadIR(kIrAPath);
+  module.loadIR2(kIrBPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrBEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::BlendParam)].setValue(0.3f);
+
+  const int inL = static_cast<int>(OpcVcvIr::InputId::AudioInL);
+  module.inputs[static_cast<size_t>(inL)].connected = true;
+
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  for (size_t i = 0; i < kLatencyFlushFrames; ++i)
+    module.process(args);
+
+  module.inputs[static_cast<size_t>(inL)].voltage = 1.0f;
+  module.process(args);
+
+  EXPECT_GT(module.currentInputLevelDb_.load(std::memory_order_relaxed), -96.f)
+      << "Input level metering should reflect non-silent input";
+  EXPECT_NEAR(module.currentBlend_.load(std::memory_order_relaxed), 0.3f, 0.05f)
+      << "Blend metering should reflect the blend param";
 }

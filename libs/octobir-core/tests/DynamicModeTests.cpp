@@ -71,7 +71,6 @@ TEST_F(DynamicModeTest, DynamicMode_DisableSnapsSmoothedBlend)
   processor.setDynamicModeEnabled(true);
   processor.setDynamicModeEnabled(false);
 
-  // After disabling, any subsequent enable/disable cycle should also reset correctly.
   processor.setBlend(0.3f);
   processor.setDynamicModeEnabled(true);
   processor.setDynamicModeEnabled(false);

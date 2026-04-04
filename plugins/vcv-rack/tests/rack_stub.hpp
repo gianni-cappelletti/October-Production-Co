@@ -83,6 +83,11 @@ inline json_t* json_object_get(const json_t* obj, const char* key)
   return (it != obj->children.end()) ? it->second : nullptr;
 }
 
+inline bool json_is_string(const json_t* j)
+{
+  return j != nullptr && j->type == JSON_STRING_T;
+}
+
 inline const char* json_string_value(const json_t* j)
 {
   return (j != nullptr && j->type == JSON_STRING_T) ? j->strValue.c_str() : "";

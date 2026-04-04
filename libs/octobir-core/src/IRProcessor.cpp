@@ -228,7 +228,6 @@ void IRProcessor::setBlend(float blend)
   if (!dynamicModeEnabled_)
   {
     currentBlend_ = blend_;
-    smoothedBlend_ = blend_;
   }
 }
 
@@ -238,7 +237,6 @@ void IRProcessor::setDynamicModeEnabled(bool enabled)
   if (!enabled)
   {
     currentBlend_ = blend_;
-    smoothedBlend_ = blend_;
   }
 }
 
@@ -363,9 +361,17 @@ IRProcessor::BlendGains IRProcessor::resolveBlendGains(float inputLevelDb, Frame
     blendToUse = smoothedBlend_;
     currentBlend_ = blendToUse;
   }
+  else if (applySmoothing)
+  {
+    float coeffAdjusted = std::pow(blendSmoothCoeff_, static_cast<float>(numFrames));
+    smoothedBlend_ = smoothedBlend_ * coeffAdjusted + blend_ * (1.0f - coeffAdjusted);
+    blendToUse = smoothedBlend_;
+    currentBlend_ = blendToUse;
+  }
   else
   {
-    currentBlend_ = blend_;
+    blendToUse = smoothedBlend_;
+    currentBlend_ = blendToUse;
   }
 
   const float normalizedBlend = (blendToUse + 1.0f) * 0.5f;
@@ -597,6 +603,38 @@ void IRProcessor::applyPendingIRUpdates()
   {
     updateDelayBuffers();
   }
+}
+
+void IRProcessor::swapIRSlots()
+{
+  std::lock(pendingMutex1_, pendingMutex2_);
+  std::lock_guard<std::mutex> lock1(pendingMutex1_, std::adopt_lock);
+  std::lock_guard<std::mutex> lock2(pendingMutex2_, std::adopt_lock);
+
+  std::swap(impulseBuffer1_, impulseBuffer2_);
+  std::swap(convolutionEngine1_, convolutionEngine2_);
+  std::swap(irLoader1_, irLoader2_);
+  std::swap(currentIR1Path_, currentIR2Path_);
+  std::swap(latencySamples1_, latencySamples2_);
+
+  std::swap(stagingEngine1_, stagingEngine2_);
+  std::swap(stagingLoaded1_, stagingLoaded2_);
+  std::swap(stagingLatency1_, stagingLatency2_);
+
+  bool loaded1 = ir1Loaded_.load(std::memory_order_relaxed);
+  bool loaded2 = ir2Loaded_.load(std::memory_order_relaxed);
+  ir1Loaded_.store(loaded2, std::memory_order_relaxed);
+  ir2Loaded_.store(loaded1, std::memory_order_relaxed);
+
+  bool pending1 = ir1Pending_.load(std::memory_order_relaxed);
+  bool pending2 = ir2Pending_.load(std::memory_order_relaxed);
+  ir1Pending_.store(pending2, std::memory_order_relaxed);
+  ir2Pending_.store(pending1, std::memory_order_relaxed);
+
+  std::swap(ir1DelayBufferL_, ir2DelayBufferL_);
+  std::swap(ir1DelayBufferR_, ir2DelayBufferR_);
+  std::swap(ir1DelayWritePosL_, ir2DelayWritePosL_);
+  std::swap(ir1DelayWritePosR_, ir2DelayWritePosR_);
 }
 
 void IRProcessor::reset()
@@ -1587,6 +1625,10 @@ void IRProcessor::updateSmoothingCoefficients()
   {
     releaseCoeff_ = 0.0f;
   }
+
+  static constexpr float kBlendSmoothTimeMs = 5.0f;
+  blendSmoothCoeff_ =
+      std::exp(-1.0f / ((kBlendSmoothTimeMs / 1000.0f) * static_cast<float>(sampleRate_)));
 }
 
 void IRProcessor::applyOutputGain(Sample* buffer, FrameCount numFrames) const

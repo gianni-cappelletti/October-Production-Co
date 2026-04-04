@@ -95,6 +95,8 @@ class IRProcessor
   float getCurrentInputLevel() const { return currentInputLevelDb_; }
   float getCurrentBlend() const { return currentBlend_; }
 
+  void swapIRSlots();
+
   void reset();
 
  private:
@@ -154,6 +156,7 @@ class IRProcessor
   float outputGainLinear_ = 1.0f;
   float attackCoeff_ = 0.0f;
   float releaseCoeff_ = 0.0f;
+  float blendSmoothCoeff_ = 0.0f;
 
   std::vector<Sample> scratchL_;
   std::vector<Sample> scratchR_;

@@ -9,6 +9,7 @@
 #endif
 
 #include <atomic>
+#include <mutex>
 #include <octobir-core/IRProcessor.hpp>
 #include <string>
 
@@ -59,12 +60,16 @@ struct OpcVcvIr final : Module
   };
 
   octob::IRProcessor irProcessor_;
-  std::string loaded_file_path_;
-  std::string loaded_file_path2_;
   std::atomic<float> currentInputLevelDb_{-96.f};
   std::atomic<float> currentBlend_{0.f};
   uint32_t last_system_sample_rate_ = 44100;
 
+ private:
+  std::string loaded_file_path1_;
+  std::string loaded_file_path2_;
+  mutable std::mutex path_mutex_;
+
+ public:
   OpcVcvIr()
   {
     config(static_cast<int>(ParamId::ParamsLen), static_cast<int>(InputId::InputsLen),
@@ -113,19 +118,27 @@ struct OpcVcvIr final : Module
     irProcessor_.setSampleRate(e.sampleRate);
   }
 
+  std::string getLoadedFilePath(bool ir2) const
+  {
+    std::lock_guard<std::mutex> lock(path_mutex_);
+    return ir2 ? loaded_file_path2_ : loaded_file_path1_;
+  }
+
   void loadIR(const std::string& file_path)
   {
     std::string error;
     if (irProcessor_.loadImpulseResponse1(file_path, error))
     {
-      loaded_file_path_ = file_path;
+      std::lock_guard<std::mutex> lock(path_mutex_);
+      loaded_file_path1_ = file_path;
       INFO("Loaded IR A: %s (%zu samples, %.0f Hz)", file_path.c_str(),
            irProcessor_.getIR1NumSamples(), irProcessor_.getIR1SampleRate());
     }
     else
     {
       WARN("Failed to load IR A file %s: %s", file_path.c_str(), error.c_str());
-      loaded_file_path_.clear();
+      std::lock_guard<std::mutex> lock(path_mutex_);
+      loaded_file_path1_.clear();
     }
   }
 
@@ -134,6 +147,7 @@ struct OpcVcvIr final : Module
     std::string error;
     if (irProcessor_.loadImpulseResponse2(file_path, error))
     {
+      std::lock_guard<std::mutex> lock(path_mutex_);
       loaded_file_path2_ = file_path;
       INFO("Loaded IR B: %s (%zu samples, %.0f Hz)", file_path.c_str(),
            irProcessor_.getIR2NumSamples(), irProcessor_.getIR2SampleRate());
@@ -141,6 +155,7 @@ struct OpcVcvIr final : Module
     else
     {
       WARN("Failed to load IR B file %s: %s", file_path.c_str(), error.c_str());
+      std::lock_guard<std::mutex> lock(path_mutex_);
       loaded_file_path2_.clear();
     }
   }
@@ -148,44 +163,34 @@ struct OpcVcvIr final : Module
   void clearIR1()
   {
     irProcessor_.clearImpulseResponse1();
-    loaded_file_path_.clear();
+    {
+      std::lock_guard<std::mutex> lock(path_mutex_);
+      loaded_file_path1_.clear();
+    }
     INFO("IR A cleared");
   }
 
   void clearIR2()
   {
     irProcessor_.clearImpulseResponse2();
-    loaded_file_path2_.clear();
+    {
+      std::lock_guard<std::mutex> lock(path_mutex_);
+      loaded_file_path2_.clear();
+    }
     INFO("IR B cleared");
   }
 
   void swapImpulseResponses()
   {
-    const std::string path1 = loaded_file_path_;
-    const std::string path2 = loaded_file_path2_;
+    irProcessor_.swapIRSlots();
+
+    {
+      std::lock_guard<std::mutex> lock(path_mutex_);
+      std::swap(loaded_file_path1_, loaded_file_path2_);
+    }
+
     const float trimA = params[static_cast<int>(ParamId::IrATrimGainParam)].getValue();
     const float trimB = params[static_cast<int>(ParamId::IrBTrimGainParam)].getValue();
-
-    if (!path2.empty())
-    {
-      loadIR(path2);
-    }
-    else
-    {
-      irProcessor_.clearImpulseResponse1();
-      loaded_file_path_.clear();
-    }
-
-    if (!path1.empty())
-    {
-      loadIR2(path1);
-    }
-    else
-    {
-      irProcessor_.clearImpulseResponse2();
-      loaded_file_path2_.clear();
-    }
-
     params[static_cast<int>(ParamId::IrATrimGainParam)].setValue(trimB);
     params[static_cast<int>(ParamId::IrBTrimGainParam)].setValue(trimA);
   }
@@ -194,12 +199,10 @@ struct OpcVcvIr final : Module
   {
     (void)args;
 
-    bool dynamicMode = params[static_cast<int>(ParamId::DynamicModeParam)].getValue() > 0.5f;
-    if (inputs[static_cast<int>(InputId::DynamicsEnableCvIn)].isConnected())
-    {
-      dynamicMode =
-          dynamicMode || inputs[static_cast<int>(InputId::DynamicsEnableCvIn)].getVoltage() > 1.0f;
-    }
+    bool dynamicMode =
+        inputs[static_cast<int>(InputId::DynamicsEnableCvIn)].isConnected()
+            ? inputs[static_cast<int>(InputId::DynamicsEnableCvIn)].getVoltage() > 1.0f
+            : params[static_cast<int>(ParamId::DynamicModeParam)].getValue() > 0.5f;
 
     bool sidechainEnabled =
         params[static_cast<int>(ParamId::SidechainEnableParam)].getValue() > 0.5f;
@@ -314,14 +317,15 @@ struct OpcVcvIr final : Module
       }
     }
 
-    currentInputLevelDb_.store(irProcessor_.getCurrentInputLevel());
-    currentBlend_.store(irProcessor_.getCurrentBlend());
+    currentInputLevelDb_.store(irProcessor_.getCurrentInputLevel(), std::memory_order_relaxed);
+    currentBlend_.store(irProcessor_.getCurrentBlend(), std::memory_order_relaxed);
   }
 
   json_t* dataToJson() override
   {
     json_t* rootJ = json_object();
-    json_object_set_new(rootJ, "ir1Path", json_string(loaded_file_path_.c_str()));
+    std::lock_guard<std::mutex> lock(path_mutex_);
+    json_object_set_new(rootJ, "ir1Path", json_string(loaded_file_path1_.c_str()));
     json_object_set_new(rootJ, "ir2Path", json_string(loaded_file_path2_.c_str()));
     return rootJ;
   }
@@ -329,7 +333,7 @@ struct OpcVcvIr final : Module
   void dataFromJson(json_t* rootJ) override
   {
     json_t* ir1PathJ = json_object_get(rootJ, "ir1Path");
-    if (ir1PathJ != nullptr)
+    if (json_is_string(ir1PathJ))
     {
       std::string path = json_string_value(ir1PathJ);
       if (!path.empty())
@@ -337,43 +341,11 @@ struct OpcVcvIr final : Module
     }
 
     json_t* ir2PathJ = json_object_get(rootJ, "ir2Path");
-    if (ir2PathJ != nullptr)
+    if (json_is_string(ir2PathJ))
     {
       std::string path = json_string_value(ir2PathJ);
       if (!path.empty())
         loadIR2(path);
-    }
-
-    // Backward compat: pre-port patch keys
-    json_t* filePathJ = json_object_get(rootJ, "filePath");
-    if (filePathJ != nullptr && ir1PathJ == nullptr)
-    {
-      std::string path = json_string_value(filePathJ);
-      if (!path.empty())
-        loadIR(path);
-    }
-
-    json_t* filePath2J = json_object_get(rootJ, "filePath2");
-    if (filePath2J != nullptr && ir2PathJ == nullptr)
-    {
-      std::string path = json_string_value(filePath2J);
-      if (!path.empty())
-        loadIR2(path);
-    }
-
-    // Backward compat: migrate old bool fields to param values
-    json_t* dynamicModeJ = json_object_get(rootJ, "dynamicModeEnabled");
-    if (dynamicModeJ != nullptr)
-    {
-      params[static_cast<int>(ParamId::DynamicModeParam)].setValue(
-          json_boolean_value(dynamicModeJ) ? 1.f : 0.f);
-    }
-
-    json_t* sidechainJ = json_object_get(rootJ, "sidechainEnabled");
-    if (sidechainJ != nullptr)
-    {
-      params[static_cast<int>(ParamId::SidechainEnableParam)].setValue(
-          json_boolean_value(sidechainJ) ? 1.f : 0.f);
     }
   }
 };
