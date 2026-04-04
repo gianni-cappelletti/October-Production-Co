@@ -194,11 +194,12 @@ static void drawToggleButton(NVGcontext* vg, float w, float h, const char* label
   float ledCy = h * 0.5f;
   if (isOn)
   {
-    // Glow
-    NVGpaint glow = nvgRadialGradient(vg, ledCx, ledCy, 0.f, ledW * 3.f,
-                                      nvgRGBA(0xe0, 0x70, 0x30, 72), nvgRGBA(0xe0, 0x70, 0x30, 0));
+    // Glow (radial, equal spread in all directions)
+    float glowR = ledW * 2.5f;
+    NVGpaint glow = nvgRadialGradient(vg, ledCx, ledCy, 0.f, glowR, nvgRGBA(0xe0, 0x70, 0x30, 72),
+                                      nvgRGBA(0xe0, 0x70, 0x30, 0));
     nvgBeginPath(vg);
-    nvgRect(vg, -ledW, 0.f, ledW * 5.f, h);
+    nvgRect(vg, ledCx - glowR, ledCy - glowR, glowR * 2.f, glowR * 2.f);
     nvgFillPaint(vg, glow);
     nvgFill(vg);
 
@@ -886,12 +887,13 @@ struct OpcMeterDisplay : OpaqueWidget
     const float blend = module ? module->currentBlend_.load() : 0.f;
 
     const float padH = 4.f;
-    const float padV = 4.f;
+    const float padTop = 8.f;
+    const float padBot = 8.f;
     const float labelH = 8.f;
     const float gapLB = 2.f;
-    const float barH = (h - padV * 2.f - labelH * 2.f - gapLB * 2.f - 4.f) * 0.5f;
+    const float barH = (h - padTop - padBot - labelH * 2.f - gapLB * 2.f - 4.f) * 0.5f;
 
-    float cy = padV;
+    float cy = padTop;
 
     // INPUT label
     int fontId = ensureFont(args.vg, "PressStart2P", lcdFontPath);
@@ -1093,11 +1095,16 @@ struct OpcVcvIrWidget final : ModuleWidget
         asset::plugin(pluginInstance, "res/font/CourierPrime-Regular.ttf");
     const std::string fpLCD = asset::plugin(pluginInstance, "res/font/PressStart2P-Regular.ttf");
 
-    // Screws
-    addChild(createWidget<ScrewSilver>(mm2px(Vec(7.62f, 0.5f))));
-    addChild(createWidget<ScrewSilver>(mm2px(Vec(195.58f, 0.5f))));
-    addChild(createWidget<ScrewSilver>(mm2px(Vec(7.62f, 122.92f))));
-    addChild(createWidget<ScrewSilver>(mm2px(Vec(195.58f, 122.92f))));
+    // Screws (5.08mm inset from each edge, flush top/bottom)
+    const float screwSize = 5.08f;
+    const float screwInset = 5.08f;
+    const float panelW = 203.2f;
+    const float panelH = 128.5f;
+    addChild(createWidget<ScrewSilver>(mm2px(Vec(screwInset, 0.f))));
+    addChild(createWidget<ScrewSilver>(mm2px(Vec(panelW - screwInset - screwSize, 0.f))));
+    addChild(createWidget<ScrewSilver>(mm2px(Vec(screwInset, panelH - screwSize))));
+    addChild(
+        createWidget<ScrewSilver>(mm2px(Vec(panelW - screwInset - screwSize, panelH - screwSize))));
 
     // --- Helper lambdas ---
 
@@ -1248,15 +1255,15 @@ struct OpcVcvIrWidget final : ModuleWidget
     // --- Meter display (Y = 38, height 18mm) ---
     {
       auto* meter = createWidget<OpcMeterDisplay>(mm2px(Vec(5.0f, 38.0f)));
-      meter->box.size = mm2px(Vec(193.2f, 18.0f));
+      meter->box.size = mm2px(Vec(193.2f, 20.0f));
       meter->module = module;
       meter->lcdFontPath = fpLCD;
       addChild(meter);
     }
 
     // --- Knob row 1: BLEND, THRESHOLD, RANGE, KNEE, OUTPUT (5 across) ---
-    const float row1LabelY = 58.0f;
-    const float row1Y = 71.0f;
+    const float row1LabelY = 62.0f;
+    const float row1Y = 75.0f;
     const float kr1X1 = 28.f;   // BLEND
     const float kr1X2 = 68.f;   // THRESHOLD
     const float kr1X3 = 102.f;  // RANGE
@@ -1305,51 +1312,51 @@ struct OpcVcvIrWidget final : ModuleWidget
       addParam(detectBtn);
     }
 
-    // --- Port row: all CV + Audio I/O (8 across) ---
+    // --- Port row: IN L/R (left), CV (middle), OUT L/R (right) ---
     const float portY = 112.0f;
     const float portLabelY = portY + 5.f;
-    const float pX1 = 16.f;   // SC IN
-    const float pX2 = 40.f;   // THR CV
-    const float pX3 = 64.f;   // BLD CV
-    const float pX4 = 88.f;   // DYN EN
-    const float pX5 = 118.f;  // IN L
-    const float pX6 = 142.f;  // IN R
-    const float pX7 = 168.f;  // OUT L
-    const float pX8 = 192.f;  // OUT R
+    const float pInL = 16.f;    // IN L/MONO
+    const float pInR = 34.f;    // IN RIGHT
+    const float pCV1 = 70.f;    // SC IN
+    const float pCV2 = 94.f;    // THR CV
+    const float pCV3 = 118.f;   // BLD CV
+    const float pCV4 = 142.f;   // DYN EN
+    const float pOutL = 172.f;  // OUT L/MONO
+    const float pOutR = 190.f;  // OUT RIGHT
 
     {
-      auto* outBg = createWidget<OpcOutputBackground>(mm2px(Vec(pX7 - 10.f, portY - 6.f)));
-      outBg->box.size = mm2px(Vec(pX8 - pX7 + 20.f, 16.0f));
+      auto* outBg = createWidget<OpcOutputBackground>(mm2px(Vec(pOutL - 10.f, portY - 6.f)));
+      outBg->box.size = mm2px(Vec(pOutR - pOutL + 20.f, 16.0f));
       addChild(outBg);
     }
 
-    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(pX1, portY)), module,
+    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(pInL, portY)), module,
+                                             static_cast<int>(OpcVcvIr::InputId::AudioInL)));
+    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(pInR, portY)), module,
+                                             static_cast<int>(OpcVcvIr::InputId::AudioInR)));
+    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(pCV1, portY)), module,
                                              static_cast<int>(OpcVcvIr::InputId::SidechainIn)));
-    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(pX2, portY)), module,
+    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(pCV2, portY)), module,
                                              static_cast<int>(OpcVcvIr::InputId::ThresholdCvIn)));
-    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(pX3, portY)), module,
+    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(pCV3, portY)), module,
                                              static_cast<int>(OpcVcvIr::InputId::BlendCvIn)));
     addInput(createInputCentered<PJ301MPort>(
-        mm2px(Vec(pX4, portY)), module, static_cast<int>(OpcVcvIr::InputId::DynamicsEnableCvIn)));
-    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(pX5, portY)), module,
-                                             static_cast<int>(OpcVcvIr::InputId::AudioInL)));
-    addInput(createInputCentered<PJ301MPort>(mm2px(Vec(pX6, portY)), module,
-                                             static_cast<int>(OpcVcvIr::InputId::AudioInR)));
-    addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(pX7, portY)), module,
+        mm2px(Vec(pCV4, portY)), module, static_cast<int>(OpcVcvIr::InputId::DynamicsEnableCvIn)));
+    addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(pOutL, portY)), module,
                                                static_cast<int>(OpcVcvIr::OutputId::OutputL)));
-    addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(pX8, portY)), module,
+    addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(pOutR, portY)), module,
                                                static_cast<int>(OpcVcvIr::OutputId::OutputR)));
 
-    makeLabel(mm2px(Vec(pX1 - 6.f, portLabelY)), mm2px(Vec(12.0f, 4.0f)), "SC IN", 9.f);
-    makeLabel(mm2px(Vec(pX2 - 6.f, portLabelY)), mm2px(Vec(12.0f, 4.0f)), "THR CV", 9.f);
-    makeLabel(mm2px(Vec(pX3 - 6.f, portLabelY)), mm2px(Vec(12.0f, 4.0f)), "BLD CV", 9.f);
-    makeLabel(mm2px(Vec(pX4 - 6.f, portLabelY)), mm2px(Vec(12.0f, 4.0f)), "DYN EN", 9.f);
-    makeLabel(mm2px(Vec(pX5 - 6.f, portLabelY)), mm2px(Vec(12.0f, 4.0f)), "IN L", 9.f);
-    makeLabel(mm2px(Vec(pX6 - 6.f, portLabelY)), mm2px(Vec(12.0f, 4.0f)), "IN R", 9.f);
+    makeLabel(mm2px(Vec(pInL - 7.f, portLabelY)), mm2px(Vec(14.0f, 4.0f)), "L/MONO", 10.f);
+    makeLabel(mm2px(Vec(pInR - 7.f, portLabelY)), mm2px(Vec(14.0f, 4.0f)), "RIGHT", 10.f);
+    makeLabel(mm2px(Vec(pCV1 - 10.f, portLabelY)), mm2px(Vec(20.0f, 4.0f)), "SIDECHAIN", 10.f);
+    makeLabel(mm2px(Vec(pCV2 - 10.f, portLabelY)), mm2px(Vec(20.0f, 4.0f)), "THRESHOLD", 10.f);
+    makeLabel(mm2px(Vec(pCV3 - 10.f, portLabelY)), mm2px(Vec(20.0f, 4.0f)), "BLEND", 10.f);
+    makeLabel(mm2px(Vec(pCV4 - 10.f, portLabelY)), mm2px(Vec(20.0f, 4.0f)), "DYNAMIC", 10.f);
     const NVGcolor lightLabelCol = nvgRGB(0xd8, 0xd4, 0xd0);
-    makeLabel(mm2px(Vec(pX7 - 6.f, portLabelY)), mm2px(Vec(12.0f, 4.0f)), "OUT L", 9.f,
+    makeLabel(mm2px(Vec(pOutL - 7.f, portLabelY)), mm2px(Vec(14.0f, 4.0f)), "L/MONO", 10.f,
               lightLabelCol);
-    makeLabel(mm2px(Vec(pX8 - 6.f, portLabelY)), mm2px(Vec(12.0f, 4.0f)), "OUT R", 9.f,
+    makeLabel(mm2px(Vec(pOutR - 7.f, portLabelY)), mm2px(Vec(14.0f, 4.0f)), "RIGHT", 10.f,
               lightLabelCol);
   }
 
