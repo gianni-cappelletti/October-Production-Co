@@ -5,7 +5,7 @@
 
 #include "Types.hpp"
 
-class WDL_ImpulseBuffer;
+class WDL_ImpulseBuffer;  // NOLINT(readability-identifier-naming)
 
 namespace octob
 {

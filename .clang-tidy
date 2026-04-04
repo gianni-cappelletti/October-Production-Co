@@ -34,13 +34,16 @@ Checks: >
   -readability-identifier-length,
   -readability-magic-numbers,
   -readability-math-missing-parentheses,
-  -readability-uppercase-literal-suffix
+  -readability-uppercase-literal-suffix,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access
 
 # Note: Raw pointer usage in audio DSP is acceptable for performance-critical
 # buffer processing. const_cast is sometimes necessary for C library interfaces.
 # VCV Rack framework requires global variables (modelOpcVcvIr, pluginInstance),
 # C-style vararg functions (INFO/WARN logging macros), and manages widget memory
 # internally. osdialog uses malloc/free for C interop.
+
+HeaderFilterRegex: '(libs|plugins)/'
 
 WarningsAsErrors: ''
 

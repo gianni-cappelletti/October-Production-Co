@@ -5,15 +5,19 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <vector>
+
+namespace
+{
 
 // ---------------------------------------------------------------------------
 // Font helpers
 // ---------------------------------------------------------------------------
 
-static int ensureFont(NVGcontext* vg, const char* name, const std::string& path)
+int ensureFont(NVGcontext* vg, const char* name, const std::string& path)
 {
   int id = nvgFindFont(vg, name);
   if (id < 0 && !path.empty())
@@ -25,8 +29,8 @@ static int ensureFont(NVGcontext* vg, const char* name, const std::string& path)
 // Drawing helpers — NanoVG translations of JUCE LookAndFeel
 // ---------------------------------------------------------------------------
 
-static void drawJuceButton(NVGcontext* vg, float w, float h, const char* label, bool pressed,
-                           bool isLoadButton, const std::string& fontPath)
+void drawJuceButton(NVGcontext* vg, float w, float h, const char* label, bool pressed,
+                    bool isLoadButton, const std::string& fontPath)
 {
   const float cr = 4.0f;
 
@@ -122,8 +126,8 @@ static void drawJuceButton(NVGcontext* vg, float w, float h, const char* label, 
   }
 }
 
-static void drawToggleButton(NVGcontext* vg, float w, float h, const char* label, bool isOn,
-                             const std::string& fontPath)
+void drawToggleButton(NVGcontext* vg, float w, float h, const char* label, bool isOn,
+                      const std::string& fontPath)
 {
   const float cr = 4.0f;
   const float ledW = std::max(4.f, w * 0.12f);
@@ -140,17 +144,8 @@ static void drawToggleButton(NVGcontext* vg, float w, float h, const char* label
   }
 
   // Gradient fill
-  NVGcolor top, bot;
-  if (isOn)
-  {
-    top = nvgRGB(0x1e, 0x1e, 0x1e);
-    bot = nvgRGB(0x2e, 0x2e, 0x2e);
-  }
-  else
-  {
-    top = nvgRGB(0x38, 0x38, 0x38);
-    bot = nvgRGB(0x24, 0x24, 0x24);
-  }
+  NVGcolor top = isOn ? nvgRGB(0x1e, 0x1e, 0x1e) : nvgRGB(0x38, 0x38, 0x38);
+  NVGcolor bot = isOn ? nvgRGB(0x2e, 0x2e, 0x2e) : nvgRGB(0x24, 0x24, 0x24);
   NVGpaint grad = nvgLinearGradient(vg, 0.f, 0.5f, 0.f, h - 0.5f, top, bot);
   nvgBeginPath(vg);
   nvgRoundedRect(vg, 0.5f, 0.5f, w - 1.f, h - 1.f, cr);
@@ -231,7 +226,7 @@ static void drawToggleButton(NVGcontext* vg, float w, float h, const char* label
   nvgText(vg, (w + ledW) * 0.5f, h * 0.5f, label, nullptr);
 }
 
-static void drawLCDBackground(NVGcontext* vg, float x, float y, float w, float h)
+void drawLCDBackground(NVGcontext* vg, float x, float y, float w, float h)
 {
   const float cr = 3.0f;
 
@@ -270,8 +265,9 @@ static void drawLCDBackground(NVGcontext* vg, float x, float y, float w, float h
 
   // Scan lines
   nvgBeginPath(vg);
-  for (float sy = y + 1.f; sy < y + h - 1.f; sy += 2.f)
+  for (int line = 0; line < static_cast<int>(h) - 2; line += 2)
   {
+    float sy = y + 1.f + static_cast<float>(line);
     nvgMoveTo(vg, x + 1.f, sy);
     nvgLineTo(vg, x + w - 1.f, sy);
   }
@@ -280,8 +276,8 @@ static void drawLCDBackground(NVGcontext* vg, float x, float y, float w, float h
   nvgStroke(vg);
 }
 
-static void drawCustomKnob(NVGcontext* vg, float cx, float cy, float radius, float angle,
-                           bool isCompact, float startAngle, float endAngle)
+void drawCustomKnob(NVGcontext* vg, float cx, float cy, float radius, float angle, bool isCompact,
+                    float startAngle, float endAngle)
 {
   const float outerR = radius;
   const float knurlingOuter = radius * 0.68f;
@@ -374,8 +370,8 @@ static void drawCustomKnob(NVGcontext* vg, float cx, float cy, float radius, flo
   }
 }
 
-static void drawComboBoxButton(NVGcontext* vg, float w, float h, const char* label,
-                               const std::string& fontPath)
+void drawComboBoxButton(NVGcontext* vg, float w, float h, const char* label,
+                        const std::string& fontPath)
 {
   const float cr = 3.0f;
 
@@ -450,19 +446,19 @@ static void drawComboBoxButton(NVGcontext* vg, float w, float h, const char* lab
 // Utility
 // ---------------------------------------------------------------------------
 
-static std::string getParentDir(const std::string& path)
+std::string getParentDir(const std::string& path)
 {
   const size_t pos = path.find_last_of("/\\");
   return (pos != std::string::npos) ? path.substr(0, pos) : ".";
 }
 
-static std::string getFilename(const std::string& path)
+std::string getFilename(const std::string& path)
 {
   const size_t pos = path.find_last_of("/\\");
   return (pos != std::string::npos) ? path.substr(pos + 1) : path;
 }
 
-static bool isAudioExtension(const std::string& name)
+bool isAudioExtension(const std::string& name)
 {
   const size_t dot = name.rfind('.');
   if (dot == std::string::npos)
@@ -473,7 +469,7 @@ static bool isAudioExtension(const std::string& name)
   return ext == ".wav" || ext == ".aiff" || ext == ".aif" || ext == ".flac";
 }
 
-static void openIRFileDialog(OpcVcvIr* module, bool isIR2)
+void openIRFileDialog(OpcVcvIr* module, bool isIR2)
 {
   osdialog_filters* filters = osdialog_filters_parse("Audio files:wav,aiff,aif,flac;All files:*");
   if (filters == nullptr)
@@ -501,8 +497,8 @@ static void openIRFileDialog(OpcVcvIr* module, bool isIR2)
 struct OpcCustomKnob : app::Knob
 {
   std::string fontPath;
-  static constexpr float kStartAngle = static_cast<float>(M_PI) * 1.25f;
-  static constexpr float kEndAngle = static_cast<float>(M_PI) * 2.75f;
+  static constexpr float StartAngle = static_cast<float>(M_PI) * 1.25f;
+  static constexpr float EndAngle = static_cast<float>(M_PI) * 2.75f;
 
   OpcCustomKnob()
   {
@@ -519,17 +515,17 @@ struct OpcCustomKnob : app::Knob
     float cy = box.size.y * 0.5f;
 
     engine::ParamQuantity* pq = getParamQuantity();
-    float normalized = pq ? pq->getScaledValue() : 0.5f;
-    float angle = kStartAngle + normalized * (kEndAngle - kStartAngle);
+    float normalized = (pq != nullptr) ? pq->getScaledValue() : 0.5f;
+    float angle = StartAngle + normalized * (EndAngle - StartAngle);
 
-    drawCustomKnob(args.vg, cx, cy, radius, angle, false, kStartAngle, kEndAngle);
+    drawCustomKnob(args.vg, cx, cy, radius, angle, false, StartAngle, EndAngle);
   }
 };
 
 struct OpcCustomTrimKnob : app::Knob
 {
-  static constexpr float kStartAngle = static_cast<float>(M_PI) * 1.25f;
-  static constexpr float kEndAngle = static_cast<float>(M_PI) * 2.75f;
+  static constexpr float StartAngle = static_cast<float>(M_PI) * 1.25f;
+  static constexpr float EndAngle = static_cast<float>(M_PI) * 2.75f;
 
   OpcCustomTrimKnob()
   {
@@ -546,10 +542,10 @@ struct OpcCustomTrimKnob : app::Knob
     float cy = box.size.y * 0.5f;
 
     engine::ParamQuantity* pq = getParamQuantity();
-    float normalized = pq ? pq->getScaledValue() : 0.5f;
-    float angle = kStartAngle + normalized * (kEndAngle - kStartAngle);
+    float normalized = (pq != nullptr) ? pq->getScaledValue() : 0.5f;
+    float angle = StartAngle + normalized * (EndAngle - StartAngle);
 
-    drawCustomKnob(args.vg, cx, cy, radius, angle, true, kStartAngle, kEndAngle);
+    drawCustomKnob(args.vg, cx, cy, radius, angle, true, StartAngle, EndAngle);
   }
 };
 
@@ -589,7 +585,7 @@ struct IrFileDisplay : OpaqueWidget
   std::string lcdFontPath;
   std::string text;
 
-  IrFileDisplay(bool ir2 = false) : isIR2(ir2) { text = "<No IR selected>"; }
+  IrFileDisplay(bool ir2 = false) : isIR2(ir2), text("<No IR selected>") {}
 
   void draw(const DrawArgs& args) override
   {
@@ -675,7 +671,7 @@ struct OpcToggleButton : app::Switch
   void draw(const DrawArgs& args) override
   {
     engine::ParamQuantity* pq = getParamQuantity();
-    const bool lit = pq ? pq->getValue() > 0.5f : false;
+    const bool lit = (pq != nullptr) ? pq->getValue() > 0.5f : false;
     drawToggleButton(args.vg, box.size.x, box.size.y, label.c_str(), lit, fontPath);
   }
 };
@@ -687,7 +683,7 @@ struct OpcDetectModeButton : app::Switch
   void draw(const DrawArgs& args) override
   {
     engine::ParamQuantity* pq = getParamQuantity();
-    const bool isPeak = pq ? pq->getValue() < 0.5f : true;
+    const bool isPeak = (pq != nullptr) ? pq->getValue() < 0.5f : true;
     drawComboBoxButton(args.vg, box.size.x, box.size.y, isPeak ? "PEAK" : "RMS", fontPath);
   }
 };
@@ -726,7 +722,7 @@ struct OpcIrLoadButton : OpaqueWidget
   }
 
  private:
-  void openFileDialog() { openIRFileDialog(module, isIR2); }
+  void openFileDialog() const { openIRFileDialog(module, isIR2); }
 };
 
 struct OpcIrClearButton : OpaqueWidget
@@ -878,9 +874,8 @@ struct OpcMeterDisplay : OpaqueWidget
 
     drawLCDBackground(args.vg, 0.f, 0.f, w, h);
 
-    const float levelDb =
-        module ? module->currentInputLevelDb_.load(std::memory_order_relaxed) : -60.f;
-    const float blend = module ? module->currentBlend_.load(std::memory_order_relaxed) : 0.f;
+    const float levelDb = (module != nullptr) ? module->getCurrentInputLevelDb() : -60.f;
+    const float blend = (module != nullptr) ? module->getCurrentBlend() : 0.f;
 
     const float padH = 4.f;
     const float padTop = 8.f;
@@ -932,12 +927,12 @@ struct OpcMeterDisplay : OpaqueWidget
   }
 
  private:
-  static const int kSegments = 19;
-  static constexpr float kDbMin = -60.f;
-  static constexpr float kDbMax = 0.f;
+  static const int Segments = 19;
+  static constexpr float DbMin = -60.f;
+  static constexpr float DbMax = 0.f;
 
-  void drawMeterBar(NVGcontext* vg, float x, float y, float w, float h, float value,
-                    bool isCenterBalanced) const
+  static void drawMeterBar(NVGcontext* vg, float x, float y, float w, float h, float value,
+                           bool isCenterBalanced)
   {
     // Bar outline
     nvgBeginPath(vg);
@@ -952,35 +947,35 @@ struct OpcMeterDisplay : OpaqueWidget
     const float innerH = h - 4.f;
     const float segGap = 2.f;
     const float segW =
-        (innerW - static_cast<float>(kSegments - 1) * segGap) / static_cast<float>(kSegments);
+        (innerW - static_cast<float>(Segments - 1) * segGap) / static_cast<float>(Segments);
 
-    float normValue;
+    float normValue = 0.0f;
     if (isCenterBalanced)
     {
       normValue = (value + 1.f) * 0.5f;
     }
     else
     {
-      normValue = (value - kDbMin) / (kDbMax - kDbMin);
+      normValue = (value - DbMin) / (DbMax - DbMin);
     }
     normValue = std::max(0.f, std::min(1.f, normValue));
 
-    for (int i = 0; i < kSegments; ++i)
+    for (int i = 0; i < Segments; ++i)
     {
       float sx = innerX + static_cast<float>(i) * (segW + segGap);
 
       bool isLit = false;
       if (isCenterBalanced)
       {
-        int centre = kSegments / 2;
-        float normPos = normValue * static_cast<float>(kSegments);
+        int centre = Segments / 2;
+        float normPos = normValue * static_cast<float>(Segments);
         isLit = (i == centre) ||
                 (normValue < 0.5f && static_cast<float>(i + 1) > normPos && i < centre) ||
                 (normValue > 0.5f && i > centre && static_cast<float>(i) < normPos);
       }
       else
       {
-        isLit = static_cast<float>(i) < normValue * static_cast<float>(kSegments);
+        isLit = static_cast<float>(i) < normValue * static_cast<float>(Segments);
       }
 
       if (isLit)
@@ -993,10 +988,10 @@ struct OpcMeterDisplay : OpaqueWidget
     }
   }
 
-  void drawThresholdMarker(NVGcontext* vg, float barX, float barY, float barW, float barH,
-                           float thresholdDb) const
+  static void drawThresholdMarker(NVGcontext* vg, float barX, float barY, float barW, float barH,
+                                  float thresholdDb)
   {
-    float norm = (thresholdDb - kDbMin) / (kDbMax - kDbMin);
+    float norm = (thresholdDb - DbMin) / (DbMax - DbMin);
     norm = std::max(0.f, std::min(1.f, norm));
     float mx = barX + 2.f + norm * (barW - 4.f);
 
@@ -1080,7 +1075,8 @@ struct OpcLogoWidget : Widget
     if (imageHandle < 0)
       return;
 
-    int imgW = 0, imgH = 0;
+    int imgW = 0;
+    int imgH = 0;
     nvgImageSize(vg, imageHandle, &imgW, &imgH);
     if (imgW <= 0 || imgH <= 0)
       return;
@@ -1402,7 +1398,7 @@ struct OpcVcvIrWidget final : ModuleWidget
 
     // Panel bevel: layered dark inner shadow
     const float cr = 3.0f;
-    float alphas[] = {0.28f, 0.14f, 0.06f};
+    std::array<float, 3> alphas = {0.28f, 0.14f, 0.06f};
     for (int i = 0; i < 3; ++i)
     {
       float inset = 0.5f + static_cast<float>(i) * 1.0f;
@@ -1466,4 +1462,7 @@ struct OpcVcvIrWidget final : ModuleWidget
   }
 };
 
+}  // namespace
+
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization)
 Model* modelOpcVcvIr = createModel<OpcVcvIr, OpcVcvIrWidget>("opc-vcv-ir");

@@ -72,6 +72,26 @@ if ! command -v clang-format &> /dev/null || ! command -v clang-tidy &> /dev/nul
     exit 1
 fi
 
+echo "✓ Code quality tools installed"
+
+# Check for reuse (FSFE REUSE license compliance tool)
+if ! command -v reuse &> /dev/null; then
+    echo "Installing reuse (FSFE license compliance tool)..."
+    if command -v pipx &> /dev/null; then
+        pipx install reuse
+    elif command -v pip3 &> /dev/null; then
+        pip3 install --user reuse
+    elif command -v pip &> /dev/null; then
+        pip install --user reuse
+    else
+        echo "Warning: Could not install reuse (no pip/pipx found)"
+        echo "Install manually: pip install reuse"
+        echo "Continuing without it..."
+    fi
+else
+    echo "✓ reuse already installed"
+fi
+
 echo "✓ All development tools installed"
 
 echo ""

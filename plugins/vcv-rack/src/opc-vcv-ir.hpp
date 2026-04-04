@@ -59,12 +59,17 @@ struct OpcVcvIr final : Module
     LightsLen
   };
 
+  float getCurrentInputLevelDb() const
+  {
+    return currentInputLevelDb_.load(std::memory_order_relaxed);
+  }
+  float getCurrentBlend() const { return currentBlend_.load(std::memory_order_relaxed); }
+
+ private:
   octob::IRProcessor irProcessor_;
   std::atomic<float> currentInputLevelDb_{-96.f};
   std::atomic<float> currentBlend_{0.f};
-  uint32_t last_system_sample_rate_ = 44100;
-
- private:
+  uint32_t lastSystemSampleRate_ = 44100;
   std::string loaded_file_path1_;
   std::string loaded_file_path2_;
   mutable std::mutex path_mutex_;
@@ -114,7 +119,7 @@ struct OpcVcvIr final : Module
 
   void onSampleRateChange(const SampleRateChangeEvent& e) override
   {
-    last_system_sample_rate_ = static_cast<uint32_t>(e.sampleRate);
+    lastSystemSampleRate_ = static_cast<uint32_t>(e.sampleRate);
     irProcessor_.setSampleRate(e.sampleRate);
   }
 

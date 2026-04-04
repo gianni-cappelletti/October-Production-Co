@@ -21,7 +21,7 @@ add_subdirectory(../../third_party/JUCE ${CMAKE_CURRENT_BINARY_DIR}/JUCE)
 set(FORMATS VST3 AU)
 
 juce_add_plugin(OctobIR
-    COMPANY_NAME "OctobIR"
+    COMPANY_NAME "October Production Co."
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE

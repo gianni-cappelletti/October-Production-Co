@@ -25,10 +25,10 @@ For VCV Rack, run the sync script to update `plugin.json`:
       git commit -m "Bump version to 2.1.0"
       ```
 
-2. **Test the release build locally:**
+2. **Run quality checks:**
    ```bash
-   make install-juce
-   # Test in your DAW
+   make tidy           # Formatting, static analysis, license compliance
+   make install-juce   # Test the release build in your DAW
    ```
 
 3. **Create and push a git tag:**
@@ -56,7 +56,7 @@ For VCV Rack, run the sync script to update `plugin.json`:
 
 VCV Rack plugins are distributed through the [VCV Library](https://library.vcvrack.com/), not GitHub releases:
 
-1. **Update version** in `plugins/vcv-rack/plugin.json`
+1. **Sync version** from the `VERSION` file: `./scripts/sync-vcv-version.sh`
 2. **Test locally:**
    ```bash
    ./scripts/build-release-vcv.sh
@@ -65,7 +65,7 @@ VCV Rack plugins are distributed through the [VCV Library](https://library.vcvra
 3. **Commit and push:**
    ```bash
    git add plugins/vcv-rack/plugin.json
-   git commit -m "Bump VCV plugin to v2.0.0"
+   git commit -m "Sync VCV plugin version"
    git push
    ```
 4. **Submit to VCV Library:**

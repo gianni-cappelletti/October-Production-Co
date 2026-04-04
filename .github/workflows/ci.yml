@@ -25,27 +25,33 @@ jobs:
     - name: Verify license files exist
       run: |
         echo "Checking for required license documentation..."
+        missing=0
 
-        if [ ! -f "LICENSE" ]; then
-          echo "Error: LICENSE file not found"
+        for f in LICENSE docs/legal/LICENSING.md docs/legal/THIRD_PARTY_NOTICES.txt docs/legal/TRADEMARK.md REUSE.toml; do
+          if [ ! -f "$f" ]; then
+            echo "Error: $f not found"
+            missing=1
+          else
+            echo "  $f found"
+          fi
+        done
+
+        if [ ! -d "LICENSES" ]; then
+          echo "Error: LICENSES/ directory not found"
+          missing=1
+        else
+          echo "  LICENSES/ directory found"
+        fi
+
+        if [ "$missing" -eq 1 ]; then
           exit 1
         fi
-        echo "✓ LICENSE found"
-
-        if [ ! -f "docs/LICENSING.md" ]; then
-          echo "Error: docs/LICENSING.md file not found"
-          exit 1
-        fi
-        echo "✓ docs/LICENSING.md found"
-
-        if [ ! -f "docs/THIRD_PARTY_NOTICES.txt" ]; then
-          echo "Error: docs/THIRD_PARTY_NOTICES.txt file not found"
-          exit 1
-        fi
-        echo "✓ docs/THIRD_PARTY_NOTICES.txt found"
-
-        echo ""
         echo "All required license files present"
+
+    - name: REUSE compliance check
+      run: |
+        pip install reuse
+        reuse lint
 
   setup-vcv-sdk:
     name: Setup VCV Rack SDK
@@ -103,6 +109,7 @@ jobs:
             -I./libs/octobir-core/include \
             -I./third_party/WDL/WDL \
             -I./third_party \
+            -I./third_party/pffft/include/pffft \
             -I../Rack/include \
             -I../Rack/dep/include \
             -std=c++11

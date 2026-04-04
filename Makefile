@@ -1,4 +1,4 @@
-.PHONY: help vcv juce core test test-juce test-vcv clean tidy format install-juce install-vcv header
+.PHONY: help vcv juce core test test-juce test-vcv clean tidy format license install-juce install-vcv header
 
 .DEFAULT_GOAL := help
 
@@ -24,8 +24,9 @@ help: header
 	@echo "  make install-vcv  - Build and install VCV plugin (release)"
 	@echo ""
 	@echo "Code quality:"
-	@echo "  make tidy        - Run formatting and static analysis checks"
+	@echo "  make tidy        - Run formatting, static analysis, and license checks"
 	@echo "  make format      - Auto-format all code with clang-format"
+	@echo "  make license     - Check REUSE license compliance"
 	@echo ""
 	@echo "Other:"
 	@echo "  make clean       - Remove all build artifacts"
@@ -131,6 +132,7 @@ tidy:
 		-I./libs/octobir-core/include \
 		-I./third_party/WDL/WDL \
 		-I./third_party \
+		-I./third_party/pffft/include/pffft \
 		-std=c++11 || \
 		(echo "Error: Static analysis found issues" && exit 1)
 	@if [ -n "$$RACK_DIR" ] && [ -d "$$RACK_DIR" ]; then \
@@ -148,7 +150,19 @@ tidy:
 	fi
 	@echo "✓ Static analysis passed"
 	@echo ""
+	@$(MAKE) --no-print-directory license
+	@echo ""
 	@echo "All code quality checks passed"
+
+# REUSE license compliance check
+license:
+	@echo "Checking license compliance..."
+	@if ! command -v reuse &> /dev/null; then \
+		echo "Error: reuse not installed. Run ./scripts/setup-dev.sh"; \
+		exit 1; \
+	fi
+	@reuse lint
+	@echo "✓ License compliance verified"
 
 # Auto-format code
 format:

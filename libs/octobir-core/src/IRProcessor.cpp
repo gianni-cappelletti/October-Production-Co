@@ -273,10 +273,10 @@ void IRProcessor::updateRMSBufferSize()
     return;
   }
 
-  size_t newSize = static_cast<size_t>((kRMSWindowMs_ / 1000.0f) * sampleRate_);
+  size_t newSize = static_cast<size_t>((RmsWindowMs / 1000.0f) * sampleRate_);
   if (newSize != rmsBufferSize_)
   {
-    rmsBufferSize_ = std::max(size_t(1), newSize);
+    rmsBufferSize_ = std::max(static_cast<size_t>(1), newSize);
     rmsBuffer_.resize(rmsBufferSize_, 0.0f);
     rmsBufferIndex_ = 0;
   }
@@ -346,18 +346,13 @@ IRProcessor::BlendGains IRProcessor::resolveBlendGains(float inputLevelDb, Frame
                                                        bool applySmoothing, bool hasIR1,
                                                        bool hasIR2)
 {
-  float blendToUse = blend_;
-  if (dynamicModeEnabled_ && applySmoothing)
+  float blendToUse = 0.0f;
+  if (applySmoothing && dynamicModeEnabled_)
   {
     float targetBlend = calculateDynamicBlend(inputLevelDb);
     float coeff = (targetBlend > smoothedBlend_) ? attackCoeff_ : releaseCoeff_;
     float coeffAdjusted = std::pow(coeff, static_cast<float>(numFrames));
     smoothedBlend_ = smoothedBlend_ * coeffAdjusted + targetBlend * (1.0f - coeffAdjusted);
-    blendToUse = smoothedBlend_;
-    currentBlend_ = blendToUse;
-  }
-  else if (dynamicModeEnabled_)
-  {
     blendToUse = smoothedBlend_;
     currentBlend_ = blendToUse;
   }
@@ -1702,9 +1697,9 @@ void IRProcessor::updateSmoothingCoefficients()
     releaseCoeff_ = 0.0f;
   }
 
-  static constexpr float kBlendSmoothTimeMs = 5.0f;
+  static constexpr float BlendSmoothTimeMs = 5.0f;
   blendSmoothCoeff_ =
-      std::exp(-1.0f / ((kBlendSmoothTimeMs / 1000.0f) * static_cast<float>(sampleRate_)));
+      std::exp(-1.0f / ((BlendSmoothTimeMs / 1000.0f) * static_cast<float>(sampleRate_)));
 }
 
 void IRProcessor::applyOutputGain(Sample* buffer, FrameCount numFrames) const

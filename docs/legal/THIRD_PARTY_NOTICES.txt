@@ -36,7 +36,7 @@ Source: https://github.com/juce-framework/JUCE
 License: GNU General Public License v3.0 (GPL-3.0)
 (Used under open-source GPL-3.0 option, not commercial license)
 
-Used for: Plugin framework (VST3/AU/Standalone formats)
+Used for: Plugin framework (VST3/AU formats)
 
 JUCE is dual-licensed:
 - GPL-3.0 for open-source projects (what we use)
@@ -45,7 +45,20 @@ JUCE is dual-licensed:
 Full GPL-3.0 license: https://www.gnu.org/licenses/gpl-3.0.html
 
 
-3. dr_wav
+3. pffft
+--------
+Copyright (c) 2020 Dario Mambro, 2019 Hayati Ayguen, 2013 Julien Pommier
+Source: https://github.com/marton78/pffft
+
+License: BSD-style (permissive, GPL-compatible)
+
+Used for: Fast Fourier Transform
+
+Redistribution and use in source and binary forms, with or without modification,
+is permitted provided that the conditions in the LICENSE.txt file are met.
+
+
+4. dr_wav
 ---------
 Public Domain / Unlicense
 Source: https://github.com/mackron/dr_libs
@@ -59,7 +72,7 @@ this software and associated documentation files (the "Software"), to deal in
 the Software without restriction.
 
 
-4. Courier Prime (JUCE Plugin Only)
+5. Courier Prime (JUCE Plugin Only)
 ------------------------------------
 Copyright 2015 The Courier Prime Project Authors (https://github.com/quoteunquoteapps/CourierPrime)
 Source: https://fonts.google.com/specimen/Courier+Prime
@@ -73,7 +86,7 @@ The OFL allows the font to be bundled and redistributed with software provided
 that the copyright notice and license are included.
 
 
-5. Press Start 2P (JUCE Plugin Only)
+6. Press Start 2P (JUCE Plugin Only)
 --------------------------------------
 Copyright 2012 The Press Start 2P Project Authors (cody@zone38.net)
 Source: https://fonts.google.com/specimen/Press+Start+2P
@@ -87,7 +100,7 @@ The OFL allows the font to be bundled and redistributed with software provided
 that the copyright notice and license are included.
 
 
-6. October Production Co. Logo
+7. October Production Co. Logo
 -------------------------------
 Copyright (c) October Production Co. — All Rights Reserved
 
@@ -98,7 +111,7 @@ under GPL-3.0 and may not be redistributed, modified, or used in derivative work
 See TRADEMARK.md for the full trademark policy.
 
 
-7. VCV Rack SDK (VCV Rack Plugin Only)
+8. VCV Rack SDK (VCV Rack Plugin Only)
 ---------------------------------------
 Copyright (c) 2016-2024 VCV
 Source: https://github.com/VCVRack/Rack

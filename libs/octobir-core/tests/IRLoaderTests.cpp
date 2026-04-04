@@ -70,16 +70,16 @@ TEST_F(IRLoaderTest, LoadInvalidFile)
 
 TEST_F(IRLoaderTest, CompensationGain_VerifyValue)
 {
-  float irCompensationGain = std::exp(kIrCompensationGainDb * kDbToLinearScalar);
+  float irCompensationGain = std::exp(IrCompensationGainDb * DbToLinearScalar);
 
   EXPECT_NEAR(irCompensationGain, 0.12589254117941673f, 0.00001f);
 }
 
 TEST_F(IRLoaderTest, CompensationGain_VerifyDbConversion)
 {
-  float irCompensationGain = std::exp(kIrCompensationGainDb * kDbToLinearScalar);
+  float irCompensationGain = std::exp(IrCompensationGainDb * DbToLinearScalar);
 
-  float linearGainFromPow = std::pow(10.0f, kIrCompensationGainDb / 20.0f);
+  float linearGainFromPow = std::pow(10.0f, IrCompensationGainDb / 20.0f);
 
   EXPECT_NEAR(irCompensationGain, linearGainFromPow, 0.0001f);
 }
@@ -136,7 +136,7 @@ TEST_F(IRLoaderTest, MinimumPhase_EnergyPreserved)
   WDL_ImpulseBuffer buf;
   ASSERT_TRUE(loader.resampleAndInitialize(buf, kSampleRate));
 
-  const float compensationGain = std::exp(kIrCompensationGainDb * kDbToLinearScalar);
+  const float compensationGain = std::exp(IrCompensationGainDb * DbToLinearScalar);
   const double expectedEnergy = originalEnergy * compensationGain * compensationGain;
 
   const WDL_FFT_REAL* data = buf.impulses[0].Get();

@@ -32,6 +32,7 @@ int nextPow2(int n)
 IRLoader::IRLoader() = default;
 IRLoader::~IRLoader() = default;
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 void IRLoader::convertToMinimumPhase(std::vector<Sample>& samples, int fftSize)
 {
   // Cepstrum method: the minimum-phase system with the same magnitude spectrum
@@ -69,10 +70,11 @@ void IRLoader::convertToMinimumPhase(std::vector<Sample>& samples, int fftSize)
   logMag[1] = std::log(std::max(std::abs(out[1]), 1e-10f));  // Nyquist
   for (int k = 1; k < fftSize / 2; ++k)
   {
-    const float re = out[2 * k];
-    const float im = out[2 * k + 1];
-    logMag[2 * k] = std::log(std::max(std::hypot(re, im), 1e-10f));
-    logMag[2 * k + 1] = 0.0f;
+    const size_t idx = static_cast<size_t>(k) * 2;
+    const float re = out[idx];
+    const float im = out[idx + 1];
+    logMag[idx] = std::log(std::max(std::hypot(re, im), 1e-10f));
+    logMag[idx + 1] = 0.0f;
   }
 
   // Step 3: IFFT of log-magnitude → real cepstrum
@@ -94,18 +96,18 @@ void IRLoader::convertToMinimumPhase(std::vector<Sample>& samples, int fftSize)
   // Divide by fftSize to cancel the N factor from the unnormalized BACKWARD in step 3
   const float invN = 1.0f / static_cast<float>(fftSize);
 
-  float re, im, expRe;
-  re = out[0] * invN;
+  float re = out[0] * invN;
   out[0] = std::exp(re);  // DC (purely real)
   re = out[1] * invN;
   out[1] = std::exp(re);  // Nyquist (purely real)
   for (int k = 1; k < fftSize / 2; ++k)
   {
-    re = out[2 * k] * invN;
-    im = out[2 * k + 1] * invN;
-    expRe = std::exp(re);
-    out[2 * k] = expRe * std::cos(im);
-    out[2 * k + 1] = expRe * std::sin(im);
+    const size_t idx = static_cast<size_t>(k) * 2;
+    re = out[idx] * invN;
+    float im = out[idx + 1] * invN;
+    float expRe = std::exp(re);
+    out[idx] = expRe * std::cos(im);
+    out[idx + 1] = expRe * std::sin(im);
   }
 
   // Step 7: IFFT → minimum-phase IR
@@ -138,13 +140,13 @@ IRLoadResult IRLoader::loadFromFile(const std::string& filepath)
 
   const auto irLength = static_cast<size_t>(totalPCMFrameCount);
 
-  const size_t maxAllowedSamples = static_cast<size_t>(MAX_IR_LENGTH_SECONDS) * sampleRate;
+  const size_t maxAllowedSamples = static_cast<size_t>(MaxIrLengthSeconds) * sampleRate;
   if (irLength > maxAllowedSamples)
   {
     drwav_free(sampleData, nullptr);
     result.success = false;
     result.errorMessage =
-        "IR file exceeds maximum length of " + std::to_string(MAX_IR_LENGTH_SECONDS) + " seconds";
+        "IR file exceeds maximum length of " + std::to_string(MaxIrLengthSeconds) + " seconds";
     return result;
   }
 
@@ -178,7 +180,7 @@ IRLoadResult IRLoader::loadFromFile(const std::string& filepath)
 
   drwav_free(sampleData, nullptr);
 
-  const float irCompensationGain = std::exp(kIrCompensationGainDb * kDbToLinearScalar);
+  const float irCompensationGain = std::exp(IrCompensationGainDb * DbToLinearScalar);
   for (auto& sample : irBuffer_)
   {
     sample *= irCompensationGain;

@@ -29,8 +29,9 @@ All third-party dependencies are GPL-compatible:
 
 | Dependency | License | Usage | Compatibility |
 |------------|---------|-------|---------------|
-| **JUCE** | GPL-3.0 (or commercial) | Plugin framework (VST3/AU/Standalone) | GPL-3.0 |
+| **JUCE** | GPL-3.0 (or commercial) | Plugin framework (VST3/AU) | GPL-3.0 |
 | **WDL** | Zlib-style (permissive) | DSP algorithms (convolution, FFT, resampling) | GPL-compatible |
+| **pffft** | BSD-style (permissive) | Fast Fourier Transform | GPL-compatible |
 | **dr_wav** | Public Domain / MIT | WAV file loading | GPL-compatible |
 | **VCV Rack SDK** | GPL-3.0+ | VCV Rack plugin API | GPL-3.0 |
 | **Courier Prime** | SIL Open Font License 1.1 | UI typeface (bundled) | GPL-compatible |
@@ -51,19 +52,19 @@ All third-party dependencies are GPL-compatible:
 **Our technology stack:**
 ```
 ┌─────────────────────────────────────┐
-│   JUCE Plugin Framework (GPL-3.0)   │  ← Plugin wrapper (VST3/AU/Standalone)
+│   JUCE Plugin Framework (GPL-3.0)   │  ← Plugin wrapper (VST3/AU)
 └────────────┬────────────────────────┘
              │
 ┌────────────▼────────────────────────┐
 │   octobir-core (our code)          │  ← Core DSP logic (GPL-3.0)
 └────────────┬────────────────────────┘
              │
-      ┌──────┴──────┐
-      ▼             ▼
-┌──────────┐  ┌──────────────┐
-│   WDL    │  │   dr_wav     │         ← Low-level libraries
-│ (zlib)   │  │ (public dom) │
-└──────────┘  └──────────────┘
+      ┌──────┼──────┐
+      ▼      ▼      ▼
+┌────────┐ ┌─────┐ ┌──────────────┐
+│  WDL   │ │pffft│ │   dr_wav     │   ← Low-level libraries
+│ (zlib) │ │(BSD)│ │ (public dom) │
+└────────┘ └─────┘ └──────────────┘
 ```
 
 ## License Compatibility Summary
@@ -95,11 +96,30 @@ You must:
 - Include copyright and license notices
 - State significant changes made
 
-## Brand Assets
+## Non-Software Content
 
-The "October Production Co." name and logo are proprietary trademarks and are **not**
-covered by the GPL-3.0 license. They may not be used in forks, modified versions, or
-derivative projects. See [TRADEMARK.md](TRADEMARK.md) for the full trademark policy.
+Not all files in this repository are software. The following content is distributed
+alongside the GPL-3.0 code under separate licenses. Per GPL-3.0 Section 5, these
+are independent works included in the same aggregate, not extensions of the program.
+
+| Content | License | SPDX Identifier |
+|---------|---------|------------------|
+| October Production Co. name and logo | Proprietary trademark | `LicenseRef-OPC-Trademark` |
+| "Art and Craft" essay (`docs/ART_AND_CRAFT.txt`) | CC BY-ND 4.0 | `CC-BY-ND-4.0` |
+
+**Brand assets**: The "October Production Co." name and logo are proprietary
+trademarks, not covered by the GPL-3.0. Forks and derivative works must remove
+all October Production Co. branding. See [TRADEMARK.md](TRADEMARK.md) for the
+full trademark policy.
+
+**Essay**: The "Art and Craft" essay is a personal creative work by the author,
+licensed under Creative Commons Attribution-NoDerivatives 4.0 International. You
+may read and share it with attribution, but you may not modify or adapt it. It is
+not part of the OctobIR software.
+
+Per-file license declarations are maintained in `REUSE.toml` at the repository root,
+following the [REUSE specification](https://reuse.software) (FSFE). All license
+texts are in the `LICENSES/` directory, named by SPDX identifier.
 
 ## Questions?
 

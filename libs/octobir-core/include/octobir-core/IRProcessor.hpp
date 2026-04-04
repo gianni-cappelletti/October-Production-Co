@@ -10,8 +10,8 @@
 #include "IRLoader.hpp"
 #include "Types.hpp"
 
-class WDL_ImpulseBuffer;
-class WDL_ConvolutionEngine_Div;
+class WDL_ImpulseBuffer;          // NOLINT(readability-identifier-naming)
+class WDL_ConvolutionEngine_Div;  // NOLINT(readability-identifier-naming)
 
 namespace octob
 {
@@ -141,7 +141,7 @@ class IRProcessor
   std::vector<float> rmsBuffer_;
   size_t rmsBufferIndex_ = 0;
   size_t rmsBufferSize_ = 0;
-  static constexpr float kRMSWindowMs_ = 10.0f;
+  static constexpr float RmsWindowMs = 10.0f;
   float attackTimeMs_ = 50.0f;
   float releaseTimeMs_ = 200.0f;
   float outputGainDb_ = 0.0f;

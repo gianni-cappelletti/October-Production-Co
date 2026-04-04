@@ -1,0 +1,25 @@
+October Production Co. Trademark License
+
+Copyright (c) 2024-2026 October Production Co. All rights reserved.
+
+The "October Production Co." name, the OctobIR name, and the October Production
+Co. logo (the "Marks") are proprietary trademarks of October Production Co.
+
+These Marks are NOT licensed under the GNU General Public License v3.0 (GPL-3.0)
+or any other open source license that governs the software in this repository.
+
+PERMITTED USES:
+- Referring to the official, unmodified OctobIR software and its publisher
+- Stating compatibility with or attribution to OctobIR (e.g., "based on OctobIR")
+  provided such use does not imply endorsement
+
+PROHIBITED USES:
+- Using the Marks in the name, branding, or identity of forks or derivative works
+- Modifying, distorting, or altering the logo in any way
+- Using the Marks in any manner that suggests endorsement, sponsorship, or
+  affiliation with October Production Co. without written permission
+
+If you fork or redistribute modified versions of this software, you must remove
+all October Production Co. branding (name and logo) and use your own identity.
+
+For questions or permission requests: gianni@octoberproductionco.com
