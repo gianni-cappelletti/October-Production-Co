@@ -342,24 +342,6 @@ void OctobIRProcessor::handleAsyncUpdate()
   if (!state.isValid())
     return;
 
-  if (!state.hasProperty("threshold") && state.hasProperty("lowThreshold"))
-  {
-    float oldLow = state.getProperty("lowThreshold", -40.0f);
-    float oldHigh = state.getProperty("highThreshold", -10.0f);
-
-    float newThreshold = oldLow;
-    float newRange = std::max(1.0f, oldHigh - oldLow);
-
-    if (auto* param = apvts_.getParameter("threshold"))
-    {
-      param->setValueNotifyingHost(param->convertTo0to1(newThreshold));
-    }
-    if (auto* param = apvts_.getParameter("rangeDb"))
-    {
-      param->setValueNotifyingHost(param->convertTo0to1(newRange));
-    }
-  }
-
   juce::String path = state.getProperty("ir1Path").toString();
   if (path.isNotEmpty())
   {

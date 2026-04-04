@@ -44,6 +44,34 @@ TEST_F(PluginProcessorTest, LoadIR1_AutoEnablesIRA)
   EXPECT_GT(enabled, 0.5f);
 }
 
+TEST_F(PluginProcessorTest, LoadIR2_AutoEnablesIRB)
+{
+  juce::String err;
+  ASSERT_TRUE(processor.loadImpulseResponse2(kIrBPath, err));
+  float enabled = processor.getAPVTS().getRawParameterValue("irBEnable")->load();
+  EXPECT_GT(enabled, 0.5f);
+}
+
+TEST_F(PluginProcessorTest, ClearIR1_DisablesIRA)
+{
+  juce::String err;
+  ASSERT_TRUE(processor.loadImpulseResponse1(kIrAPath, err));
+  EXPECT_GT(processor.getAPVTS().getRawParameterValue("irAEnable")->load(), 0.5f);
+
+  processor.clearImpulseResponse1();
+  EXPECT_LT(processor.getAPVTS().getRawParameterValue("irAEnable")->load(), 0.5f);
+}
+
+TEST_F(PluginProcessorTest, ClearIR2_DisablesIRB)
+{
+  juce::String err;
+  ASSERT_TRUE(processor.loadImpulseResponse2(kIrBPath, err));
+  EXPECT_GT(processor.getAPVTS().getRawParameterValue("irBEnable")->load(), 0.5f);
+
+  processor.clearImpulseResponse2();
+  EXPECT_LT(processor.getAPVTS().getRawParameterValue("irBEnable")->load(), 0.5f);
+}
+
 // The plugin's reported latency must match the core's reported latency after the first
 // process call. For IRs with pre-delay (peak offset > 0), this will be non-zero.
 // The test IRs happen to have 0 peak offset, but the synchronization must still hold.
@@ -59,6 +87,28 @@ TEST_F(PluginProcessorTest, LoadIR1_PluginLatencyMatchesCore)
   processor.processBlock(buf, midi);
 
   EXPECT_EQ(processor.getLatencySamples(), processor.getIRProcessor().getLatencySamples());
+}
+
+TEST_F(PluginProcessorTest, TailLength_ZeroWithNoIRs)
+{
+  processor.setRateAndBufferSizeDetails(44100.0, 512);
+  processor.prepareToPlay(44100.0, 512);
+  EXPECT_DOUBLE_EQ(processor.getTailLengthSeconds(), 0.0);
+}
+
+TEST_F(PluginProcessorTest, TailLength_MatchesIRDuration)
+{
+  processor.setRateAndBufferSizeDetails(44100.0, 512);
+  processor.prepareToPlay(44100.0, 512);
+  juce::String err;
+  ASSERT_TRUE(processor.loadImpulseResponse1(kIrAPath, err));
+
+  const double tail = processor.getTailLengthSeconds();
+  const size_t irSamples = processor.getIRProcessor().getIR1NumSamples();
+  const double expected = static_cast<double>(irSamples) / 44100.0;
+
+  EXPECT_NEAR(tail, expected, 1e-6);
+  EXPECT_GT(tail, 0.0);
 }
 
 // Swap: path exchange
