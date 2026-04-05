@@ -28,7 +28,7 @@ For VCV Rack, run the sync script to update `plugin.json`:
 2. **Run quality checks:**
    ```bash
    make tidy           # Formatting, static analysis, license compliance
-   make install-juce   # Test the release build in your DAW
+   make juce           # Test the release build in your DAW
    ```
 
 3. **Create and push a git tag:**
@@ -59,7 +59,7 @@ VCV Rack plugins are distributed through the [VCV Library](https://library.vcvra
 1. **Sync version** from the `VERSION` file: `./scripts/sync-vcv-version.sh`
 2. **Test locally:**
    ```bash
-   ./scripts/build-release-vcv.sh
+   make install-vcv
    # Install and test in VCV Rack
    ```
 3. **Commit and push:**

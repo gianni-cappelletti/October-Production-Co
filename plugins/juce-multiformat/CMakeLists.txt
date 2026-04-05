@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
 
-option(BUILD_PLUGIN_TESTS "Build JUCE plugin unit tests" OFF)
-
 # Use version from parent project (read from VERSION file)
 if(NOT DEFINED OCTOBIR_VERSION)
     file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../../VERSION" OCTOBIR_VERSION)

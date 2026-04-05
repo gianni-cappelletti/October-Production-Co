@@ -1,8 +1,18 @@
-.PHONY: help vcv juce core test test-juce test-vcv clean tidy format license install-juce install-vcv header
+# OctobIR Monorepo Build System
+#
+# Plugin convention:
+#   1. Add plugin directory under plugins/<name>/
+#   2. Add configure preset (dev-<name>) and test preset (test-<name>) to CMakePresets.json
+#   3. Add dev/test/install targets below following the existing pattern
+#   4. VCV-style plugins using external Makefiles: wrap with CMake custom targets (see plugins/vcv-rack/)
+#   5. JUCE-style plugins: use juce_add_plugin() in CMakeLists.txt (see plugins/juce-multiformat/)
+
+.PHONY: help vcv juce core test test-juce test-vcv clean tidy format license install-vcv header
 
 .DEFAULT_GOAL := help
 
 UNAME_S := $(shell uname -s)
+NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 ASAN_FLAGS := -fsanitize=address -fno-omit-frame-pointer
 ASAN_LINKER_FLAGS := -fsanitize=address
 ifeq ($(UNAME_S),Darwin)
@@ -11,26 +21,28 @@ else
     TEST_RUNNER := ASAN_OPTIONS=detect_leaks=1
 endif
 
+ALL_SOURCES := $(shell find libs plugins -name "*.cpp" -o -name "*.hpp" -o -name "*.h")
+CORE_SOURCES := $(shell find libs/octobir-core/src -name "*.cpp")
+VCV_SOURCES := $(shell find plugins/vcv-rack/src -name "*.cpp")
+
 # Display ASCII art header with colors
 header:
 	@./scripts/show-header.sh
 
 # Default target - display available make targets
-# Run 'make' or 'make help' to see this message
 help: header
 	@echo "Usage: make <target>"
 	@echo ""
-	@echo "Development build targets (always clean build):"
-	@echo "  make vcv         - Clean, build, and install VCV plugin (debug)"
-	@echo "  make juce        - Clean and build JUCE plugin (debug)"
-	@echo "  make core        - Clean and build core library only"
-	@echo "  make test        - Build and run octobir-core unit tests (with ASan + leak detection)"
-	@echo "  make test-juce   - Build and run JUCE plugin unit tests (with ASan + leak detection)"
-	@echo "  make test-vcv    - Build and run VCV plugin unit tests (with ASan + leak detection)"
+	@echo "Build and install:"
+	@echo "  make juce        - Build and install JUCE plugin (release)"
+	@echo "  make vcv         - Build and install VCV plugin (debug)"
+	@echo "  make install-vcv - Build and install VCV plugin (release)"
+	@echo "  make core        - Build core library only (debug)"
 	@echo ""
-	@echo "Install targets (release builds):"
-	@echo "  make install-juce - Build and install JUCE plugin (release)"
-	@echo "  make install-vcv  - Build and install VCV plugin (release)"
+	@echo "Testing (with ASan + leak detection):"
+	@echo "  make test        - Run octobir-core unit tests"
+	@echo "  make test-juce   - Run JUCE plugin unit tests"
+	@echo "  make test-vcv    - Run VCV plugin unit tests"
 	@echo ""
 	@echo "Code quality:"
 	@echo "  make tidy        - Run formatting, static analysis, and license checks"
@@ -43,87 +55,74 @@ help: header
 	@echo ""
 	@echo "Note: GitHub releases provide pre-built installers for end users"
 
-# VCV Plugin Development
-vcv: header
-	@if cmake --preset dev-vcv; then \
-		echo "Using CMake preset: dev-vcv"; \
-	else \
-		echo "CMake preset not available, using manual configuration"; \
-		cmake -B build/dev-vcv -DCMAKE_BUILD_TYPE=Debug -DBUILD_JUCE_PLUGIN=OFF; \
+# JUCE Plugin - Build and install (release)
+juce: header
+	@echo "Building and installing JUCE plugin (Release)..."
+	@rm -rf build/release-juce
+	@cmake -B build/release-juce \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DBUILD_JUCE_PLUGIN=ON \
+		-DBUILD_VCV_PLUGIN=OFF \
+		-DBUILD_TESTS=OFF
+	@cmake --build build/release-juce --target OctobIR_All --config Release -j$(NPROC)
+	@echo ""
+	@echo "Installing plugins to system directories..."
+	@if [ -e ~/Library/Audio/Plug-Ins/VST3/OctobIR.vst3 ] && [ ! -w ~/Library/Audio/Plug-Ins/VST3/OctobIR.vst3 ]; then \
+		echo ""; \
+		echo "Error: Existing VST3 plugin is not writable (may be owned by root)."; \
+		echo "Please remove it first:"; \
+		echo "  sudo rm -rf ~/Library/Audio/Plug-Ins/VST3/OctobIR.vst3"; \
+		echo "  sudo rm -rf ~/Library/Audio/Plug-Ins/Components/OctobIR.component"; \
+		echo "Then run: make juce"; \
+		echo ""; \
+		exit 1; \
 	fi
+	@cp -rf build/release-juce/plugins/juce-multiformat/OctobIR_artefacts/Release/VST3/OctobIR.vst3 \
+		~/Library/Audio/Plug-Ins/VST3/
+	@echo "  VST3 installed"
+	@cp -rf build/release-juce/plugins/juce-multiformat/OctobIR_artefacts/Release/AU/OctobIR.component \
+		~/Library/Audio/Plug-Ins/Components/
+	@echo "  AU installed"
+	@echo ""
+	@echo "JUCE plugin installed:"
+	@echo "  VST3: ~/Library/Audio/Plug-Ins/VST3/OctobIR.vst3"
+	@echo "  AU:   ~/Library/Audio/Plug-Ins/Components/OctobIR.component"
+
+# VCV Plugin Development - Build and install (debug)
+vcv: header
+	@cmake --preset dev-vcv
 	@cmake --build build/dev-vcv --target vcv-plugin-clean || true
-	@cmake --build build/dev-vcv --target vcv-plugin -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+	@cmake --build build/dev-vcv --target vcv-plugin -j$(NPROC)
 	@cmake --build build/dev-vcv --target vcv-plugin-install
 	@echo "VCV plugin cleaned, built, and installed"
 
-# JUCE Plugin Development
-juce: header
-	@rm -rf build/dev-juce
-	@if cmake --preset dev-juce; then \
-		echo "Using CMake preset: dev-juce"; \
-	else \
-		echo "CMake preset not available, using manual configuration"; \
-		cmake -B build/dev-juce -DCMAKE_BUILD_TYPE=Debug -DBUILD_VCV_PLUGIN=OFF; \
-	fi
-	@cmake --build build/dev-juce --target OctobIR_All -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-	@echo "JUCE plugin cleaned and built: build/dev-juce/plugins/juce-multiformat/OctobIR_artefacts/"
-
-# Core Library
+# Core Library - Build only (debug, incremental)
 core: header
-	@rm -rf build/dev
-	@if cmake --preset dev; then \
-		echo "Using CMake preset: dev"; \
-	else \
-		echo "CMake preset not available, using manual configuration"; \
-		cmake -B build/dev -DCMAKE_BUILD_TYPE=Debug; \
-	fi
-	@cmake --build build/dev --target octobir-core -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-	@echo "Core library cleaned and built"
+	@cmake --preset dev
+	@cmake --build build/dev --target octobir-core -j$(NPROC)
+	@echo "Core library built"
 
-# Unit Tests
+# Core Library Tests
 test:
 	@rm -rf build/test
-	@cmake -B build/test \
-		-DCMAKE_BUILD_TYPE=Debug \
-		-DBUILD_JUCE_PLUGIN=OFF \
-		-DBUILD_VCV_PLUGIN=OFF \
-		-DBUILD_TESTS=ON \
-		-DCMAKE_CXX_FLAGS="$(ASAN_FLAGS)" \
-		-DCMAKE_C_FLAGS="$(ASAN_FLAGS)" \
-		-DCMAKE_EXE_LINKER_FLAGS="$(ASAN_LINKER_FLAGS)"
-	@cmake --build build/test --target octobir-core-tests -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+	@cmake --preset test-core
+	@cmake --build build/test --target octobir-core-tests -j$(NPROC)
 	@echo "Running tests..."
 	@$(TEST_RUNNER) ./build/test/libs/octobir-core/tests/octobir-core-tests
 
 # VCV Plugin Tests
 test-vcv:
 	@rm -rf build/test-vcv
-	@cmake -B build/test-vcv \
-		-DCMAKE_BUILD_TYPE=Debug \
-		-DBUILD_VCV_PLUGIN=OFF \
-		-DBUILD_VCV_TESTS=ON \
-		-DBUILD_JUCE_PLUGIN=OFF \
-		-DBUILD_TESTS=OFF \
-		-DCMAKE_CXX_FLAGS="$(ASAN_FLAGS)" \
-		-DCMAKE_C_FLAGS="$(ASAN_FLAGS)" \
-		-DCMAKE_EXE_LINKER_FLAGS="$(ASAN_LINKER_FLAGS)"
-	@cmake --build build/test-vcv --target octobir-vcv-tests -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+	@cmake --preset test-vcv
+	@cmake --build build/test-vcv --target octobir-vcv-tests -j$(NPROC)
 	@echo "Running VCV plugin tests..."
 	@$(TEST_RUNNER) ./build/test-vcv/plugins/vcv-rack/tests/octobir-vcv-tests
 
 # JUCE Plugin Tests
 test-juce:
 	@rm -rf build/test-juce
-	@cmake -B build/test-juce \
-		-DCMAKE_BUILD_TYPE=Debug \
-		-DBUILD_JUCE_PLUGIN=ON \
-		-DBUILD_PLUGIN_TESTS=ON \
-		-DBUILD_VCV_PLUGIN=OFF \
-		-DBUILD_TESTS=OFF \
-		-DCMAKE_CXX_FLAGS="$(ASAN_FLAGS)" \
-		-DCMAKE_C_FLAGS="$(ASAN_FLAGS)" \
-		-DCMAKE_EXE_LINKER_FLAGS="$(ASAN_LINKER_FLAGS)"
-	@cmake --build build/test-juce --target octobir-plugin-tests -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+	@cmake --preset test-juce
+	@cmake --build build/test-juce --target octobir-plugin-tests -j$(NPROC)
 	@echo "Running JUCE plugin tests..."
 	@$(TEST_RUNNER) ./build/test-juce/plugins/juce-multiformat/tests/octobir-plugin-tests
 
@@ -139,18 +138,16 @@ tidy:
 		echo "Error: clang-format not installed. Run ./scripts/setup-dev.sh"; \
 		exit 1; \
 	fi
-	@find libs plugins -name "*.cpp" -o -name "*.hpp" -o -name "*.h" | \
-		xargs clang-format --dry-run --Werror --style=file || \
+	@echo $(ALL_SOURCES) | xargs clang-format --dry-run --Werror --style=file || \
 		(echo "Error: Code is not properly formatted. Run 'make format' to fix." && exit 1)
-	@echo "✓ Code formatting verified"
+	@echo "Code formatting verified"
 	@echo ""
 	@echo "Running static analysis..."
 	@if ! command -v clang-tidy &> /dev/null; then \
 		echo "Error: clang-tidy not installed. Run ./scripts/setup-dev.sh"; \
 		exit 1; \
 	fi
-	@find libs/octobir-core/src -name "*.cpp" | \
-		xargs -I {} clang-tidy {} -- \
+	@echo $(CORE_SOURCES) | xargs -I {} clang-tidy {} -- \
 		-I./libs/octobir-core/include \
 		-I./third_party/WDL/WDL \
 		-I./third_party \
@@ -158,8 +155,7 @@ tidy:
 		-std=c++11 || \
 		(echo "Error: Static analysis found issues" && exit 1)
 	@if [ -n "$$RACK_DIR" ] && [ -d "$$RACK_DIR" ]; then \
-		find plugins/vcv-rack/src -name "*.cpp" | \
-			xargs -I {} clang-tidy {} -- \
+		echo $(VCV_SOURCES) | xargs -I {} clang-tidy {} -- \
 			-I./libs/octobir-core/include \
 			-I./third_party/WDL/WDL \
 			-I./third_party \
@@ -170,7 +166,7 @@ tidy:
 	else \
 		echo "  Skipping VCV plugin analysis (RACK_DIR not set or not found)"; \
 	fi
-	@echo "✓ Static analysis passed"
+	@echo "Static analysis passed"
 	@echo ""
 	@$(MAKE) --no-print-directory license
 	@echo ""
@@ -184,7 +180,7 @@ license:
 		exit 1; \
 	fi
 	@reuse lint
-	@echo "✓ License compliance verified"
+	@echo "License compliance verified"
 
 # Auto-format code
 format:
@@ -193,42 +189,8 @@ format:
 		echo "Error: clang-format not installed. Run ./scripts/setup-dev.sh"; \
 		exit 1; \
 	fi
-	@find libs plugins -name "*.cpp" -o -name "*.hpp" -o -name "*.h" | \
-		xargs clang-format -i --style=file
+	@echo $(ALL_SOURCES) | xargs clang-format -i --style=file
 	@echo "Code formatted"
-
-# Install JUCE plugin (release build)
-install-juce:
-	@echo "Building and installing JUCE plugin (Release)..."
-	@rm -rf build/release-juce
-	@cmake -B build/release-juce \
-		-DCMAKE_BUILD_TYPE=Release \
-		-DBUILD_JUCE_PLUGIN=ON \
-		-DBUILD_VCV_PLUGIN=OFF \
-		-DBUILD_TESTS=OFF
-	@cmake --build build/release-juce --target OctobIR_All --config Release -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-	@echo ""
-	@echo "Installing plugins to system directories..."
-	@if [ -e ~/Library/Audio/Plug-Ins/VST3/OctobIR.vst3 ] && [ ! -w ~/Library/Audio/Plug-Ins/VST3/OctobIR.vst3 ]; then \
-		echo ""; \
-		echo "Error: Existing VST3 plugin is not writable (may be owned by root)."; \
-		echo "Please remove it first:"; \
-		echo "  sudo rm -rf ~/Library/Audio/Plug-Ins/VST3/OctobIR.vst3"; \
-		echo "  sudo rm -rf ~/Library/Audio/Plug-Ins/Components/OctobIR.component"; \
-		echo "Then run: make install-juce"; \
-		echo ""; \
-		exit 1; \
-	fi
-	@cp -rf build/release-juce/plugins/juce-multiformat/OctobIR_artefacts/Release/VST3/OctobIR.vst3 \
-		~/Library/Audio/Plug-Ins/VST3/
-	@echo "  ✓ VST3 installed"
-	@cp -rf build/release-juce/plugins/juce-multiformat/OctobIR_artefacts/Release/AU/OctobIR.component \
-		~/Library/Audio/Plug-Ins/Components/
-	@echo "  ✓ AU installed"
-	@echo ""
-	@echo "✓ JUCE plugin installed:"
-	@echo "  VST3: ~/Library/Audio/Plug-Ins/VST3/OctobIR.vst3"
-	@echo "  AU:   ~/Library/Audio/Plug-Ins/Components/OctobIR.component"
 
 # Install VCV Rack plugin (release build)
 install-vcv:
@@ -243,10 +205,11 @@ install-vcv:
 		exit 1; \
 	fi
 	@echo "Building and installing VCV plugin (Release)..."
+	@./scripts/sync-vcv-version.sh
 	@cd plugins/vcv-rack && \
 		export RACK_DIR=$${RACK_DIR:-../../../Rack} && \
 		make clean && \
-		make -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4) && \
+		make -j$(NPROC) && \
 		make install
 	@echo ""
-	@echo "✓ VCV plugin installed"
+	@echo "VCV plugin installed"

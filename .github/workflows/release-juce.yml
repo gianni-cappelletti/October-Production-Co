@@ -28,12 +28,7 @@ jobs:
 
     - name: Build plugin
       run: |
-        cmake -B build/release \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DBUILD_JUCE_PLUGIN=ON \
-          -DBUILD_VCV_PLUGIN=OFF \
-          -DBUILD_TESTS=OFF \
-          -G Ninja
+        cmake --preset release -DBUILD_VCV_PLUGIN=OFF -DBUILD_TESTS=OFF -G Ninja
         cmake --build build/release --target OctobIR_All --config Release -j
 
     - name: Build installer
@@ -68,13 +63,7 @@ jobs:
     - name: Build plugin
       shell: bash
       run: |
-        cmake -B build/release \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DBUILD_JUCE_PLUGIN=ON \
-          -DBUILD_VCV_PLUGIN=OFF \
-          -DBUILD_TESTS=OFF \
-          -G "Visual Studio 17 2022" \
-          -A x64
+        cmake --preset release -DBUILD_VCV_PLUGIN=OFF -DBUILD_TESTS=OFF -G "Visual Studio 17 2022" -A x64
         cmake --build build/release --config Release -j
 
     - name: Install Inno Setup
@@ -129,12 +118,7 @@ jobs:
 
     - name: Build plugin
       run: |
-        cmake -B build/release \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DBUILD_JUCE_PLUGIN=ON \
-          -DBUILD_VCV_PLUGIN=OFF \
-          -DBUILD_TESTS=OFF \
-          -G Ninja
+        cmake --preset release -DBUILD_VCV_PLUGIN=OFF -DBUILD_TESTS=OFF -G Ninja
         cmake --build build/release --target OctobIR_All --config Release -j
 
     - name: Create package directory

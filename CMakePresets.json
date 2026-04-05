@@ -48,6 +48,54 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "_asan",
+      "hidden": true,
+      "description": "Address Sanitizer flags for test builds",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-fsanitize=address -fno-omit-frame-pointer",
+        "CMAKE_C_FLAGS": "-fsanitize=address -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address"
+      }
+    },
+    {
+      "name": "test-core",
+      "displayName": "Core Library Tests",
+      "description": "Debug build with ASan for core library unit tests",
+      "inherits": ["dev", "_asan"],
+      "binaryDir": "${sourceDir}/build/test",
+      "cacheVariables": {
+        "BUILD_JUCE_PLUGIN": "OFF",
+        "BUILD_VCV_PLUGIN": "OFF",
+        "BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "test-vcv",
+      "displayName": "VCV Plugin Tests",
+      "description": "Debug build with ASan for VCV plugin unit tests",
+      "inherits": ["dev", "_asan"],
+      "binaryDir": "${sourceDir}/build/test-vcv",
+      "cacheVariables": {
+        "BUILD_JUCE_PLUGIN": "OFF",
+        "BUILD_VCV_PLUGIN": "OFF",
+        "BUILD_VCV_TESTS": "ON",
+        "BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "test-juce",
+      "displayName": "JUCE Plugin Tests",
+      "description": "Debug build with ASan for JUCE plugin unit tests",
+      "inherits": ["dev", "_asan"],
+      "binaryDir": "${sourceDir}/build/test-juce",
+      "cacheVariables": {
+        "BUILD_JUCE_PLUGIN": "ON",
+        "BUILD_PLUGIN_TESTS": "ON",
+        "BUILD_VCV_PLUGIN": "OFF",
+        "BUILD_TESTS": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -69,6 +117,21 @@
     {
       "name": "release",
       "configurePreset": "release",
+      "jobs": 0
+    },
+    {
+      "name": "test-core",
+      "configurePreset": "test-core",
+      "jobs": 0
+    },
+    {
+      "name": "test-vcv",
+      "configurePreset": "test-vcv",
+      "jobs": 0
+    },
+    {
+      "name": "test-juce",
+      "configurePreset": "test-juce",
       "jobs": 0
     }
   ]

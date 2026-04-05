@@ -61,13 +61,11 @@ git submodule update --init --recursive
 ./scripts/setup-dev.sh
 ```
 
-#### Install to System (Release Builds)
-
-Build and install release versions to your system:
+#### Build & Install
 
 ```bash
-make install-juce    # Build and install JUCE plugins (VST3 + AU)
-make install-vcv     # Build and install VCV Rack plugin
+make juce    # Build and install JUCE plugins (VST3 + AU)
+make vcv     # Build and install VCV Rack plugin
 ```
 
 **Note**: If you previously installed via the packaged installer, remove the old plugins first:

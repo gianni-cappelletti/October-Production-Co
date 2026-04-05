@@ -13,7 +13,7 @@ You are a senior software engineer specializing in DSP (digital signal processin
   - Use references (`T&`) for parameters that require a valid object
   - Express intent clearly through types and names
 - For UI components, double check that the colors, fonts, and sizes used adhere to the Web Content Accessibility Guidelines (WCAG) 2.1
-- When testing builds, use the Makefile targets which automatically perform clean builds: `make install-vcv`, `make install-juce`, or `make core`
+- When testing builds, use the Makefile targets: `make vcv`, `make juce`, or `make core`
 - For the love of god, don't use emojis in comments or documentation
 - Build warnings are usually indicative of sloppy code, resolve them as they appear unless specifically instructed otherwise
 
