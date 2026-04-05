@@ -2,6 +2,15 @@
 
 .DEFAULT_GOAL := help
 
+UNAME_S := $(shell uname -s)
+ASAN_FLAGS := -fsanitize=address -fno-omit-frame-pointer
+ASAN_LINKER_FLAGS := -fsanitize=address
+ifeq ($(UNAME_S),Darwin)
+    TEST_RUNNER := MallocStackLogging=1 leaks --atExit --
+else
+    TEST_RUNNER := ASAN_OPTIONS=detect_leaks=1
+endif
+
 # Display ASCII art header with colors
 header:
 	@./scripts/show-header.sh
@@ -15,9 +24,9 @@ help: header
 	@echo "  make vcv         - Clean, build, and install VCV plugin (debug)"
 	@echo "  make juce        - Clean and build JUCE plugin (debug)"
 	@echo "  make core        - Clean and build core library only"
-	@echo "  make test        - Build and run octobir-core unit tests"
-	@echo "  make test-juce   - Build and run JUCE plugin unit tests"
-	@echo "  make test-vcv    - Build and run VCV plugin unit tests"
+	@echo "  make test        - Build and run octobir-core unit tests (with ASan + leak detection)"
+	@echo "  make test-juce   - Build and run JUCE plugin unit tests (with ASan + leak detection)"
+	@echo "  make test-vcv    - Build and run VCV plugin unit tests (with ASan + leak detection)"
 	@echo ""
 	@echo "Install targets (release builds):"
 	@echo "  make install-juce - Build and install JUCE plugin (release)"
@@ -74,10 +83,17 @@ core: header
 # Unit Tests
 test:
 	@rm -rf build/test
-	@cmake -B build/test -DCMAKE_BUILD_TYPE=Debug -DBUILD_JUCE_PLUGIN=OFF -DBUILD_VCV_PLUGIN=OFF -DBUILD_TESTS=ON
+	@cmake -B build/test \
+		-DCMAKE_BUILD_TYPE=Debug \
+		-DBUILD_JUCE_PLUGIN=OFF \
+		-DBUILD_VCV_PLUGIN=OFF \
+		-DBUILD_TESTS=ON \
+		-DCMAKE_CXX_FLAGS="$(ASAN_FLAGS)" \
+		-DCMAKE_C_FLAGS="$(ASAN_FLAGS)" \
+		-DCMAKE_EXE_LINKER_FLAGS="$(ASAN_LINKER_FLAGS)"
 	@cmake --build build/test --target octobir-core-tests -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 	@echo "Running tests..."
-	@./build/test/libs/octobir-core/tests/octobir-core-tests
+	@$(TEST_RUNNER) ./build/test/libs/octobir-core/tests/octobir-core-tests
 
 # VCV Plugin Tests
 test-vcv:
@@ -87,10 +103,13 @@ test-vcv:
 		-DBUILD_VCV_PLUGIN=OFF \
 		-DBUILD_VCV_TESTS=ON \
 		-DBUILD_JUCE_PLUGIN=OFF \
-		-DBUILD_TESTS=OFF
+		-DBUILD_TESTS=OFF \
+		-DCMAKE_CXX_FLAGS="$(ASAN_FLAGS)" \
+		-DCMAKE_C_FLAGS="$(ASAN_FLAGS)" \
+		-DCMAKE_EXE_LINKER_FLAGS="$(ASAN_LINKER_FLAGS)"
 	@cmake --build build/test-vcv --target octobir-vcv-tests -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 	@echo "Running VCV plugin tests..."
-	@./build/test-vcv/plugins/vcv-rack/tests/octobir-vcv-tests
+	@$(TEST_RUNNER) ./build/test-vcv/plugins/vcv-rack/tests/octobir-vcv-tests
 
 # JUCE Plugin Tests
 test-juce:
@@ -100,10 +119,13 @@ test-juce:
 		-DBUILD_JUCE_PLUGIN=ON \
 		-DBUILD_PLUGIN_TESTS=ON \
 		-DBUILD_VCV_PLUGIN=OFF \
-		-DBUILD_TESTS=OFF
+		-DBUILD_TESTS=OFF \
+		-DCMAKE_CXX_FLAGS="$(ASAN_FLAGS)" \
+		-DCMAKE_C_FLAGS="$(ASAN_FLAGS)" \
+		-DCMAKE_EXE_LINKER_FLAGS="$(ASAN_LINKER_FLAGS)"
 	@cmake --build build/test-juce --target octobir-plugin-tests -j$$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 	@echo "Running JUCE plugin tests..."
-	@./build/test-juce/plugins/juce-multiformat/tests/octobir-plugin-tests
+	@$(TEST_RUNNER) ./build/test-juce/plugins/juce-multiformat/tests/octobir-plugin-tests
 
 # Clean target
 clean:
