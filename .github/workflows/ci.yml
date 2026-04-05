@@ -136,13 +136,16 @@ jobs:
           -DBUILD_JUCE_PLUGIN=OFF \
           -DBUILD_VCV_PLUGIN=OFF \
           -DBUILD_TESTS=ON \
+          -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" \
+          -DCMAKE_C_FLAGS="-fsanitize=address -fno-omit-frame-pointer" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" \
           -G Ninja
 
     - name: Build core tests
       run: cmake --build build/test --target octobir-core-tests -j
 
     - name: Run core tests
-      run: ./build/test/libs/octobir-core/tests/octobir-core-tests
+      run: ASAN_OPTIONS=detect_leaks=1 ./build/test/libs/octobir-core/tests/octobir-core-tests
 
   test-vcv:
     name: Run VCV Tests
@@ -167,13 +170,16 @@ jobs:
           -DBUILD_JUCE_PLUGIN=OFF \
           -DBUILD_VCV_PLUGIN=OFF \
           -DBUILD_VCV_TESTS=ON \
+          -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" \
+          -DCMAKE_C_FLAGS="-fsanitize=address -fno-omit-frame-pointer" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" \
           -G Ninja
 
     - name: Build VCV tests
       run: cmake --build build/test --target octobir-vcv-tests -j
 
     - name: Run VCV tests
-      run: ./build/test/plugins/vcv-rack/tests/octobir-vcv-tests
+      run: ASAN_OPTIONS=detect_leaks=1 ./build/test/plugins/vcv-rack/tests/octobir-vcv-tests
 
   test-juce:
     name: Run JUCE Tests
@@ -215,13 +221,16 @@ jobs:
           -DBUILD_JUCE_PLUGIN=ON \
           -DBUILD_VCV_PLUGIN=OFF \
           -DBUILD_PLUGIN_TESTS=ON \
+          -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" \
+          -DCMAKE_C_FLAGS="-fsanitize=address -fno-omit-frame-pointer" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" \
           -G Ninja
 
     - name: Build JUCE tests
       run: cmake --build build/test-juce --target octobir-plugin-tests -j
 
     - name: Run JUCE tests
-      run: ./build/test-juce/plugins/juce-multiformat/tests/octobir-plugin-tests
+      run: ASAN_OPTIONS=detect_leaks=1 ./build/test-juce/plugins/juce-multiformat/tests/octobir-plugin-tests
 
   build-vcv:
     name: Build VCV Plugin
