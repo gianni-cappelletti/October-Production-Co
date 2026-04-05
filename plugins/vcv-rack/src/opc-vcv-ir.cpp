@@ -1341,8 +1341,8 @@ struct OpcVcvIrWidget final : ModuleWidget
     }
 
     // --- Port row: IN L/R (left), CV (middle), OUT L/R (right) ---
-    const float portY = 112.0f;
-    const float portLabelY = portY + 5.f;
+    const float portY = 115.0f;
+    const float portLabelY = portY - 9.f;
     const float pInL = 16.f;    // IN L/MONO
     const float pInR = 34.f;    // IN RIGHT
     const float pCV1 = 70.f;    // SC IN
@@ -1353,7 +1353,7 @@ struct OpcVcvIrWidget final : ModuleWidget
     const float pOutR = 190.f;  // OUT RIGHT
 
     {
-      auto* outBg = createWidget<OpcOutputBackground>(mm2px(Vec(pOutL - 10.f, portY - 6.f)));
+      auto* outBg = createWidget<OpcOutputBackground>(mm2px(Vec(pOutL - 10.f, portY - 9.5f)));
       outBg->box.size = mm2px(Vec(pOutR - pOutL + 20.f, 16.0f));
       addChild(outBg);
     }
@@ -1386,6 +1386,8 @@ struct OpcVcvIrWidget final : ModuleWidget
               lightLabelCol);
     makeLabel(mm2px(Vec(pOutR - 7.f, portLabelY)), mm2px(Vec(14.0f, 4.0f)), "RIGHT", 10.f,
               lightLabelCol);
+
+    makeLabel(mm2px(Vec(panelW / 2.f - 12.f, 123.f)), mm2px(Vec(24.0f, 4.0f)), "OctobIR", 10.f);
   }
 
   void draw(const DrawArgs& args) override
