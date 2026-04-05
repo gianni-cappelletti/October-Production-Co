@@ -1,58 +1,23 @@
 {
-  "version": 3,
+  "version": 4,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 19,
+    "minor": 22,
     "patch": 0
   },
   "configurePresets": [
     {
-      "name": "dev",
-      "displayName": "Development Build",
-      "description": "Debug build with all plugins",
-      "binaryDir": "${sourceDir}/build/dev",
+      "name": "_dev-base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
     {
-      "name": "dev-vcv",
-      "displayName": "VCV Plugin Only (Dev)",
-      "description": "Debug build for VCV Rack plugin development",
-      "inherits": "dev",
-      "binaryDir": "${sourceDir}/build/dev-vcv",
-      "cacheVariables": {
-        "BUILD_JUCE_PLUGIN": "OFF",
-        "BUILD_CORE_LIB": "ON",
-        "BUILD_VCV_PLUGIN": "ON"
-      }
-    },
-    {
-      "name": "dev-juce",
-      "displayName": "JUCE Plugin Only (Dev)",
-      "description": "Debug build for JUCE plugin development",
-      "inherits": "dev",
-      "binaryDir": "${sourceDir}/build/dev-juce",
-      "cacheVariables": {
-        "BUILD_JUCE_PLUGIN": "ON",
-        "BUILD_CORE_LIB": "ON",
-        "BUILD_VCV_PLUGIN": "OFF"
-      }
-    },
-    {
-      "name": "release",
-      "displayName": "Release Build",
-      "description": "Optimized release build for all plugins",
-      "binaryDir": "${sourceDir}/build/release",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
-    },
-    {
       "name": "_asan",
       "hidden": true,
-      "description": "Address Sanitizer flags for test builds",
       "cacheVariables": {
         "CMAKE_CXX_FLAGS": "-fsanitize=address -fno-omit-frame-pointer",
         "CMAKE_C_FLAGS": "-fsanitize=address -fno-omit-frame-pointer",
@@ -60,79 +25,114 @@
       }
     },
     {
-      "name": "test-core",
-      "displayName": "Core Library Tests",
-      "description": "Debug build with ASan for core library unit tests",
-      "inherits": ["dev", "_asan"],
-      "binaryDir": "${sourceDir}/build/test",
+      "name": "dev",
+      "displayName": "Development Build (all plugins)",
+      "inherits": "_dev-base",
+      "binaryDir": "${sourceDir}/build/dev"
+    },
+    {
+      "name": "dev-octobir",
+      "displayName": "OctobIR Development",
+      "inherits": "_dev-base",
+      "binaryDir": "${sourceDir}/build/dev-octobir",
       "cacheVariables": {
-        "BUILD_JUCE_PLUGIN": "OFF",
-        "BUILD_VCV_PLUGIN": "OFF",
-        "BUILD_TESTS": "ON"
+        "BUILD_OCTOBASS": "OFF",
+        "BUILD_OCTOBASS_JUCE": "OFF"
       }
     },
     {
-      "name": "test-vcv",
-      "displayName": "VCV Plugin Tests",
-      "description": "Debug build with ASan for VCV plugin unit tests",
-      "inherits": ["dev", "_asan"],
-      "binaryDir": "${sourceDir}/build/test-vcv",
+      "name": "dev-octobir-vcv",
+      "displayName": "OctobIR VCV Only (Dev)",
+      "inherits": "_dev-base",
+      "binaryDir": "${sourceDir}/build/dev-octobir-vcv",
       "cacheVariables": {
-        "BUILD_JUCE_PLUGIN": "OFF",
-        "BUILD_VCV_PLUGIN": "OFF",
-        "BUILD_VCV_TESTS": "ON",
-        "BUILD_TESTS": "OFF"
+        "BUILD_OCTOBIR_JUCE": "OFF",
+        "BUILD_OCTOBASS": "OFF",
+        "BUILD_OCTOBASS_JUCE": "OFF"
       }
     },
     {
-      "name": "test-juce",
-      "displayName": "JUCE Plugin Tests",
-      "description": "Debug build with ASan for JUCE plugin unit tests",
-      "inherits": ["dev", "_asan"],
-      "binaryDir": "${sourceDir}/build/test-juce",
+      "name": "dev-octobass",
+      "displayName": "OctoBASS Development",
+      "inherits": "_dev-base",
+      "binaryDir": "${sourceDir}/build/dev-octobass",
       "cacheVariables": {
-        "BUILD_JUCE_PLUGIN": "ON",
-        "BUILD_PLUGIN_TESTS": "ON",
-        "BUILD_VCV_PLUGIN": "OFF",
-        "BUILD_TESTS": "OFF"
+        "BUILD_OCTOBIR": "OFF",
+        "BUILD_OCTOBIR_JUCE": "OFF",
+        "BUILD_OCTOBIR_VCV": "OFF"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release Build (all plugins)",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "test-octobir-core",
+      "displayName": "OctobIR Core Tests",
+      "inherits": ["_dev-base", "_asan"],
+      "binaryDir": "${sourceDir}/build/test-octobir-core",
+      "cacheVariables": {
+        "BUILD_OCTOBIR": "ON",
+        "BUILD_OCTOBIR_JUCE": "OFF",
+        "BUILD_OCTOBIR_VCV": "OFF",
+        "BUILD_OCTOBASS": "OFF",
+        "BUILD_OCTOBASS_JUCE": "OFF",
+        "BUILD_OCTOBIR_CORE_TESTS": "ON"
+      }
+    },
+    {
+      "name": "test-octobir-juce",
+      "displayName": "OctobIR JUCE Tests",
+      "inherits": ["_dev-base", "_asan"],
+      "binaryDir": "${sourceDir}/build/test-octobir-juce",
+      "cacheVariables": {
+        "BUILD_OCTOBIR_JUCE": "ON",
+        "BUILD_OCTOBIR_VCV": "OFF",
+        "BUILD_OCTOBASS": "OFF",
+        "BUILD_OCTOBASS_JUCE": "OFF",
+        "BUILD_OCTOBIR_JUCE_TESTS": "ON"
+      }
+    },
+    {
+      "name": "test-octobir-vcv",
+      "displayName": "OctobIR VCV Tests",
+      "inherits": ["_dev-base", "_asan"],
+      "binaryDir": "${sourceDir}/build/test-octobir-vcv",
+      "cacheVariables": {
+        "BUILD_OCTOBIR_JUCE": "OFF",
+        "BUILD_OCTOBIR_VCV": "OFF",
+        "BUILD_OCTOBASS": "OFF",
+        "BUILD_OCTOBASS_JUCE": "OFF",
+        "BUILD_OCTOBIR_VCV_TESTS": "ON"
+      }
+    },
+    {
+      "name": "test-octobass-juce",
+      "displayName": "OctoBASS JUCE Tests",
+      "inherits": ["_dev-base", "_asan"],
+      "binaryDir": "${sourceDir}/build/test-octobass-juce",
+      "cacheVariables": {
+        "BUILD_OCTOBIR": "OFF",
+        "BUILD_OCTOBIR_JUCE": "OFF",
+        "BUILD_OCTOBIR_VCV": "OFF",
+        "BUILD_OCTOBASS_JUCE": "ON",
+        "BUILD_OCTOBASS_JUCE_TESTS": "ON"
       }
     }
   ],
   "buildPresets": [
-    {
-      "name": "dev",
-      "configurePreset": "dev",
-      "jobs": 0
-    },
-    {
-      "name": "dev-vcv",
-      "configurePreset": "dev-vcv",
-      "jobs": 0
-    },
-    {
-      "name": "dev-juce",
-      "configurePreset": "dev-juce",
-      "jobs": 0
-    },
-    {
-      "name": "release",
-      "configurePreset": "release",
-      "jobs": 0
-    },
-    {
-      "name": "test-core",
-      "configurePreset": "test-core",
-      "jobs": 0
-    },
-    {
-      "name": "test-vcv",
-      "configurePreset": "test-vcv",
-      "jobs": 0
-    },
-    {
-      "name": "test-juce",
-      "configurePreset": "test-juce",
-      "jobs": 0
-    }
+    { "name": "dev", "configurePreset": "dev", "jobs": 0 },
+    { "name": "dev-octobir", "configurePreset": "dev-octobir", "jobs": 0 },
+    { "name": "dev-octobir-vcv", "configurePreset": "dev-octobir-vcv", "jobs": 0 },
+    { "name": "dev-octobass", "configurePreset": "dev-octobass", "jobs": 0 },
+    { "name": "release", "configurePreset": "release", "jobs": 0 },
+    { "name": "test-octobir-core", "configurePreset": "test-octobir-core", "jobs": 0 },
+    { "name": "test-octobir-juce", "configurePreset": "test-octobir-juce", "jobs": 0 },
+    { "name": "test-octobir-vcv", "configurePreset": "test-octobir-vcv", "jobs": 0 },
+    { "name": "test-octobass-juce", "configurePreset": "test-octobass-juce", "jobs": 0 }
   ]
 }

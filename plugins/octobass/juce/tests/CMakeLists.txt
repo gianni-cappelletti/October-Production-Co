@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.22)
 
 include(FetchContent)
 
@@ -12,43 +12,42 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
-add_executable(octobir-plugin-tests
+add_executable(octobass-plugin-tests
     TestMain.cpp
     PluginProcessorTests.cpp
-    PluginAudioTests.cpp
     ../Source/PluginProcessor.cpp
     ../Source/PluginEditor.cpp
-    ../Source/OctobIRLookAndFeel.cpp
 )
 
-target_include_directories(octobir-plugin-tests
+target_include_directories(octobass-plugin-tests
     PRIVATE
         ../Source
 )
 
-target_include_directories(octobir-plugin-tests
+target_include_directories(octobass-plugin-tests
     SYSTEM PRIVATE
         ${CMAKE_SOURCE_DIR}/third_party
         ${CMAKE_SOURCE_DIR}/third_party/WDL/WDL
 )
 
-target_compile_definitions(octobir-plugin-tests
+target_compile_definitions(octobass-plugin-tests
     PRIVATE
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
-        JucePlugin_Name="OctobIR"
+        JucePlugin_Name="OctoBASS"
         JucePlugin_VersionString="${PROJECT_VERSION}"
         TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data"
 )
 
-target_link_libraries(octobir-plugin-tests
+target_link_libraries(octobass-plugin-tests
     PRIVATE
         octobir-core
-        OctobIR_FontData
+        juce-ui-shared
+        October_SharedResources
         juce::juce_audio_utils
         GTest::gtest
 )
 
 include(GoogleTest)
-gtest_discover_tests(octobir-plugin-tests)
+gtest_discover_tests(octobass-plugin-tests)

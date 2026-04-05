@@ -1,69 +1,113 @@
-# OctobIR Monorepo Build System
+# October Production Co. - Multi-Plugin Monorepo Build System
 #
-# Plugin convention:
-#   1. Add plugin directory under plugins/<name>/
-#   2. Add configure preset (dev-<name>) and test preset (test-<name>) to CMakePresets.json
-#   3. Add dev/test/install targets below following the existing pattern
-#   4. VCV-style plugins using external Makefiles: wrap with CMake custom targets (see plugins/vcv-rack/)
-#   5. JUCE-style plugins: use juce_add_plugin() in CMakeLists.txt (see plugins/juce-multiformat/)
-
-.PHONY: help vcv juce core test test-juce test-vcv clean tidy format license install-vcv header
+# Adding a new plugin:
+#   1. Add directory under plugins/<name>/
+#   2. Add to JUCE_PLUGINS (and VCV_PLUGINS if applicable) below
+#   3. Add configure/test presets to CMakePresets.json
+#   4. Add CMakeLists.txt entries in root CMakeLists.txt
 
 .DEFAULT_GOAL := help
 
+# ── Plugin registry ─────────────────────────────────────────────
+JUCE_PLUGINS := octobir octobass
+VCV_PLUGINS  := octobir
+ALL_PLUGINS  := $(sort $(JUCE_PLUGINS) $(VCV_PLUGINS))
+
+# ── Platform detection ──────────────────────────────────────────
 UNAME_S := $(shell uname -s)
-NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-ASAN_FLAGS := -fsanitize=address -fno-omit-frame-pointer
-ASAN_LINKER_FLAGS := -fsanitize=address
+NPROC   := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 ifeq ($(UNAME_S),Darwin)
     TEST_RUNNER := MallocStackLogging=1 leaks --atExit --
 else
     TEST_RUNNER := ASAN_OPTIONS=detect_leaks=1
 endif
 
-ALL_SOURCES := $(shell find libs plugins -name "*.cpp" -o -name "*.hpp" -o -name "*.h")
+ALL_SOURCES  := $(shell find libs plugins -name "*.cpp" -o -name "*.hpp" -o -name "*.h")
 CORE_SOURCES := $(shell find libs/octobir-core/src -name "*.cpp")
-VCV_SOURCES := $(shell find plugins/vcv-rack/src -name "*.cpp")
+VCV_SOURCES  := $(shell find plugins/octobir/vcv-rack/src -name "*.cpp" 2>/dev/null)
 
-# Display ASCII art header with colors
+# ── JUCE plugin targets (generated per plugin) ─────────────────
+# For each JUCE plugin, generates:
+#   <name>-juce        Build and install
+#   test-<name>-juce   Run tests with ASan
+define JUCE_PLUGIN_TARGETS
+
+.PHONY: $(1)-juce test-$(1)-juce
+
+$(1)-juce: header
+	@echo "Building and installing $(1) JUCE plugin (Release)..."
+	@rm -rf build/release-$(1)-juce
+	@cmake --preset release \
+		-DBUILD_$(call to_upper,$(1))_JUCE=ON \
+		-DBUILD_$(call to_upper,$(1))_VCV=OFF
+	@cmake --build build/release --target $(call juce_target,$(1)) --config Release -j$(NPROC)
+
+test-$(1)-juce:
+	@rm -rf build/test-$(1)-juce
+	@cmake --preset test-$(1)-juce
+	@cmake --build build/test-$(1)-juce --target $(call juce_test_target,$(1)) -j$(NPROC)
+	@echo "Running $(1) JUCE plugin tests..."
+	@$(TEST_RUNNER) ./build/test-$(1)-juce/plugins/$(1)/juce/tests/$(call juce_test_target,$(1))
+
+endef
+
+# Helper functions
+to_upper = $(shell echo $(1) | tr '[:lower:]' '[:upper:]')
+juce_target = $(if $(filter octobir,$(1)),OctobIR_All,$(if $(filter octobass,$(1)),OctoBASS_All,$(1)_All))
+juce_test_target = $(if $(filter octobir,$(1)),octobir-plugin-tests,$(if $(filter octobass,$(1)),octobass-plugin-tests,$(1)-plugin-tests))
+
+$(foreach p,$(JUCE_PLUGINS),$(eval $(call JUCE_PLUGIN_TARGETS,$(p))))
+
+# ── Convenience aggregate targets ──────────────────────────────
+.PHONY: octobir octobass all test core header help clean tidy format license
+.PHONY: octobir-vcv test-octobir test-octobir-core test-octobir-vcv test-octobass install-vcv
+
 header:
 	@./scripts/show-header.sh
 
-# Default target - display available make targets
 help: header
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Build and install:"
-	@echo "  make juce        - Build and install JUCE plugin (release)"
-	@echo "  make vcv         - Build and install VCV plugin (debug)"
-	@echo "  make install-vcv - Build and install VCV plugin (release)"
-	@echo "  make core        - Build core library only (debug)"
+	@echo "  make octobir          - Build all OctobIR formats (JUCE + VCV)"
+	@echo "  make octobir-juce     - Build and install OctobIR JUCE plugin"
+	@echo "  make octobir-vcv      - Build and install OctobIR VCV plugin"
+	@echo "  make octobass         - Build all OctoBASS formats (JUCE)"
+	@echo "  make octobass-juce    - Build and install OctoBASS JUCE plugin"
+	@echo "  make core             - Build core libraries only (debug)"
 	@echo ""
 	@echo "Testing (with ASan + leak detection):"
-	@echo "  make test        - Run octobir-core unit tests"
-	@echo "  make test-juce   - Run JUCE plugin unit tests"
-	@echo "  make test-vcv    - Run VCV plugin unit tests"
+	@echo "  make test             - Run all tests"
+	@echo "  make test-octobir     - Run all OctobIR tests"
+	@echo "  make test-octobir-core  - Run octobir-core unit tests"
+	@echo "  make test-octobir-juce  - Run OctobIR JUCE plugin tests"
+	@echo "  make test-octobir-vcv   - Run OctobIR VCV plugin tests"
+	@echo "  make test-octobass      - Run all OctoBASS tests"
+	@echo "  make test-octobass-juce - Run OctoBASS JUCE plugin tests"
 	@echo ""
 	@echo "Code quality:"
-	@echo "  make tidy        - Run formatting, static analysis, and license checks"
-	@echo "  make format      - Auto-format all code with clang-format"
-	@echo "  make license     - Check REUSE license compliance"
+	@echo "  make tidy             - Run formatting, static analysis, and license checks"
+	@echo "  make format           - Auto-format all code with clang-format"
+	@echo "  make license          - Check REUSE license compliance"
 	@echo ""
 	@echo "Other:"
-	@echo "  make clean       - Remove all build artifacts"
-	@echo "  make help        - Show this help message"
+	@echo "  make clean            - Remove all build artifacts"
+	@echo "  make help             - Show this help message"
 	@echo ""
 	@echo "Note: GitHub releases provide pre-built installers for end users"
 
-# JUCE Plugin - Build and install (release)
-juce: header
-	@echo "Building and installing JUCE plugin (Release)..."
+# ── OctobIR aggregate ──────────────────────────────────────────
+octobir: octobir-juce octobir-vcv
+
+octobir-juce: header
+	@echo "Building and installing OctobIR JUCE plugin (Release)..."
 	@rm -rf build/release-juce
 	@cmake -B build/release-juce \
 		-DCMAKE_BUILD_TYPE=Release \
-		-DBUILD_JUCE_PLUGIN=ON \
-		-DBUILD_VCV_PLUGIN=OFF \
-		-DBUILD_TESTS=OFF
+		-DBUILD_OCTOBIR_JUCE=ON \
+		-DBUILD_OCTOBIR_VCV=OFF \
+		-DBUILD_OCTOBASS=OFF \
+		-DBUILD_OCTOBASS_JUCE=OFF
 	@cmake --build build/release-juce --target OctobIR_All --config Release -j$(NPROC)
 	@echo ""
 	@echo "Installing plugins to system directories..."
@@ -73,65 +117,91 @@ juce: header
 		echo "Please remove it first:"; \
 		echo "  sudo rm -rf ~/Library/Audio/Plug-Ins/VST3/OctobIR.vst3"; \
 		echo "  sudo rm -rf ~/Library/Audio/Plug-Ins/Components/OctobIR.component"; \
-		echo "Then run: make juce"; \
+		echo "Then run: make octobir-juce"; \
 		echo ""; \
 		exit 1; \
 	fi
-	@cp -rf build/release-juce/plugins/juce-multiformat/OctobIR_artefacts/Release/VST3/OctobIR.vst3 \
+	@cp -rf build/release-juce/plugins/octobir/juce/OctobIR_artefacts/Release/VST3/OctobIR.vst3 \
 		~/Library/Audio/Plug-Ins/VST3/
 	@echo "  VST3 installed"
-	@cp -rf build/release-juce/plugins/juce-multiformat/OctobIR_artefacts/Release/AU/OctobIR.component \
+	@cp -rf build/release-juce/plugins/octobir/juce/OctobIR_artefacts/Release/AU/OctobIR.component \
 		~/Library/Audio/Plug-Ins/Components/
 	@echo "  AU installed"
 	@echo ""
-	@echo "JUCE plugin installed:"
+	@echo "OctobIR JUCE plugin installed:"
 	@echo "  VST3: ~/Library/Audio/Plug-Ins/VST3/OctobIR.vst3"
 	@echo "  AU:   ~/Library/Audio/Plug-Ins/Components/OctobIR.component"
 
-# VCV Plugin Development - Build and install (debug)
-vcv: header
-	@cmake --preset dev-vcv
-	@cmake --build build/dev-vcv --target vcv-plugin-clean || true
-	@cmake --build build/dev-vcv --target vcv-plugin -j$(NPROC)
-	@cmake --build build/dev-vcv --target vcv-plugin-install
-	@echo "VCV plugin cleaned, built, and installed"
+octobir-vcv: header
+	@cmake --preset dev-octobir-vcv
+	@cmake --build build/dev-octobir-vcv --target vcv-plugin-clean || true
+	@cmake --build build/dev-octobir-vcv --target vcv-plugin -j$(NPROC)
+	@cmake --build build/dev-octobir-vcv --target vcv-plugin-install
+	@echo "OctobIR VCV plugin cleaned, built, and installed"
 
-# Core Library - Build only (debug, incremental)
+# ── OctoBASS aggregate ─────────────────────────────────────────
+octobass: octobass-juce
+
+octobass-juce: header
+	@echo "Building and installing OctoBASS JUCE plugin (Release)..."
+	@rm -rf build/release-octobass-juce
+	@cmake -B build/release-octobass-juce \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DBUILD_OCTOBIR=OFF \
+		-DBUILD_OCTOBIR_JUCE=OFF \
+		-DBUILD_OCTOBIR_VCV=OFF \
+		-DBUILD_OCTOBASS_JUCE=ON
+	@cmake --build build/release-octobass-juce --target OctoBASS_All --config Release -j$(NPROC)
+	@echo ""
+	@echo "OctoBASS JUCE plugin built successfully"
+
+# ── Core libraries ─────────────────────────────────────────────
 core: header
 	@cmake --preset dev
 	@cmake --build build/dev --target octobir-core -j$(NPROC)
-	@echo "Core library built"
+	@echo "Core libraries built"
 
-# Core Library Tests
-test:
-	@rm -rf build/test
-	@cmake --preset test-core
-	@cmake --build build/test --target octobir-core-tests -j$(NPROC)
-	@echo "Running tests..."
-	@$(TEST_RUNNER) ./build/test/libs/octobir-core/tests/octobir-core-tests
+# ── Test targets ───────────────────────────────────────────────
+test: test-octobir test-octobass
 
-# VCV Plugin Tests
-test-vcv:
-	@rm -rf build/test-vcv
-	@cmake --preset test-vcv
-	@cmake --build build/test-vcv --target octobir-vcv-tests -j$(NPROC)
-	@echo "Running VCV plugin tests..."
-	@$(TEST_RUNNER) ./build/test-vcv/plugins/vcv-rack/tests/octobir-vcv-tests
+test-octobir: test-octobir-core test-octobir-juce test-octobir-vcv
 
-# JUCE Plugin Tests
-test-juce:
-	@rm -rf build/test-juce
-	@cmake --preset test-juce
-	@cmake --build build/test-juce --target octobir-plugin-tests -j$(NPROC)
-	@echo "Running JUCE plugin tests..."
-	@$(TEST_RUNNER) ./build/test-juce/plugins/juce-multiformat/tests/octobir-plugin-tests
+test-octobir-core:
+	@rm -rf build/test-octobir-core
+	@cmake --preset test-octobir-core
+	@cmake --build build/test-octobir-core --target octobir-core-tests -j$(NPROC)
+	@echo "Running octobir-core tests..."
+	@$(TEST_RUNNER) ./build/test-octobir-core/libs/octobir-core/tests/octobir-core-tests
 
-# Clean target
+test-octobir-juce:
+	@rm -rf build/test-octobir-juce
+	@cmake --preset test-octobir-juce
+	@cmake --build build/test-octobir-juce --target octobir-plugin-tests -j$(NPROC)
+	@echo "Running OctobIR JUCE plugin tests..."
+	@$(TEST_RUNNER) ./build/test-octobir-juce/plugins/octobir/juce/tests/octobir-plugin-tests
+
+test-octobir-vcv:
+	@rm -rf build/test-octobir-vcv
+	@cmake --preset test-octobir-vcv
+	@cmake --build build/test-octobir-vcv --target octobir-vcv-tests -j$(NPROC)
+	@echo "Running OctobIR VCV plugin tests..."
+	@$(TEST_RUNNER) ./build/test-octobir-vcv/plugins/octobir/vcv-rack/tests/octobir-vcv-tests
+
+test-octobass: test-octobass-juce
+
+test-octobass-juce:
+	@rm -rf build/test-octobass-juce
+	@cmake --preset test-octobass-juce
+	@cmake --build build/test-octobass-juce --target octobass-plugin-tests -j$(NPROC)
+	@echo "Running OctoBASS JUCE plugin tests..."
+	@$(TEST_RUNNER) ./build/test-octobass-juce/plugins/octobass/juce/tests/octobass-plugin-tests
+
+# ── Clean ──────────────────────────────────────────────────────
 clean:
 	@rm -rf build
 	@echo "All build artifacts cleaned"
 
-# Code quality checks
+# ── Code quality ───────────────────────────────────────────────
 tidy:
 	@echo "Checking code formatting..."
 	@if ! command -v clang-format &> /dev/null; then \
@@ -172,7 +242,6 @@ tidy:
 	@echo ""
 	@echo "All code quality checks passed"
 
-# REUSE license compliance check
 license:
 	@echo "Checking license compliance..."
 	@if ! command -v reuse &> /dev/null; then \
@@ -182,7 +251,6 @@ license:
 	@reuse lint
 	@echo "License compliance verified"
 
-# Auto-format code
 format:
 	@echo "Formatting code..."
 	@if ! command -v clang-format &> /dev/null; then \
@@ -192,7 +260,7 @@ format:
 	@echo $(ALL_SOURCES) | xargs clang-format -i --style=file
 	@echo "Code formatted"
 
-# Install VCV Rack plugin (release build)
+# ── VCV install (release) ──────────────────────────────────────
 install-vcv:
 	@if [ -z "$$RACK_DIR" ] && [ ! -d "../Rack" ] && [ ! -d "../../Rack" ]; then \
 		echo "Error: RACK_DIR not set and VCV Rack SDK not found"; \
@@ -206,8 +274,8 @@ install-vcv:
 	fi
 	@echo "Building and installing VCV plugin (Release)..."
 	@./scripts/sync-vcv-version.sh
-	@cd plugins/vcv-rack && \
-		export RACK_DIR=$${RACK_DIR:-../../../Rack} && \
+	@cd plugins/octobir/vcv-rack && \
+		export RACK_DIR=$${RACK_DIR:-../../../../Rack} && \
 		make clean && \
 		make -j$(NPROC) && \
 		make install

@@ -1,0 +1,26 @@
+{
+  "slug": "opc-vcv-ir",
+  "name": "VCV IR Loader",
+  "version": "2.0.0",
+  "license": "GPL-3.0-or-later",
+  "brand": "October Production Co.",
+  "author": "Gianni Cappelletti",
+  "authorEmail": "gianni@octoberproductionco.com",
+  "authorUrl": "",
+  "pluginUrl": "",
+  "manualUrl": "",
+  "sourceUrl": "https://github.com/gianni-cappelletti/OctobIR",
+  "donateUrl": "",
+  "changelogUrl": "",
+  "modules": [
+    {
+      "slug": "opc-vcv-ir",
+      "name": "opc-vcv-ir",
+      "description": "Impulse response loader!",
+      "tags": [
+        "physical modeling",
+        "sampler"
+      ]
+    }
+  ]
+}

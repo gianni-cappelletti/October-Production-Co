@@ -70,7 +70,7 @@ set_target_properties(octobir-core PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 
-option(BUILD_TESTS "Build unit tests" OFF)
-if(BUILD_TESTS)
+option(BUILD_OCTOBIR_CORE_TESTS "Build octobir-core unit tests" OFF)
+if(BUILD_OCTOBIR_CORE_TESTS)
     add_subdirectory(tests)
 endif()

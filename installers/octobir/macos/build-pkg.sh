@@ -2,8 +2,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-BUILD_DIR="$PROJECT_DIR/build/release/plugins/juce-multiformat/OctobIR_artefacts/Release"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+BUILD_DIR="$PROJECT_DIR/build/release/plugins/octobir/juce/OctobIR_artefacts/Release"
 DIST_DIR="$PROJECT_DIR/dist"
 
 # Read version from VERSION file

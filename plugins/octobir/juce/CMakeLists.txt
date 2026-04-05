@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.22)
 
 # Use version from parent project (read from VERSION file)
 if(NOT DEFINED OCTOBIR_VERSION)
-    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../../VERSION" OCTOBIR_VERSION)
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../../../VERSION" OCTOBIR_VERSION)
     string(STRIP "${OCTOBIR_VERSION}" OCTOBIR_VERSION)
 endif()
 
@@ -11,10 +11,8 @@ project(OctobIR VERSION ${OCTOBIR_VERSION})
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_subdirectory(../../third_party/JUCE ${CMAKE_CURRENT_BINARY_DIR}/JUCE)
-
-# Note: octobir-core is added by root CMakeLists.txt, not here
-# This avoids duplicate target errors when building from root
+# Note: JUCE and juce-ui-shared are added by root CMakeLists.txt
+# Note: octobir-core is added by root CMakeLists.txt
 
 set(FORMATS VST3 AU)
 
@@ -31,15 +29,9 @@ juce_add_plugin(OctobIR
     FORMATS ${FORMATS}
     PRODUCT_NAME "OctobIR")
 
-juce_add_binary_data(OctobIR_FontData SOURCES
-    Resources/Fonts/CourierPrime-Regular.ttf
-    Resources/Fonts/PressStart2P-Regular.ttf
-    Resources/Images/OctoberLogo.png)
-
 target_sources(OctobIR PRIVATE
     Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp
-    Source/OctobIRLookAndFeel.cpp)
+    Source/PluginEditor.cpp)
 
 target_compile_definitions(OctobIR
     PUBLIC
@@ -51,12 +43,13 @@ target_link_libraries(OctobIR
     PRIVATE
         juce::juce_audio_utils
         octobir-core
-        OctobIR_FontData
+        juce-ui-shared
+        October_SharedResources
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
-if(BUILD_PLUGIN_TESTS)
+if(BUILD_OCTOBIR_JUCE_TESTS)
     add_subdirectory(tests)
 endif()

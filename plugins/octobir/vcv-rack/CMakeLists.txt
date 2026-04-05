@@ -4,9 +4,9 @@ cmake_minimum_required(VERSION 3.15)
 # This wraps the existing Makefile-based build system since VCV Rack
 # requires using their plugin.mk framework
 
-# Find RACK_DIR (defaults to ../.., can be overridden via environment variable)
+# Find RACK_DIR (defaults to ../../.., can be overridden via environment variable)
 if(NOT DEFINED ENV{RACK_DIR})
-    set(RACK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+    set(RACK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
 else()
     set(RACK_DIR $ENV{RACK_DIR})
 endif()
@@ -76,7 +76,7 @@ if(TARGET octobir-core)
     add_dependencies(vcv-plugin octobir-core)
 endif()
 
-if(BUILD_VCV_TESTS)
+if(BUILD_OCTOBIR_VCV_TESTS)
     add_subdirectory(tests)
 endif()
 

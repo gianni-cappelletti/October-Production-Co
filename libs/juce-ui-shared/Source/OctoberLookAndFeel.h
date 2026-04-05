@@ -2,10 +2,10 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-class OctobIRLookAndFeel : public juce::LookAndFeel_V4
+class OctoberLookAndFeel : public juce::LookAndFeel_V4
 {
  public:
-  OctobIRLookAndFeel();
+  OctoberLookAndFeel();
 
   void drawRotarySlider(juce::Graphics&, int x, int y, int width, int height, float sliderPos,
                         float rotaryStartAngle, float rotaryEndAngle, juce::Slider&) override;

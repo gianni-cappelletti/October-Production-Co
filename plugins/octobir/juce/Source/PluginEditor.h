@@ -3,7 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "LCDDisplay.h"
-#include "OctobIRLookAndFeel.h"
+#include "OctoberLookAndFeel.h"
 #include "PluginProcessor.h"
 
 class LCDMeterPanel : public juce::Component
@@ -80,7 +80,7 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
   void timerCallback() override;
 
   // Must be declared before all widgets — LookAndFeel must outlive the components that use it
-  OctobIRLookAndFeel laf_;
+  OctoberLookAndFeel laf_;
 
   OctobIRProcessor& audioProcessor;
 

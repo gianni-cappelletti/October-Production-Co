@@ -1,10 +1,10 @@
-#include "OctobIRLookAndFeel.h"
+#include "OctoberLookAndFeel.h"
 
 #include <BinaryData.h>
 
 #include "LCDPainting.h"
 
-OctobIRLookAndFeel::OctobIRLookAndFeel()
+OctoberLookAndFeel::OctoberLookAndFeel()
 {
   cutiveMonoTypeface_ = juce::Typeface::createSystemTypefaceFor(
       BinaryData::CourierPrimeRegular_ttf, BinaryData::CourierPrimeRegular_ttfSize);
@@ -38,7 +38,7 @@ OctobIRLookAndFeel::OctobIRLookAndFeel()
   setColour(juce::Label::textColourId, juce::Colour(0xff1a1a1a));
 }
 
-void OctobIRLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
+void OctoberLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
                                           float sliderPos, float rotaryStartAngle,
                                           float rotaryEndAngle, juce::Slider& /*slider*/)
 {
@@ -132,7 +132,7 @@ void OctobIRLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w
   }
 }
 
-void OctobIRLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& button,
+void OctoberLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& button,
                                               const juce::Colour& /*backgroundColour*/,
                                               bool /*shouldDrawButtonAsHighlighted*/,
                                               bool shouldDrawButtonAsDown)
@@ -175,7 +175,7 @@ void OctobIRLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& b
   g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
 }
 
-void OctobIRLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& button,
+void OctoberLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& button,
                                         bool /*isHighlighted*/, bool isButtonDown)
 {
   if (button.getComponentID() == "loadButton")
@@ -223,7 +223,7 @@ void OctobIRLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& but
                    juce::Justification::centred, 1);
 }
 
-void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,
+void OctoberLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,
                                           bool /*shouldDrawButtonAsHighlighted*/,
                                           bool /*shouldDrawButtonAsDown*/)
 {
@@ -241,7 +241,6 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
 
   if (isOn)
   {
-    // Pushed-in: reversed gradient (darker top, lighter bottom)
     juce::ColourGradient gradient(juce::Colour(0xff1e1e1e).withMultipliedAlpha(alpha),
                                   bounds.getX(), bounds.getY(),
                                   juce::Colour(0xff2e2e2e).withMultipliedAlpha(alpha),
@@ -249,14 +248,12 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
     g.setGradientFill(gradient);
     g.fillRoundedRectangle(bounds, cornerSize);
 
-    // Inset shadow on top and left
     g.setColour(juce::Colour(0xff141414).withMultipliedAlpha(alpha));
     g.drawLine(bounds.getX() + cornerSize, bounds.getY() + 1.0f, bounds.getRight() - cornerSize,
                bounds.getY() + 1.0f, 1.0f);
     g.drawLine(bounds.getX() + 1.0f, bounds.getY() + cornerSize, bounds.getX() + 1.0f,
                bounds.getBottom() - cornerSize, 1.0f);
 
-    // Highlight on bottom and right
     g.setColour(juce::Colour(0xff505050).withMultipliedAlpha(alpha));
     g.drawLine(bounds.getX() + cornerSize, bounds.getBottom() - 1.0f,
                bounds.getRight() - cornerSize, bounds.getBottom() - 1.0f, 1.0f);
@@ -265,7 +262,6 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
   }
   else
   {
-    // Raised: matches TextButton / SWAP button style
     juce::ColourGradient gradient(juce::Colour(0xff383838).withMultipliedAlpha(alpha),
                                   bounds.getX(), bounds.getY(),
                                   juce::Colour(0xff242424).withMultipliedAlpha(alpha),
@@ -273,14 +269,12 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
     g.setGradientFill(gradient);
     g.fillRoundedRectangle(bounds, cornerSize);
 
-    // Highlight on top and left
     g.setColour(juce::Colour(0xff505050).withMultipliedAlpha(alpha));
     g.drawLine(bounds.getX() + cornerSize, bounds.getY() + 1.0f, bounds.getRight() - cornerSize,
                bounds.getY() + 1.0f, 1.0f);
     g.drawLine(bounds.getX() + 1.0f, bounds.getY() + cornerSize, bounds.getX() + 1.0f,
                bounds.getBottom() - cornerSize, 1.0f);
 
-    // Shadow on bottom and right
     g.setColour(juce::Colour(0xff141414).withMultipliedAlpha(alpha));
     g.drawLine(bounds.getX() + cornerSize, bounds.getBottom() - 1.0f,
                bounds.getRight() - cornerSize, bounds.getBottom() - 1.0f, 1.0f);
@@ -324,7 +318,7 @@ void OctobIRLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
                    juce::Justification::centred, 1);
 }
 
-void OctobIRLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,
+void OctoberLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,
                                       int /*buttonX*/, int /*buttonY*/, int /*buttonW*/,
                                       int /*buttonH*/, juce::ComboBox& box)
 {
@@ -365,7 +359,7 @@ void OctobIRLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, 
   g.strokePath(arrow, juce::PathStrokeType(2.0f));
 }
 
-void OctobIRLookAndFeel::drawLabel(juce::Graphics& g, juce::Label& label)
+void OctoberLookAndFeel::drawLabel(juce::Graphics& g, juce::Label& label)
 {
   if (dynamic_cast<juce::Slider*>(label.getParentComponent()) != nullptr)
   {
@@ -385,12 +379,12 @@ void OctobIRLookAndFeel::drawLabel(juce::Graphics& g, juce::Label& label)
   }
 }
 
-juce::Typeface::Ptr OctobIRLookAndFeel::getTypefaceForFont(const juce::Font&)
+juce::Typeface::Ptr OctoberLookAndFeel::getTypefaceForFont(const juce::Font&)
 {
   return cutiveMonoTypeface_;
 }
 
-juce::Font OctobIRLookAndFeel::getLabelFont(juce::Label& label)
+juce::Font OctoberLookAndFeel::getLabelFont(juce::Label& label)
 {
   auto f = LookAndFeel_V4::getLabelFont(label);
   bool isSliderTextBox = dynamic_cast<juce::Slider*>(label.getParentComponent()) != nullptr;

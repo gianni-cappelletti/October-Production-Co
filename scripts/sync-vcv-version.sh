@@ -6,7 +6,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 VERSION_FILE="$PROJECT_DIR/VERSION"
-PLUGIN_JSON="$PROJECT_DIR/plugins/vcv-rack/plugin.json"
+PLUGIN_JSON="$PROJECT_DIR/plugins/octobir/vcv-rack/plugin.json"
 
 # Read version from VERSION file
 if [ ! -f "$VERSION_FILE" ]; then
