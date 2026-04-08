@@ -34,6 +34,8 @@ class FETCompressor : public CompressorMode
   // State
   float envelopeDb_;
   float gainReductionDb_;
+  float holdCounter_;
+  float holdTimeSamples_;
 
   void updateParameters();
   float computeStaticCurve(float inputDb) const;

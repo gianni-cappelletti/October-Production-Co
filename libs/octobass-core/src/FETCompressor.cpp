@@ -12,8 +12,9 @@ constexpr float kTargetThresholdDb = -30.0f;
 constexpr float kTargetRatio = 20.0f;
 constexpr float kKneeDb = 2.0f;
 
-constexpr float kAttackMs = 0.05f;
+constexpr float kAttackMs = 0.5f;
 constexpr float kReleaseMs = 35.0f;
+constexpr float kHoldMs = 10.0f;
 
 // Maximum gain reduction safety clamp
 constexpr float kMaxGainReductionDb = -40.0f;
@@ -35,7 +36,9 @@ FETCompressor::FETCompressor()
       attackCoeff_(0.0f),
       releaseCoeff_(0.0f),
       envelopeDb_(-96.0f),
-      gainReductionDb_(0.0f)
+      gainReductionDb_(0.0f),
+      holdCounter_(0.0f),
+      holdTimeSamples_(0.0f)
 {
   updateParameters();
 }
@@ -63,11 +66,22 @@ void FETCompressor::process(const Sample* input, Sample* output, FrameCount numF
                              ? 20.0f * std::log10(std::fabs(in))
                              : -96.0f;
 
-    // Ballistic envelope follower in dB domain (peak-responding)
+    // Ballistic envelope follower with peak hold to prevent sub-cycle gain ripple.
+    // The hold keeps the envelope stable between peaks of the bass waveform,
+    // eliminating gain modulation at the signal frequency.
     if (inputLevelDb > envelopeDb_)
+    {
       envelopeDb_ = attackCoeff_ * envelopeDb_ + (1.0f - attackCoeff_) * inputLevelDb;
+      holdCounter_ = holdTimeSamples_;
+    }
+    else if (holdCounter_ > 0.0f)
+    {
+      holdCounter_ -= 1.0f;
+    }
     else
+    {
       envelopeDb_ = releaseCoeff_ * envelopeDb_ + (1.0f - releaseCoeff_) * inputLevelDb;
+    }
 
     // Denormal guard
     if (envelopeDb_ < -96.0f)
@@ -89,6 +103,7 @@ void FETCompressor::reset()
 {
   envelopeDb_ = -96.0f;
   gainReductionDb_ = 0.0f;
+  holdCounter_ = 0.0f;
 }
 
 float FETCompressor::getGainReductionDb() const
@@ -111,6 +126,7 @@ void FETCompressor::updateParameters()
 
   attackCoeff_ = msToCoeff(kAttackMs, sampleRate_);
   releaseCoeff_ = msToCoeff(kReleaseMs, sampleRate_);
+  holdTimeSamples_ = static_cast<float>(sampleRate_) * kHoldMs * 0.001f;
 }
 
 float FETCompressor::computeStaticCurve(float inputDb) const
