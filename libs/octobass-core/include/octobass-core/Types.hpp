@@ -29,4 +29,13 @@ constexpr float MaxSquashAmount = 1.0f;
 constexpr int DefaultCompressionMode = 0;
 constexpr int NumCompressionModes = 4;
 
+// High band gain stages
+constexpr float DefaultHighInputGainDb = 0.0f;
+constexpr float MinHighInputGainDb = -24.0f;
+constexpr float MaxHighInputGainDb = 24.0f;
+
+constexpr float DefaultHighOutputGainDb = 0.0f;
+constexpr float MinHighOutputGainDb = -24.0f;
+constexpr float MaxHighOutputGainDb = 24.0f;
+
 }  // namespace octob

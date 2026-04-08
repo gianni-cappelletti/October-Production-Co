@@ -7,7 +7,7 @@ You are a senior software engineer specializing in DSP (digital signal processin
 - Adhere to the .clang-format rules when generating code
 - Include good logger messages in all branching paths
 - Be concise in the code, but do not sacrifice clarity for brevity
-- Follow the C++ Core Guidelines (https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines) with C++14 (C++11 for core library)
+- Follow the C++ Core Guidelines (https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines) with C++20 (C++11 for octobir-core due to VCV Rack compatibility)
   - Prioritize type safety and const correctness
   - Prefer smart pointers (`std::unique_ptr`, `std::shared_ptr`) over raw pointer ownership
   - Use references (`T&`) for parameters that require a valid object

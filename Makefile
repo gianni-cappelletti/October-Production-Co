@@ -153,7 +153,7 @@ octobass-juce: header
 # ── Core libraries ─────────────────────────────────────────────
 core: header
 	@cmake --preset dev
-	@cmake --build build/dev --target octobir-core -j$(NPROC)
+	@cmake --build build/dev --target octobir-core octobass-core -j$(NPROC)
 	@echo "Core libraries built"
 
 # ── Test targets ───────────────────────────────────────────────

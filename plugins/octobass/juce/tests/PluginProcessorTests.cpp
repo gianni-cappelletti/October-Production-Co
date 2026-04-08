@@ -107,6 +107,25 @@ TEST_F(OctoBassProcessorTest, LowBandLevelParameterExists)
   EXPECT_NEAR(param->load(), 0.0f, 0.01f);
 }
 
+TEST_F(OctoBassProcessorTest, HighInputGainParameterExists)
+{
+  auto* param = processor.getAPVTS().getRawParameterValue("highInputGain");
+  ASSERT_NE(param, nullptr);
+  EXPECT_NEAR(param->load(), 0.0f, 0.01f);
+}
+
+TEST_F(OctoBassProcessorTest, HighOutputGainParameterExists)
+{
+  auto* param = processor.getAPVTS().getRawParameterValue("highOutputGain");
+  ASSERT_NE(param, nullptr);
+  EXPECT_NEAR(param->load(), 0.0f, 0.01f);
+}
+
+TEST_F(OctoBassProcessorTest, NamNotLoadedByDefault)
+{
+  EXPECT_FALSE(processor.isNamModelLoaded());
+}
+
 TEST_F(OctoBassProcessorTest, StateRoundTrip)
 {
   // Modify some parameters

@@ -100,10 +100,12 @@ TEST_F(BassProcessorTest, InitialDefaults)
   EXPECT_FLOAT_EQ(proc.getSquash(), DefaultSquashAmount);
   EXPECT_EQ(proc.getCompressionMode(), DefaultCompressionMode);
   EXPECT_FLOAT_EQ(proc.getLowBandLevel(), DefaultBandLevelDb);
-  EXPECT_FLOAT_EQ(proc.getHighBandLevel(), DefaultBandLevelDb);
+  EXPECT_FLOAT_EQ(proc.getHighInputGain(), DefaultHighInputGainDb);
+  EXPECT_FLOAT_EQ(proc.getHighOutputGain(), DefaultHighOutputGainDb);
   EXPECT_FLOAT_EQ(proc.getOutputGain(), DefaultOutputGainDb);
   EXPECT_FLOAT_EQ(proc.getDryWetMix(), DefaultDryWetMix);
   EXPECT_FALSE(proc.isIRLoaded());
+  EXPECT_FALSE(proc.isNamModelLoaded());
   EXPECT_EQ(proc.getLatencySamples(), 0);
 }
 
@@ -115,11 +117,17 @@ TEST_F(BassProcessorTest, ParameterClamping)
   proc.setLowBandLevel(50.0f);
   EXPECT_FLOAT_EQ(proc.getLowBandLevel(), MaxBandLevelDb);
 
-  proc.setHighBandLevel(-50.0f);
-  EXPECT_FLOAT_EQ(proc.getHighBandLevel(), MinBandLevelDb);
+  proc.setHighInputGain(-50.0f);
+  EXPECT_FLOAT_EQ(proc.getHighInputGain(), MinHighInputGainDb);
 
-  proc.setHighBandLevel(50.0f);
-  EXPECT_FLOAT_EQ(proc.getHighBandLevel(), MaxBandLevelDb);
+  proc.setHighInputGain(50.0f);
+  EXPECT_FLOAT_EQ(proc.getHighInputGain(), MaxHighInputGainDb);
+
+  proc.setHighOutputGain(-50.0f);
+  EXPECT_FLOAT_EQ(proc.getHighOutputGain(), MinHighOutputGainDb);
+
+  proc.setHighOutputGain(50.0f);
+  EXPECT_FLOAT_EQ(proc.getHighOutputGain(), MaxHighOutputGainDb);
 
   proc.setOutputGain(-50.0f);
   EXPECT_FLOAT_EQ(proc.getOutputGain(), MinOutputGainDb);
@@ -432,4 +440,155 @@ TEST_F(BassProcessorTest, SquashDoesNotAffectHighBand)
   double rmsB = computeRMS(outputB, kSkip, kTotalSamples - kSkip);
   double diffDb = 20.0 * std::log10(rmsB / rmsA);
   EXPECT_NEAR(diffDb, 0.0, 1.0) << "Squash should not significantly affect high-frequency content";
+}
+
+TEST_F(BassProcessorTest, NamBypass_MagnitudePreserved)
+{
+  // With no NAM model loaded and default input/output gains (0 dB),
+  // the signal chain should be magnitude-flat (same as pre-NAM behavior)
+  constexpr size_t kNumBlocks = 16;
+  constexpr size_t kTotalSamples = kNumBlocks * kBlockSize;
+  constexpr size_t kSkip = 4 * kBlockSize;
+  auto input = generateSine(100.0f, 44100.0f, kTotalSamples);
+
+  EXPECT_FALSE(proc.isNamModelLoaded());
+
+  std::vector<float> output(kTotalSamples);
+  for (size_t b = 0; b < kNumBlocks; ++b)
+    proc.processMono(input.data() + b * kBlockSize, output.data() + b * kBlockSize, kBlockSize);
+
+  double inputRMS = computeRMS(input, kSkip, kTotalSamples - kSkip);
+  double outputRMS = computeRMS(output, kSkip, kTotalSamples - kSkip);
+  double ratioDb = 20.0 * std::log10(outputRMS / inputRMS);
+  EXPECT_NEAR(ratioDb, 0.0, 1.0) << "NAM bypass should preserve magnitude";
+}
+
+TEST_F(BassProcessorTest, HighInputGain_AffectsLevel)
+{
+  constexpr size_t kNumBlocks = 32;
+  constexpr size_t kTotalSamples = kNumBlocks * kBlockSize;
+  constexpr size_t kSkip = 8 * kBlockSize;
+  // High freq sine above crossover so it routes through the high band chain
+  auto input = generateSine(2000.0f, 44100.0f, kTotalSamples, 0.3f);
+
+  // Process with default gain (0 dB)
+  BassProcessor procDefault;
+  procDefault.setSampleRate(44100.0);
+  procDefault.setMaxBlockSize(kBlockSize);
+  std::vector<float> outputDefault(kTotalSamples);
+  for (size_t b = 0; b < kNumBlocks; ++b)
+    procDefault.processMono(input.data() + b * kBlockSize,
+                            outputDefault.data() + b * kBlockSize, kBlockSize);
+
+  // Process with +12 dB input gain
+  BassProcessor procBoosted;
+  procBoosted.setSampleRate(44100.0);
+  procBoosted.setMaxBlockSize(kBlockSize);
+  procBoosted.setHighInputGain(12.0f);
+  std::vector<float> outputBoosted(kTotalSamples);
+  for (size_t b = 0; b < kNumBlocks; ++b)
+    procBoosted.processMono(input.data() + b * kBlockSize,
+                            outputBoosted.data() + b * kBlockSize, kBlockSize);
+
+  double rmsDefault = computeRMS(outputDefault, kSkip, kTotalSamples - kSkip);
+  double rmsBoosted = computeRMS(outputBoosted, kSkip, kTotalSamples - kSkip);
+  double diffDb = 20.0 * std::log10(rmsBoosted / rmsDefault);
+  EXPECT_GT(diffDb, 6.0) << "High input gain of +12 dB should noticeably increase output level";
+}
+
+TEST_F(BassProcessorTest, HighOutputGain_AffectsLevel)
+{
+  constexpr size_t kNumBlocks = 32;
+  constexpr size_t kTotalSamples = kNumBlocks * kBlockSize;
+  constexpr size_t kSkip = 8 * kBlockSize;
+  auto input = generateSine(2000.0f, 44100.0f, kTotalSamples, 0.3f);
+
+  // Process with default gain (0 dB)
+  BassProcessor procDefault;
+  procDefault.setSampleRate(44100.0);
+  procDefault.setMaxBlockSize(kBlockSize);
+  std::vector<float> outputDefault(kTotalSamples);
+  for (size_t b = 0; b < kNumBlocks; ++b)
+    procDefault.processMono(input.data() + b * kBlockSize,
+                            outputDefault.data() + b * kBlockSize, kBlockSize);
+
+  // Process with +12 dB output gain
+  BassProcessor procBoosted;
+  procBoosted.setSampleRate(44100.0);
+  procBoosted.setMaxBlockSize(kBlockSize);
+  procBoosted.setHighOutputGain(12.0f);
+  std::vector<float> outputBoosted(kTotalSamples);
+  for (size_t b = 0; b < kNumBlocks; ++b)
+    procBoosted.processMono(input.data() + b * kBlockSize,
+                            outputBoosted.data() + b * kBlockSize, kBlockSize);
+
+  double rmsDefault = computeRMS(outputDefault, kSkip, kTotalSamples - kSkip);
+  double rmsBoosted = computeRMS(outputBoosted, kSkip, kTotalSamples - kSkip);
+  double diffDb = 20.0 * std::log10(rmsBoosted / rmsDefault);
+  EXPECT_GT(diffDb, 6.0) << "High output gain of +12 dB should noticeably increase output level";
+}
+
+TEST_F(BassProcessorTest, NamModelLoading_InvalidPath)
+{
+  std::string err;
+  EXPECT_FALSE(proc.loadNamModel("/nonexistent/path/model.nam", err));
+  EXPECT_FALSE(err.empty());
+  EXPECT_FALSE(proc.isNamModelLoaded());
+}
+
+TEST_F(BassProcessorTest, ClearNamModel)
+{
+  // Clearing when nothing loaded should not crash
+  proc.clearNamModel();
+  EXPECT_FALSE(proc.isNamModelLoaded());
+  EXPECT_TRUE(proc.getCurrentNamModelPath().empty());
+}
+
+TEST_F(BassProcessorTest, NamModelLoading_ValidModel)
+{
+  std::string namPath = std::string(TEST_DATA_DIR) + "/test_model.nam";
+  std::string err;
+  ASSERT_TRUE(proc.loadNamModel(namPath, err)) << "NAM load failed: " << err;
+  EXPECT_TRUE(proc.isNamModelLoaded());
+  EXPECT_EQ(proc.getCurrentNamModelPath(), namPath);
+}
+
+TEST_F(BassProcessorTest, NamModel_ProcessProducesOutput)
+{
+  std::string namPath = std::string(TEST_DATA_DIR) + "/test_model.nam";
+  std::string err;
+  ASSERT_TRUE(proc.loadNamModel(namPath, err)) << err;
+
+  constexpr size_t kNumSamples = kBlockSize * 4;
+  // High freq sine above crossover to route through high band + NAM
+  auto input = generateSine(2000.0f, 44100.0f, kNumSamples, 0.3f);
+  std::vector<float> output(kNumSamples);
+
+  for (size_t b = 0; b < kNumSamples / kBlockSize; ++b)
+    proc.processMono(input.data() + b * kBlockSize, output.data() + b * kBlockSize, kBlockSize);
+
+  // NAM model should alter the signal (output differs from bypass)
+  float outPeak = peakLevel(output);
+  EXPECT_GT(outPeak, 1e-6f) << "NAM processed output should not be silent";
+}
+
+TEST_F(BassProcessorTest, NamModel_ClearRestoresBypass)
+{
+  std::string namPath = std::string(TEST_DATA_DIR) + "/test_model.nam";
+  std::string err;
+  ASSERT_TRUE(proc.loadNamModel(namPath, err)) << err;
+  EXPECT_TRUE(proc.isNamModelLoaded());
+
+  proc.clearNamModel();
+  EXPECT_FALSE(proc.isNamModelLoaded());
+  EXPECT_TRUE(proc.getCurrentNamModelPath().empty());
+
+  // After clearing, processing should still work (bypass mode)
+  constexpr size_t kNumSamples = kBlockSize;
+  auto input = generateSine(100.0f, 44100.0f, kNumSamples);
+  std::vector<float> output(kNumSamples);
+  proc.processMono(input.data(), output.data(), kNumSamples);
+
+  float outPeak = peakLevel(output);
+  EXPECT_GT(outPeak, 1e-6f) << "Output should not be silent after clearing NAM model";
 }

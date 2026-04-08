@@ -11,11 +11,13 @@ BassProcessor::BassProcessor()
     : lowBandDelayWritePos_(0),
       currentIRLatency_(0),
       lowBandLevelDb_(DefaultBandLevelDb),
-      highBandLevelDb_(DefaultBandLevelDb),
+      highInputGainDb_(DefaultHighInputGainDb),
+      highOutputGainDb_(DefaultHighOutputGainDb),
       outputGainDb_(DefaultOutputGainDb),
       dryWetMix_(DefaultDryWetMix),
       lowBandLevelLinear_(1.0f),
-      highBandLevelLinear_(1.0f),
+      highInputGainLinear_(1.0f),
+      highOutputGainLinear_(1.0f),
       outputGainLinear_(1.0f)
 {
   // Configure IRProcessor for single-slot operation
@@ -32,6 +34,7 @@ void BassProcessor::setSampleRate(SampleRate sampleRate)
 {
   crossover_.setSampleRate(sampleRate);
   compressor_.setSampleRate(sampleRate);
+  namProcessor_.setSampleRate(sampleRate);
   irProcessor_.setSampleRate(sampleRate);
 }
 
@@ -41,6 +44,7 @@ void BassProcessor::setMaxBlockSize(FrameCount maxBlockSize)
   highBandBuffer_.resize(maxBlockSize, 0.0f);
   dryBuffer_.resize(maxBlockSize, 0.0f);
   delayedLowBuffer_.resize(maxBlockSize, 0.0f);
+  namProcessor_.setMaxBlockSize(maxBlockSize);
   irProcessor_.setMaxBlockSize(maxBlockSize);
   updateDelayBuffer();
 }
@@ -74,6 +78,32 @@ std::string BassProcessor::getCurrentIRPath() const
   return currentIRPath_;
 }
 
+bool BassProcessor::loadNamModel(const std::string& filepath, std::string& errorMessage)
+{
+  if (namProcessor_.loadModel(filepath, errorMessage))
+  {
+    currentNamModelPath_ = filepath;
+    return true;
+  }
+  return false;
+}
+
+void BassProcessor::clearNamModel()
+{
+  namProcessor_.clearModel();
+  currentNamModelPath_.clear();
+}
+
+bool BassProcessor::isNamModelLoaded() const
+{
+  return namProcessor_.isModelLoaded();
+}
+
+std::string BassProcessor::getCurrentNamModelPath() const
+{
+  return currentNamModelPath_;
+}
+
 void BassProcessor::setCrossoverFrequency(float frequencyHz)
 {
   crossover_.setFrequency(frequencyHz);
@@ -95,10 +125,16 @@ void BassProcessor::setLowBandLevel(float levelDb)
   lowBandLevelLinear_ = dbToLinear(lowBandLevelDb_);
 }
 
-void BassProcessor::setHighBandLevel(float levelDb)
+void BassProcessor::setHighInputGain(float gainDb)
 {
-  highBandLevelDb_ = clamp(levelDb, MinBandLevelDb, MaxBandLevelDb);
-  highBandLevelLinear_ = dbToLinear(highBandLevelDb_);
+  highInputGainDb_ = clamp(gainDb, MinHighInputGainDb, MaxHighInputGainDb);
+  highInputGainLinear_ = dbToLinear(highInputGainDb_);
+}
+
+void BassProcessor::setHighOutputGain(float gainDb)
+{
+  highOutputGainDb_ = clamp(gainDb, MinHighOutputGainDb, MaxHighOutputGainDb);
+  highOutputGainLinear_ = dbToLinear(highOutputGainDb_);
 }
 
 void BassProcessor::setOutputGain(float gainDb)
@@ -123,8 +159,21 @@ void BassProcessor::processMono(const Sample* input, Sample* output, FrameCount 
   // Split into low and high bands
   crossover_.process(input, lowBandBuffer_.data(), highBandBuffer_.data(), numFrames);
 
-  // Convolve high band through IR
+  // High band chain: InputGain -> NAM -> IR -> OutputGain
+
+  // 1. Apply input gain to high band
+  for (FrameCount i = 0; i < numFrames; ++i)
+    highBandBuffer_[i] *= highInputGainLinear_;
+
+  // 2. NAM processing (passes through when no model loaded)
+  namProcessor_.process(highBandBuffer_.data(), highBandBuffer_.data(), numFrames);
+
+  // 3. Convolve high band through IR
   irProcessor_.processMono(highBandBuffer_.data(), highBandBuffer_.data(), numFrames);
+
+  // 4. Apply output gain to high band
+  for (FrameCount i = 0; i < numFrames; ++i)
+    highBandBuffer_[i] *= highOutputGainLinear_;
 
   // Update latency compensation if IR latency changed
   int irLatency = irProcessor_.getLatencySamples();
@@ -154,7 +203,7 @@ void BassProcessor::processMono(const Sample* input, Sample* output, FrameCount 
   // Apply band levels and sum
   for (FrameCount i = 0; i < numFrames; ++i)
   {
-    float wet = lowBandBuffer_[i] * lowBandLevelLinear_ + highBandBuffer_[i] * highBandLevelLinear_;
+    float wet = lowBandBuffer_[i] * lowBandLevelLinear_ + highBandBuffer_[i];
 
     // Apply output gain
     wet *= outputGainLinear_;
@@ -168,6 +217,7 @@ void BassProcessor::reset()
 {
   crossover_.reset();
   compressor_.reset();
+  namProcessor_.reset();
   irProcessor_.reset();
 
   std::fill(lowBandBuffer_.begin(), lowBandBuffer_.end(), 0.0f);

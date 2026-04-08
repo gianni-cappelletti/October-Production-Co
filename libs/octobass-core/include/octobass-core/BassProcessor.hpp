@@ -6,6 +6,7 @@
 
 #include "Compressor.hpp"
 #include "Crossover.hpp"
+#include "NamProcessor.hpp"
 #include "Types.hpp"
 
 namespace octob
@@ -26,6 +27,12 @@ class BassProcessor
   bool isIRLoaded() const;
   std::string getCurrentIRPath() const;
 
+  // NAM model loading
+  bool loadNamModel(const std::string& filepath, std::string& errorMessage);
+  void clearNamModel();
+  bool isNamModelLoaded() const;
+  std::string getCurrentNamModelPath() const;
+
   // Crossover
   void setCrossoverFrequency(float frequencyHz);
 
@@ -35,7 +42,8 @@ class BassProcessor
 
   // Levels
   void setLowBandLevel(float levelDb);
-  void setHighBandLevel(float levelDb);
+  void setHighInputGain(float gainDb);
+  void setHighOutputGain(float gainDb);
   void setOutputGain(float gainDb);
   void setDryWetMix(float mix);
 
@@ -50,13 +58,15 @@ class BassProcessor
   float getSquash() const { return compressor_.getSquash(); }
   int getCompressionMode() const { return compressor_.getMode(); }
   float getLowBandLevel() const { return lowBandLevelDb_; }
-  float getHighBandLevel() const { return highBandLevelDb_; }
+  float getHighInputGain() const { return highInputGainDb_; }
+  float getHighOutputGain() const { return highOutputGainDb_; }
   float getOutputGain() const { return outputGainDb_; }
   float getDryWetMix() const { return dryWetMix_; }
 
  private:
   Crossover crossover_;
   Compressor compressor_;
+  NamProcessor namProcessor_;
   IRProcessor irProcessor_;
 
   std::vector<Sample> lowBandBuffer_;
@@ -70,15 +80,18 @@ class BassProcessor
   int currentIRLatency_;
 
   float lowBandLevelDb_;
-  float highBandLevelDb_;
+  float highInputGainDb_;
+  float highOutputGainDb_;
   float outputGainDb_;
   float dryWetMix_;
 
   float lowBandLevelLinear_;
-  float highBandLevelLinear_;
+  float highInputGainLinear_;
+  float highOutputGainLinear_;
   float outputGainLinear_;
 
   std::string currentIRPath_;
+  std::string currentNamModelPath_;
 
   void updateDelayBuffer();
 

@@ -41,9 +41,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout OctoBassProcessor::createPar
       [](float value, int) { return juce::String(value, 1) + " dB"; }));
 
   layout.add(std::make_unique<juce::AudioParameterFloat>(
-      "highBandLevel", "High Level",
-      juce::NormalisableRange<float>(octob::MinBandLevelDb, octob::MaxBandLevelDb, 0.1f),
-      octob::DefaultBandLevelDb, juce::String(), juce::AudioProcessorParameter::genericParameter,
+      "highInputGain", "High Input Gain",
+      juce::NormalisableRange<float>(octob::MinHighInputGainDb, octob::MaxHighInputGainDb, 0.1f),
+      octob::DefaultHighInputGainDb, juce::String(),
+      juce::AudioProcessorParameter::genericParameter,
+      [](float value, int) { return juce::String(value, 1) + " dB"; }));
+
+  layout.add(std::make_unique<juce::AudioParameterFloat>(
+      "highOutputGain", "High Output Gain",
+      juce::NormalisableRange<float>(octob::MinHighOutputGainDb, octob::MaxHighOutputGainDb, 0.1f),
+      octob::DefaultHighOutputGainDb, juce::String(),
+      juce::AudioProcessorParameter::genericParameter,
       [](float value, int) { return juce::String(value, 1) + " dB"; }));
 
   layout.add(std::make_unique<juce::AudioParameterFloat>(
@@ -82,7 +90,8 @@ void OctoBassProcessor::processBlock(juce::AudioBuffer<float>& buffer,
   bassProcessor_.setCompressionMode(
       static_cast<int>(*apvts_.getRawParameterValue("compressionMode")));
   bassProcessor_.setLowBandLevel(*apvts_.getRawParameterValue("lowBandLevel"));
-  bassProcessor_.setHighBandLevel(*apvts_.getRawParameterValue("highBandLevel"));
+  bassProcessor_.setHighInputGain(*apvts_.getRawParameterValue("highInputGain"));
+  bassProcessor_.setHighOutputGain(*apvts_.getRawParameterValue("highOutputGain"));
   bassProcessor_.setOutputGain(*apvts_.getRawParameterValue("outputGain"));
   bassProcessor_.setDryWetMix(*apvts_.getRawParameterValue("dryWetMix"));
 
@@ -144,9 +153,45 @@ const juce::String OctoBassProcessor::getProgramName(int /*index*/)
 
 void OctoBassProcessor::changeProgramName(int /*index*/, const juce::String& /*newName*/) {}
 
+bool OctoBassProcessor::loadNamModel(const juce::String& filepath, juce::String& errorMessage)
+{
+  std::string err;
+  if (bassProcessor_.loadNamModel(filepath.toStdString(), err))
+  {
+    errorMessage.clear();
+    return true;
+  }
+  errorMessage = juce::String(err);
+  return false;
+}
+
+void OctoBassProcessor::clearNamModel()
+{
+  bassProcessor_.clearNamModel();
+}
+
+bool OctoBassProcessor::isNamModelLoaded() const
+{
+  return bassProcessor_.isNamModelLoaded();
+}
+
+juce::String OctoBassProcessor::getCurrentNamModelPath() const
+{
+  return juce::String(bassProcessor_.getCurrentNamModelPath());
+}
+
 void OctoBassProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
   auto state = apvts_.copyState();
+
+  auto irPath = bassProcessor_.getCurrentIRPath();
+  if (!irPath.empty())
+    state.setProperty("irPath", juce::String(irPath), nullptr);
+
+  auto namPath = bassProcessor_.getCurrentNamModelPath();
+  if (!namPath.empty())
+    state.setProperty("namModelPath", juce::String(namPath), nullptr);
+
   std::unique_ptr<juce::XmlElement> xml(state.createXml());
   copyXmlToBinary(*xml, destData);
 }
@@ -155,7 +200,24 @@ void OctoBassProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
   std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
   if (xmlState != nullptr && xmlState->hasTagName(apvts_.state.getType()))
-    apvts_.replaceState(juce::ValueTree::fromXml(*xmlState));
+  {
+    auto state = juce::ValueTree::fromXml(*xmlState);
+    apvts_.replaceState(state);
+
+    auto irPath = state.getProperty("irPath").toString();
+    if (irPath.isNotEmpty())
+    {
+      std::string err;
+      bassProcessor_.loadImpulseResponse(irPath.toStdString(), err);
+    }
+
+    auto namPath = state.getProperty("namModelPath").toString();
+    if (namPath.isNotEmpty())
+    {
+      juce::String err;
+      loadNamModel(namPath, err);
+    }
+  }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

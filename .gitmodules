@@ -8,3 +8,6 @@
 [submodule "third_party/pffft"]
 	path = third_party/pffft
 	url = https://github.com/marton78/pffft.git
+[submodule "third_party/NeuralAmpModelerCore"]
+	path = third_party/NeuralAmpModelerCore
+	url = https://github.com/sdatkinson/NeuralAmpModelerCore.git

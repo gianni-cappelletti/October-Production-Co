@@ -38,6 +38,12 @@ class OctoBassProcessor : public juce::AudioProcessor
 
   juce::AudioProcessorValueTreeState& getAPVTS() { return apvts_; }
 
+  // NAM model management
+  bool loadNamModel(const juce::String& filepath, juce::String& errorMessage);
+  void clearNamModel();
+  bool isNamModelLoaded() const;
+  juce::String getCurrentNamModelPath() const;
+
  private:
   juce::AudioProcessorValueTreeState apvts_;
   juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
