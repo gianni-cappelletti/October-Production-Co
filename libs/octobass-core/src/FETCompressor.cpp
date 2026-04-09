@@ -13,8 +13,7 @@ constexpr float kTargetRatio = 20.0f;
 constexpr float kKneeDb = 2.0f;
 
 constexpr float kAttackMs = 0.5f;
-constexpr float kReleaseMs = 35.0f;
-constexpr float kHoldMs = 10.0f;
+constexpr float kReleaseMs = 50.0f;
 
 // Maximum gain reduction safety clamp
 constexpr float kMaxGainReductionDb = -40.0f;
@@ -35,10 +34,8 @@ FETCompressor::FETCompressor()
       kneeDb_(0.0f),
       attackCoeff_(0.0f),
       releaseCoeff_(0.0f),
-      envelopeDb_(-96.0f),
-      gainReductionDb_(0.0f),
-      holdCounter_(0.0f),
-      holdTimeSamples_(0.0f)
+      smoothedGrDb_(0.0f),
+      gainReductionDb_(0.0f)
 {
   updateParameters();
 }
@@ -61,49 +58,39 @@ void FETCompressor::process(const Sample* input, Sample* output, FrameCount numF
   {
     float in = input[i];
 
-    // Feed-forward peak detection on input
+    // Feed-forward: compute instantaneous level and gain reduction in dB.
+    // No smoothing on the level — the smoother acts on the GR output instead.
     float inputLevelDb = (std::fabs(in) > 1e-30f)
                              ? 20.0f * std::log10(std::fabs(in))
                              : -96.0f;
 
-    // Ballistic envelope follower with peak hold to prevent sub-cycle gain ripple.
-    // The hold keeps the envelope stable between peaks of the bass waveform,
-    // eliminating gain modulation at the signal frequency.
-    if (inputLevelDb > envelopeDb_)
-    {
-      envelopeDb_ = attackCoeff_ * envelopeDb_ + (1.0f - attackCoeff_) * inputLevelDb;
-      holdCounter_ = holdTimeSamples_;
-    }
-    else if (holdCounter_ > 0.0f)
-    {
-      holdCounter_ -= 1.0f;
-    }
+    float targetDb = computeStaticCurve(inputLevelDb);
+    float instantGrDb = targetDb - inputLevelDb;
+    instantGrDb = CompressorMode::clamp(instantGrDb, kMaxGainReductionDb, 0.0f);
+
+    // Branching smoother on the gain reduction signal (Giannoulis et al. 2012).
+    // Smoothing GR instead of level prevents the gain computer's nonlinearity
+    // from converting level ripple into gain modulation (distortion).
+    if (instantGrDb < smoothedGrDb_)
+      smoothedGrDb_ = attackCoeff_ * smoothedGrDb_ + (1.0f - attackCoeff_) * instantGrDb;
     else
-    {
-      envelopeDb_ = releaseCoeff_ * envelopeDb_ + (1.0f - releaseCoeff_) * inputLevelDb;
-    }
+      smoothedGrDb_ = releaseCoeff_ * smoothedGrDb_ + (1.0f - releaseCoeff_) * instantGrDb;
 
     // Denormal guard
-    if (envelopeDb_ < -96.0f)
-      envelopeDb_ = -96.0f;
+    if (smoothedGrDb_ > -1e-8f)
+      smoothedGrDb_ = 0.0f;
 
-    // Gain computer: soft-knee curve
-    float targetDb = computeStaticCurve(envelopeDb_);
-    float gainReduction = targetDb - envelopeDb_;
-    gainReduction = CompressorMode::clamp(gainReduction, kMaxGainReductionDb, 0.0f);
+    gainReductionDb_ = smoothedGrDb_;
 
-    gainReductionDb_ = gainReduction;
-
-    float gainLinear = CompressorMode::dbToLinear(gainReduction);
+    float gainLinear = CompressorMode::dbToLinear(smoothedGrDb_);
     output[i] = in * gainLinear;
   }
 }
 
 void FETCompressor::reset()
 {
-  envelopeDb_ = -96.0f;
+  smoothedGrDb_ = 0.0f;
   gainReductionDb_ = 0.0f;
-  holdCounter_ = 0.0f;
 }
 
 float FETCompressor::getGainReductionDb() const
@@ -126,7 +113,6 @@ void FETCompressor::updateParameters()
 
   attackCoeff_ = msToCoeff(kAttackMs, sampleRate_);
   releaseCoeff_ = msToCoeff(kReleaseMs, sampleRate_);
-  holdTimeSamples_ = static_cast<float>(sampleRate_) * kHoldMs * 0.001f;
 }
 
 float FETCompressor::computeStaticCurve(float inputDb) const

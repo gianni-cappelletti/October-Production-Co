@@ -31,11 +31,9 @@ class FETCompressor : public CompressorMode
   float attackCoeff_;
   float releaseCoeff_;
 
-  // State
-  float envelopeDb_;
+  // State: smoothed gain reduction (branching smoother on GR, not level)
+  float smoothedGrDb_;
   float gainReductionDb_;
-  float holdCounter_;
-  float holdTimeSamples_;
 
   void updateParameters();
   float computeStaticCurve(float inputDb) const;
