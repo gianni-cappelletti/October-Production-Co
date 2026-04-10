@@ -97,6 +97,9 @@ void OctoBassProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
   bassProcessor_.processMono(buffer.getReadPointer(0), buffer.getWritePointer(0),
                              static_cast<size_t>(buffer.getNumSamples()));
+
+  if (bassProcessor_.getLatencySamples() != AudioProcessor::getLatencySamples())
+    triggerAsyncUpdate();
 }
 
 juce::AudioProcessorEditor* OctoBassProcessor::createEditor()
@@ -131,7 +134,10 @@ bool OctoBassProcessor::isMidiEffect() const
 
 double OctoBassProcessor::getTailLengthSeconds() const
 {
-  return 0.0;
+  const double sr = getSampleRate();
+  if (sr <= 0.0)
+    return 0.0;
+  return static_cast<double>(bassProcessor_.getLatencySamples()) / sr;
 }
 
 int OctoBassProcessor::getNumPrograms()
@@ -158,9 +164,12 @@ bool OctoBassProcessor::loadNamModel(const juce::String& filepath, juce::String&
   std::string err;
   if (bassProcessor_.loadNamModel(filepath.toStdString(), err))
   {
+    currentNamModelPath_ = filepath;
+    DBG("Loaded NAM model: " + filepath);
     errorMessage.clear();
     return true;
   }
+  DBG("Failed to load NAM model: " + juce::String(err));
   errorMessage = juce::String(err);
   return false;
 }
@@ -168,6 +177,7 @@ bool OctoBassProcessor::loadNamModel(const juce::String& filepath, juce::String&
 void OctoBassProcessor::clearNamModel()
 {
   bassProcessor_.clearNamModel();
+  currentNamModelPath_.clear();
 }
 
 bool OctoBassProcessor::isNamModelLoaded() const
@@ -177,20 +187,58 @@ bool OctoBassProcessor::isNamModelLoaded() const
 
 juce::String OctoBassProcessor::getCurrentNamModelPath() const
 {
-  return juce::String(bassProcessor_.getCurrentNamModelPath());
+  return currentNamModelPath_;
+}
+
+bool OctoBassProcessor::loadImpulseResponse(const juce::String& filepath,
+                                            juce::String& errorMessage)
+{
+  std::string err;
+  if (bassProcessor_.loadImpulseResponse(filepath.toStdString(), err))
+  {
+    currentIRPath_ = filepath;
+    DBG("Loaded IR: " + filepath + " (Latency: " +
+        juce::String(bassProcessor_.getLatencySamples()) + " samples)");
+    triggerAsyncUpdate();
+    errorMessage.clear();
+    return true;
+  }
+  DBG("Failed to load IR: " + juce::String(err));
+  errorMessage = juce::String(err);
+  return false;
+}
+
+void OctoBassProcessor::clearImpulseResponse()
+{
+  bassProcessor_.clearImpulseResponse();
+  currentIRPath_.clear();
+  triggerAsyncUpdate();
+}
+
+bool OctoBassProcessor::isIRLoaded() const
+{
+  return bassProcessor_.isIRLoaded();
+}
+
+juce::String OctoBassProcessor::getCurrentIRPath() const
+{
+  return currentIRPath_;
+}
+
+int OctoBassProcessor::getLatencySamples() const
+{
+  return bassProcessor_.getLatencySamples();
 }
 
 void OctoBassProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
   auto state = apvts_.copyState();
 
-  auto irPath = bassProcessor_.getCurrentIRPath();
-  if (!irPath.empty())
-    state.setProperty("irPath", juce::String(irPath), nullptr);
+  if (currentIRPath_.isNotEmpty())
+    state.setProperty("irPath", currentIRPath_, nullptr);
 
-  auto namPath = bassProcessor_.getCurrentNamModelPath();
-  if (!namPath.empty())
-    state.setProperty("namModelPath", juce::String(namPath), nullptr);
+  if (currentNamModelPath_.isNotEmpty())
+    state.setProperty("namModelPath", currentNamModelPath_, nullptr);
 
   std::unique_ptr<juce::XmlElement> xml(state.createXml());
   copyXmlToBinary(*xml, destData);
@@ -204,19 +252,40 @@ void OctoBassProcessor::setStateInformation(const void* data, int sizeInBytes)
     auto state = juce::ValueTree::fromXml(*xmlState);
     apvts_.replaceState(state);
 
-    auto irPath = state.getProperty("irPath").toString();
-    if (irPath.isNotEmpty())
     {
-      std::string err;
-      bassProcessor_.loadImpulseResponse(irPath.toStdString(), err);
+      const juce::SpinLock::ScopedLockType lock(pendingStateLock_);
+      pendingState_ = state;
     }
+    triggerAsyncUpdate();
+  }
+}
 
-    auto namPath = state.getProperty("namModelPath").toString();
-    if (namPath.isNotEmpty())
-    {
-      juce::String err;
-      loadNamModel(namPath, err);
-    }
+void OctoBassProcessor::handleAsyncUpdate()
+{
+  setLatencySamples(bassProcessor_.getLatencySamples());
+
+  juce::ValueTree state;
+  {
+    const juce::SpinLock::ScopedLockType lock(pendingStateLock_);
+    state = pendingState_;
+    pendingState_ = juce::ValueTree();
+  }
+
+  if (!state.isValid())
+    return;
+
+  auto irPath = state.getProperty("irPath").toString();
+  if (irPath.isNotEmpty())
+  {
+    juce::String err;
+    loadImpulseResponse(irPath, err);
+  }
+
+  auto namPath = state.getProperty("namModelPath").toString();
+  if (namPath.isNotEmpty())
+  {
+    juce::String err;
+    loadNamModel(namPath, err);
   }
 }
 

@@ -1,8 +1,11 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <string>
 
 #include "PluginProcessor.h"
+
+static const std::string kIrPath = std::string(TEST_DATA_DIR) + "/INPUT_ir_a.wav";
 
 class OctoBassProcessorTest : public ::testing::Test
 {
@@ -126,6 +129,64 @@ TEST_F(OctoBassProcessorTest, NamNotLoadedByDefault)
   EXPECT_FALSE(processor.isNamModelLoaded());
 }
 
+TEST_F(OctoBassProcessorTest, IRNotLoadedByDefault)
+{
+  EXPECT_FALSE(processor.isIRLoaded());
+  EXPECT_TRUE(processor.getCurrentIRPath().isEmpty());
+}
+
+// Helper: process one silent block to flush pending IR updates through the
+// IRProcessor staging mechanism (IR swap happens during processMono).
+static void processOneBlock(OctoBassProcessor& proc, int blockSize = 512)
+{
+  juce::AudioBuffer<float> buf(1, blockSize);
+  buf.clear();
+  juce::MidiBuffer midi;
+  proc.processBlock(buf, midi);
+}
+
+TEST_F(OctoBassProcessorTest, LoadImpulseResponse)
+{
+  processor.prepareToPlay(44100.0, 512);
+
+  juce::String err;
+  ASSERT_TRUE(processor.loadImpulseResponse(kIrPath, err)) << err;
+  EXPECT_EQ(processor.getCurrentIRPath(), juce::String(kIrPath));
+
+  processOneBlock(processor);
+  EXPECT_TRUE(processor.isIRLoaded());
+}
+
+TEST_F(OctoBassProcessorTest, ClearImpulseResponse)
+{
+  processor.prepareToPlay(44100.0, 512);
+
+  juce::String err;
+  ASSERT_TRUE(processor.loadImpulseResponse(kIrPath, err)) << err;
+  processOneBlock(processor);
+  EXPECT_TRUE(processor.isIRLoaded());
+
+  processor.clearImpulseResponse();
+  processOneBlock(processor);
+  EXPECT_FALSE(processor.isIRLoaded());
+  EXPECT_TRUE(processor.getCurrentIRPath().isEmpty());
+}
+
+TEST_F(OctoBassProcessorTest, LatencyConsistentWithCore)
+{
+  processor.prepareToPlay(44100.0, 512);
+  EXPECT_EQ(processor.getLatencySamples(), 0);
+
+  juce::String err;
+  ASSERT_TRUE(processor.loadImpulseResponse(kIrPath, err)) << err;
+  processOneBlock(processor);
+
+  // Latency should be non-negative and consistent across calls
+  int latency = processor.getLatencySamples();
+  EXPECT_GE(latency, 0);
+  EXPECT_EQ(latency, processor.getLatencySamples());
+}
+
 TEST_F(OctoBassProcessorTest, StateRoundTrip)
 {
   // Modify some parameters
@@ -153,4 +214,23 @@ TEST_F(OctoBassProcessorTest, StateRoundTrip)
 
   EXPECT_NEAR(squash2->load(), 0.7f, 0.02f);
   EXPECT_NEAR(mode2->load(), 2.0f, 0.1f);
+}
+
+TEST_F(OctoBassProcessorTest, StateRoundTripWithIRPath)
+{
+  processor.prepareToPlay(44100.0, 512);
+
+  juce::String err;
+  ASSERT_TRUE(processor.loadImpulseResponse(kIrPath, err)) << err;
+
+  juce::MemoryBlock stateData;
+  processor.getStateInformation(stateData);
+  EXPECT_GT(stateData.getSize(), 0u);
+
+  // Verify the IR path is serialized in the state XML
+  std::unique_ptr<juce::XmlElement> xml(
+      processor.getXmlFromBinary(stateData.getData(), static_cast<int>(stateData.getSize())));
+  ASSERT_NE(xml, nullptr);
+  EXPECT_TRUE(xml->hasAttribute("irPath"));
+  EXPECT_EQ(xml->getStringAttribute("irPath"), juce::String(kIrPath));
 }

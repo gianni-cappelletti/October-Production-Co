@@ -4,7 +4,7 @@
 
 #include <octobass-core/BassProcessor.hpp>
 
-class OctoBassProcessor : public juce::AudioProcessor
+class OctoBassProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
 {
  public:
   OctoBassProcessor();
@@ -44,11 +44,26 @@ class OctoBassProcessor : public juce::AudioProcessor
   bool isNamModelLoaded() const;
   juce::String getCurrentNamModelPath() const;
 
+  // IR management
+  bool loadImpulseResponse(const juce::String& filepath, juce::String& errorMessage);
+  void clearImpulseResponse();
+  bool isIRLoaded() const;
+  juce::String getCurrentIRPath() const;
+
+  int getLatencySamples() const;
+
  private:
   juce::AudioProcessorValueTreeState apvts_;
   juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
   octob::BassProcessor bassProcessor_;
+
+  juce::String currentIRPath_;
+  juce::String currentNamModelPath_;
+
+  juce::SpinLock pendingStateLock_;
+  juce::ValueTree pendingState_;
+  void handleAsyncUpdate() override;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OctoBassProcessor)
 };
