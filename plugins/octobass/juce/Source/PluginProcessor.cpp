@@ -77,6 +77,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout OctoBassProcessor::createPar
       octob::DefaultHighBandMix, juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) { return juce::String(static_cast<int>(value * 100.0f)) + "%"; }));
 
+  layout.add(std::make_unique<juce::AudioParameterBool>("lowBandSolo", "Low Solo", false));
+  layout.add(std::make_unique<juce::AudioParameterBool>("highBandSolo", "High Solo", false));
+
   return layout;
 }
 
@@ -108,6 +111,27 @@ void OctoBassProcessor::processBlock(juce::AudioBuffer<float>& buffer,
   bassProcessor_.setDryWetMix(*apvts_.getRawParameterValue("dryWetMix"));
   bassProcessor_.setGateThreshold(*apvts_.getRawParameterValue("gateThreshold"));
   bassProcessor_.setHighBandMix(*apvts_.getRawParameterValue("highBandMix"));
+
+  // Solo: enforce mutual exclusivity -- if both are on, the newly engaged one wins
+  bool lowSolo = *apvts_.getRawParameterValue("lowBandSolo") >= 0.5f;
+  bool highSolo = *apvts_.getRawParameterValue("highBandSolo") >= 0.5f;
+  if (lowSolo && highSolo)
+  {
+    if (!prevLowSolo_)
+    {
+      apvts_.getParameter("highBandSolo")->setValueNotifyingHost(0.0f);
+      highSolo = false;
+    }
+    else
+    {
+      apvts_.getParameter("lowBandSolo")->setValueNotifyingHost(0.0f);
+      lowSolo = false;
+    }
+  }
+  prevLowSolo_ = lowSolo;
+  prevHighSolo_ = highSolo;
+  bassProcessor_.setLowBandSolo(lowSolo);
+  bassProcessor_.setHighBandSolo(highSolo);
 
   bassProcessor_.processMono(buffer.getReadPointer(0), buffer.getWritePointer(0),
                              static_cast<size_t>(buffer.getNumSamples()));

@@ -47,6 +47,10 @@ class BassProcessor
   // High band blend
   void setHighBandMix(float mix);
 
+  // Solo (mutually exclusive at caller level)
+  void setLowBandSolo(bool solo);
+  void setHighBandSolo(bool solo);
+
   // Levels
   void setLowBandLevel(float levelDb);
   void setHighInputGain(float gainDb);
@@ -71,6 +75,8 @@ class BassProcessor
   float getDryWetMix() const { return dryWetMix_; }
   float getGateThreshold() const { return noiseGate_.getThresholdDb(); }
   float getHighBandMix() const { return highBandMix_; }
+  bool getLowBandSolo() const { return lowBandSolo_; }
+  bool getHighBandSolo() const { return highBandSolo_; }
 
  private:
   Crossover crossover_;
@@ -96,6 +102,8 @@ class BassProcessor
   float outputGainDb_;
   float dryWetMix_;
   float highBandMix_;
+  bool lowBandSolo_;
+  bool highBandSolo_;
 
   // Static makeup gain smoother (5ms to prevent clicks on parameter change)
   float currentMakeupLinear_;

@@ -104,6 +104,8 @@ TEST_F(BassProcessorTest, InitialDefaults)
   EXPECT_FLOAT_EQ(proc.getHighOutputGain(), DefaultHighOutputGainDb);
   EXPECT_FLOAT_EQ(proc.getOutputGain(), DefaultOutputGainDb);
   EXPECT_FLOAT_EQ(proc.getDryWetMix(), DefaultDryWetMix);
+  EXPECT_FALSE(proc.getLowBandSolo());
+  EXPECT_FALSE(proc.getHighBandSolo());
   EXPECT_FALSE(proc.isIRLoaded());
   EXPECT_FALSE(proc.isNamModelLoaded());
   EXPECT_EQ(proc.getLatencySamples(), 0);
@@ -591,4 +593,129 @@ TEST_F(BassProcessorTest, NamModel_ClearRestoresBypass)
 
   float outPeak = peakLevel(output);
   EXPECT_GT(outPeak, 1e-6f) << "Output should not be silent after clearing NAM model";
+}
+
+// --- Solo tests ---
+
+TEST_F(BassProcessorTest, SoloDefaults)
+{
+  EXPECT_FALSE(proc.getLowBandSolo());
+  EXPECT_FALSE(proc.getHighBandSolo());
+}
+
+TEST_F(BassProcessorTest, SoloSettersWork)
+{
+  proc.setLowBandSolo(true);
+  EXPECT_TRUE(proc.getLowBandSolo());
+  EXPECT_FALSE(proc.getHighBandSolo());
+
+  proc.setHighBandSolo(true);
+  EXPECT_TRUE(proc.getHighBandSolo());
+
+  proc.setHighBandSolo(false);
+  EXPECT_FALSE(proc.getHighBandSolo());
+}
+
+TEST_F(BassProcessorTest, LowSolo_PassesLowFrequency)
+{
+  proc.setLowBandSolo(true);
+
+  // 60 Hz sine should be almost entirely in the low band (crossover at 250 Hz)
+  constexpr size_t kNumSamples = 16384;
+  proc.setMaxBlockSize(kNumSamples);
+  auto input = generateSine(60.0f, 44100.0f, kNumSamples, 0.5f);
+  std::vector<float> output(kNumSamples);
+
+  proc.processMono(input.data(), output.data(), kNumSamples);
+
+  double rms = computeRMS(output, kNumSamples / 2, kNumSamples / 2);
+  EXPECT_GT(rms, 0.1) << "Low solo should pass a low frequency signal";
+}
+
+TEST_F(BassProcessorTest, LowSolo_AttenuatesHighFrequency)
+{
+  proc.setLowBandSolo(true);
+
+  // 2 kHz sine should be almost entirely in the high band
+  constexpr size_t kNumSamples = 16384;
+  proc.setMaxBlockSize(kNumSamples);
+  auto input = generateSine(2000.0f, 44100.0f, kNumSamples, 0.5f);
+  std::vector<float> output(kNumSamples);
+
+  proc.processMono(input.data(), output.data(), kNumSamples);
+
+  double rms = computeRMS(output, kNumSamples / 2, kNumSamples / 2);
+  EXPECT_LT(rms, 0.01) << "Low solo should attenuate a high frequency signal";
+}
+
+TEST_F(BassProcessorTest, HighSolo_PassesHighFrequency)
+{
+  proc.setHighBandSolo(true);
+
+  // 2 kHz sine should be almost entirely in the high band
+  constexpr size_t kNumSamples = 16384;
+  proc.setMaxBlockSize(kNumSamples);
+  auto input = generateSine(2000.0f, 44100.0f, kNumSamples, 0.5f);
+  std::vector<float> output(kNumSamples);
+
+  proc.processMono(input.data(), output.data(), kNumSamples);
+
+  double rms = computeRMS(output, kNumSamples / 2, kNumSamples / 2);
+  EXPECT_GT(rms, 0.1) << "High solo should pass a high frequency signal";
+}
+
+TEST_F(BassProcessorTest, HighSolo_AttenuatesLowFrequency)
+{
+  proc.setHighBandSolo(true);
+
+  // 60 Hz sine should be almost entirely in the low band
+  constexpr size_t kNumSamples = 16384;
+  proc.setMaxBlockSize(kNumSamples);
+  auto input = generateSine(60.0f, 44100.0f, kNumSamples, 0.5f);
+  std::vector<float> output(kNumSamples);
+
+  proc.processMono(input.data(), output.data(), kNumSamples);
+
+  double rms = computeRMS(output, kNumSamples / 2, kNumSamples / 2);
+  EXPECT_LT(rms, 0.01) << "High solo should attenuate a low frequency signal";
+}
+
+TEST_F(BassProcessorTest, NoSolo_BothBandsPresent)
+{
+  // With neither soloed, both bands should pass through
+  constexpr size_t kNumSamples = 16384;
+  proc.setMaxBlockSize(kNumSamples);
+
+  auto lowInput = generateSine(60.0f, 44100.0f, kNumSamples, 0.5f);
+  std::vector<float> lowOutput(kNumSamples);
+  proc.processMono(lowInput.data(), lowOutput.data(), kNumSamples);
+  double lowRms = computeRMS(lowOutput, kNumSamples / 2, kNumSamples / 2);
+
+  proc.reset();
+
+  auto highInput = generateSine(2000.0f, 44100.0f, kNumSamples, 0.5f);
+  std::vector<float> highOutput(kNumSamples);
+  proc.processMono(highInput.data(), highOutput.data(), kNumSamples);
+  double highRms = computeRMS(highOutput, kNumSamples / 2, kNumSamples / 2);
+
+  EXPECT_GT(lowRms, 0.1) << "Both bands should pass low frequency";
+  EXPECT_GT(highRms, 0.1) << "Both bands should pass high frequency";
+}
+
+TEST_F(BassProcessorTest, SoloDisengage_RestoresNormalOutput)
+{
+  constexpr size_t kNumSamples = 16384;
+  proc.setMaxBlockSize(kNumSamples);
+
+  // Solo low, then disengage
+  proc.setLowBandSolo(true);
+  proc.setLowBandSolo(false);
+
+  // After disengaging, high frequency should pass through normally
+  auto input = generateSine(2000.0f, 44100.0f, kNumSamples, 0.5f);
+  std::vector<float> output(kNumSamples);
+  proc.processMono(input.data(), output.data(), kNumSamples);
+
+  double rms = computeRMS(output, kNumSamples / 2, kNumSamples / 2);
+  EXPECT_GT(rms, 0.1) << "After disengaging solo, all bands should pass";
 }

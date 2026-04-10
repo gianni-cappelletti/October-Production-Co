@@ -58,6 +58,9 @@ class OctoBassProcessor : public juce::AudioProcessor, private juce::AsyncUpdate
 
   octob::BassProcessor bassProcessor_;
 
+  bool prevLowSolo_ = false;
+  bool prevHighSolo_ = false;
+
   juce::String currentIRPath_;
   juce::String currentNamModelPath_;
 

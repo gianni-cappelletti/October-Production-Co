@@ -16,6 +16,8 @@ BassProcessor::BassProcessor()
       outputGainDb_(DefaultOutputGainDb),
       dryWetMix_(DefaultDryWetMix),
       highBandMix_(DefaultHighBandMix),
+      lowBandSolo_(false),
+      highBandSolo_(false),
       currentMakeupLinear_(1.0f),
       makeupSmoothCoeff_(0.0f),
       lowBandLevelLinear_(1.0f),
@@ -168,6 +170,16 @@ void BassProcessor::setHighBandMix(float mix)
   highBandMix_ = clamp(mix, 0.0f, 1.0f);
 }
 
+void BassProcessor::setLowBandSolo(bool solo)
+{
+  lowBandSolo_ = solo;
+}
+
+void BassProcessor::setHighBandSolo(bool solo)
+{
+  highBandSolo_ = solo;
+}
+
 void BassProcessor::processMono(const Sample* input, Sample* output, FrameCount numFrames)
 {
   if (numFrames == 0)
@@ -244,9 +256,15 @@ void BassProcessor::processMono(const Sample* input, Sample* output, FrameCount 
   }
 
   // Apply band levels, sum, and output gain into highBandBuffer_ (reused as scratch)
+  // Solo: include a band if it's soloed, or if the other band is NOT soloed (normal mode)
+  bool includeLow = lowBandSolo_ || !highBandSolo_;
+  bool includeHigh = highBandSolo_ || !lowBandSolo_;
   for (FrameCount i = 0; i < numFrames; ++i)
-    highBandBuffer_[i] =
-        (lowBandBuffer_[i] * lowBandLevelLinear_ + highBandBuffer_[i]) * outputGainLinear_;
+  {
+    float low = includeLow ? lowBandBuffer_[i] * lowBandLevelLinear_ : 0.0f;
+    float high = includeHigh ? highBandBuffer_[i] : 0.0f;
+    highBandBuffer_[i] = (low + high) * outputGainLinear_;
+  }
 
   // Noise gate: key signal is the clean pre-split input, applied to the wet sum
   noiseGate_.process(dryBuffer_.data(), highBandBuffer_.data(), highBandBuffer_.data(), numFrames);
