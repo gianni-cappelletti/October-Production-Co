@@ -548,7 +548,7 @@ TEST_F(BassProcessorTest, ClearNamModel)
 
 TEST_F(BassProcessorTest, NamModelLoading_ValidModel)
 {
-  std::string namPath = std::string(TEST_DATA_DIR) + "/test_model.nam";
+  std::string namPath = std::string(TEST_DATA_DIR) + "/INPUT_VHD.nam";
   std::string err;
   ASSERT_TRUE(proc.loadNamModel(namPath, err)) << "NAM load failed: " << err;
   EXPECT_TRUE(proc.isNamModelLoaded());
@@ -557,7 +557,7 @@ TEST_F(BassProcessorTest, NamModelLoading_ValidModel)
 
 TEST_F(BassProcessorTest, NamModel_ProcessProducesOutput)
 {
-  std::string namPath = std::string(TEST_DATA_DIR) + "/test_model.nam";
+  std::string namPath = std::string(TEST_DATA_DIR) + "/INPUT_VHD.nam";
   std::string err;
   ASSERT_TRUE(proc.loadNamModel(namPath, err)) << err;
 
@@ -576,7 +576,7 @@ TEST_F(BassProcessorTest, NamModel_ProcessProducesOutput)
 
 TEST_F(BassProcessorTest, NamModel_ClearRestoresBypass)
 {
-  std::string namPath = std::string(TEST_DATA_DIR) + "/test_model.nam";
+  std::string namPath = std::string(TEST_DATA_DIR) + "/INPUT_VHD.nam";
   std::string err;
   ASSERT_TRUE(proc.loadNamModel(namPath, err)) << err;
   EXPECT_TRUE(proc.isNamModelLoaded());

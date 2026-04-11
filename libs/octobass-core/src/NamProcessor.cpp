@@ -2,35 +2,50 @@
 
 #include <NAM/container.h>
 #include <NAM/convnet.h>
+#include <NAM/dsp.h>
 #include <NAM/get_dsp.h>
 #include <NAM/lstm.h>
 #include <NAM/wavenet.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <filesystem>
 #include <stdexcept>
 #include <vector>
 
-// Force the linker to include NAM architecture object files from the static
-// archive. Each .cpp has a static ConfigParserHelper that registers the
-// architecture at startup; without an explicit symbol reference from a used
-// translation unit the linker strips those objects and get_dsp() fails with
-// "No config parser registered".
-//
-// We use a non-static function with external linkage that takes the address of
-// a symbol from each architecture file. The function itself is never called,
-// but the compiler must emit it (and its relocations) because it has external
-// linkage, which forces the linker to pull in those object files.
-void namForceArchitectureRegistrations()
+namespace
 {
-  volatile void* p;
-  p = reinterpret_cast<void*>(&nam::lstm::create_config);
-  p = reinterpret_cast<void*>(&nam::wavenet::create_config);
-  p = reinterpret_cast<void*>(&nam::convnet::create_config);
-  p = reinterpret_cast<void*>(&nam::container::create_config);
-  p = reinterpret_cast<void*>(&nam::linear::create_config);
-  (void)p;
+// Force the linker to retain every NAM architecture translation unit from the
+// octobass-core static archive. Each architecture .cpp defines a file-scope
+// ConfigParserHelper whose constructor registers the parser at program
+// startup, but the linker only pulls an object file out of a static archive
+// when something actually references one of its symbols. Without that
+// reference the wavenet/lstm/convnet/etc. object files are stripped, their
+// static constructors never run, and get_dsp() throws
+// "No config parser registered for architecture: <name>".
+//
+// We satisfy the linker by reading the address of each create_config function
+// through volatile sinks inside a function that is always called on the NAM
+// load path. The volatile qualifier makes the reads observable side effects,
+// which prevents both the per-TU optimizer and LTO from eliminating them, so
+// the relocations against each create_config symbol survive into the final
+// link regardless of optimization level.
+void forceNamArchitectureLinkage()
+{
+  using CreateConfigFn = std::unique_ptr<nam::ModelConfig> (*)(const nlohmann::json&, double);
+
+  static CreateConfigFn const kArchitectures[] = {
+      &nam::linear::create_config,  &nam::lstm::create_config,      &nam::wavenet::create_config,
+      &nam::convnet::create_config, &nam::container::create_config,
+  };
+
+  for (std::size_t i = 0; i < sizeof(kArchitectures) / sizeof(kArchitectures[0]); ++i)
+  {
+    CreateConfigFn volatile sink = kArchitectures[i];
+    (void)sink;
+  }
 }
+}  // namespace
 
 namespace octob
 {
@@ -62,6 +77,8 @@ NamProcessor& NamProcessor::operator=(NamProcessor&&) noexcept = default;
 
 bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMessage)
 {
+  forceNamArchitectureLinkage();
+
   try
   {
     auto model = nam::get_dsp(std::filesystem::path(filepath));

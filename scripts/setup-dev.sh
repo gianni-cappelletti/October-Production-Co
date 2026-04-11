@@ -25,8 +25,11 @@ echo "Installing required development tools..."
 # Install pinned clang-format via pip for version consistency across platforms.
 # The exact version must match ci.yml to prevent formatting divergence.
 CLANG_FORMAT_VERSION="22.1.2"
-echo "Installing clang-format ${CLANG_FORMAT_VERSION} via pip..."
-if command -v pip3 &> /dev/null; then
+echo "Installing clang-format ${CLANG_FORMAT_VERSION}..."
+if command -v pipx &> /dev/null; then
+    pipx install "clang-format==${CLANG_FORMAT_VERSION}"
+    echo "✓ clang-format ${CLANG_FORMAT_VERSION} installed via pipx"
+elif command -v pip3 &> /dev/null; then
     pip3 install --user "clang-format==${CLANG_FORMAT_VERSION}" --break-system-packages 2>/dev/null \
         || pip3 install --user "clang-format==${CLANG_FORMAT_VERSION}"
     echo "✓ clang-format ${CLANG_FORMAT_VERSION} installed via pip"
@@ -35,8 +38,8 @@ elif command -v pip &> /dev/null; then
         || pip install --user "clang-format==${CLANG_FORMAT_VERSION}"
     echo "✓ clang-format ${CLANG_FORMAT_VERSION} installed via pip"
 else
-    echo "Error: pip is required to install clang-format"
-    echo "Install Python/pip first, then re-run this script"
+    echo "Error: pipx or pip is required to install clang-format"
+    echo "Install pipx with: brew install pipx"
     exit 1
 fi
 
