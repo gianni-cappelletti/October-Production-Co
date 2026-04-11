@@ -152,9 +152,8 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
 
   addAndMakeVisible(highInputGainSlider_);
   setupRotarySlider(highInputGainSlider_);
-  highInputGainAttachment_ =
-      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-          audioProcessor.getAPVTS(), "highInputGain", highInputGainSlider_);
+  highInputGainAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+      audioProcessor.getAPVTS(), "highInputGain", highInputGainSlider_);
 
   // --- HIGH zone: High Output Gain ---
   addAndMakeVisible(highOutputGainLabel_);
@@ -344,7 +343,7 @@ void OctoBassEditor::resized()
 
   // Knob rows at 1/3 and 2/3 of space between LCD bottom and plugin bottom, with tweaks
   const int controlSpace = kDesignHeight - lcdBottom;
-  const int row1CenterY = lcdBottom + controlSpace / 3 - 30;
+  const int row1CenterY = lcdBottom + controlSpace / 3 - 50;
   const int row2CenterY = lcdBottom + 2 * controlSpace / 3 + 10;
 
   // Full knob row: label(16) + slider-with-textbox(90) = 106
@@ -361,7 +360,7 @@ void OctoBassEditor::resized()
   // Zone X boundaries
   const int leftX = pad;
   const int leftW = 220;
-  const int rightX = pad + leftW + 140;
+  const int rightX = pad + leftW + 160;
   const int rightW = kDesignWidth - pad - rightX;
 
   // === LCD (full width) ===
@@ -422,8 +421,8 @@ void OctoBassEditor::resized()
   // Layout: Input knob (left), Mix/Solo stacked (center), Output knob (right-aligned with LCD edge)
   const int knobColW = 120;
   const int outputRightEdge = kDesignWidth - pad;
-  const int outputColX = outputRightEdge - knobColW;
-  const int inputColX = rightX + 10;
+  const int outputColX = outputRightEdge - 86;
+  const int inputColX = rightX + 30;
   const int midColX = inputColX + knobColW;
   const int midColW = outputColX - midColX;
 
@@ -434,42 +433,40 @@ void OctoBassEditor::resized()
     highInputGainSlider_.setBounds(area.withSizeKeepingCentre(86, fullKnobH));
   }
   {
-    auto area = juce::Rectangle<int>(outputColX, row1Y, knobColW, fullRowH);
+    auto area = juce::Rectangle<int>(outputColX, row1Y, 86, fullRowH);
     highOutputGainLabel_.setBounds(area.removeFromTop(labelH));
-    highOutputGainSlider_.setBounds(area.withSizeKeepingCentre(86, fullKnobH));
+    highOutputGainSlider_.setBounds(area);
   }
 
   // Mix on top, Solo beneath, stacked vertically between Input and Output
   {
     const int stackCenterX = midColX + midColW / 2;
-    const int stackTopY = row1Y + labelH + 4;
+    const int stackTopY = row1CenterY - (trimLabelH + trimKnobSize) / 2;
 
-    auto mixArea = juce::Rectangle<int>(stackCenterX - 40, stackTopY, 80, trimLabelH + trimKnobSize);
+    auto mixArea =
+        juce::Rectangle<int>(stackCenterX - 40, stackTopY, 80, trimLabelH + trimKnobSize);
     highBandMixLabel_.setBounds(mixArea.removeFromTop(trimLabelH));
     highBandMixSlider_.setBounds(mixArea.withSizeKeepingCentre(trimKnobSize, trimKnobSize));
 
-    const int soloY = stackTopY + trimLabelH + trimKnobSize + 4;
+    const int soloY = row1Y + fullRowH - 28;
     auto soloArea = juce::Rectangle<int>(stackCenterX - 20, soloY, 40, 28);
     highBandSoloButton_.setBounds(soloArea);
   }
 
-  // File loaders: fill space from row 1 bottom to row 2 bottom (aligned with left/center row 2)
-  const int row1Bottom = row1Y + fullRowH;
+  // File loaders: anchor IR at row 2 bottom, NAM above with gap
   const int row2Bottom = row2Y + fullRowH;
-  const int fileStartY = row1Bottom + 6;
-  const int fileEndY = row2Bottom;
-  const int fileSpace = fileEndY - fileStartY;
 
-  // Distribute space: buttonH + gap + lcdH per loader, plus gap between loaders
   const int buttonH = 28;
   const int lcdH2 = 32;
   const int innerGap = 2;
   const int singleLoaderH = buttonH + innerGap + lcdH2;
-  const int loaderGap = fileSpace - 2 * singleLoaderH;
+  const int loaderGap = 15;
+
+  const int irY = row2Bottom - singleLoaderH;
+  const int namY = irY - loaderGap - singleLoaderH;
 
   // NAM file loader
   {
-    const int namY = fileStartY;
     auto namSection = juce::Rectangle<int>(rightX, namY, rightW, singleLoaderH);
     auto namButtonRow = namSection.removeFromTop(buttonH);
     namLoadButton_.setBounds(namButtonRow.removeFromLeft(36).reduced(2));
@@ -482,7 +479,6 @@ void OctoBassEditor::resized()
 
   // IR file loader
   {
-    const int irY = fileStartY + singleLoaderH + loaderGap;
     auto irSection = juce::Rectangle<int>(rightX, irY, rightW, singleLoaderH);
     auto irButtonRow = irSection.removeFromTop(buttonH);
     irLoadButton_.setBounds(irButtonRow.removeFromLeft(36).reduced(2));
@@ -610,28 +606,28 @@ void OctoBassEditor::irLoadClicked()
 
   auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
-  chooser->launchAsync(
-      flags,
-      [this, chooser](const juce::FileChooser& fc)
-      {
-        auto file = fc.getResult();
-        if (file.existsAsFile())
-        {
-          updateLastBrowsedDirectory(file);
-          juce::String error;
-          bool success = audioProcessor.loadImpulseResponse(file.getFullPathName(), error);
-          if (success)
-          {
-            irLCDDisplay_.setText(file.getFileName());
-          }
-          else
-          {
-            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
-                                                   "Failed to Load IR", error, "OK");
-            irLCDDisplay_.setText("Failed to load IR");
-          }
-        }
-      });
+  chooser->launchAsync(flags,
+                       [this, chooser](const juce::FileChooser& fc)
+                       {
+                         auto file = fc.getResult();
+                         if (file.existsAsFile())
+                         {
+                           updateLastBrowsedDirectory(file);
+                           juce::String error;
+                           bool success =
+                               audioProcessor.loadImpulseResponse(file.getFullPathName(), error);
+                           if (success)
+                           {
+                             irLCDDisplay_.setText(file.getFileName());
+                           }
+                           else
+                           {
+                             juce::AlertWindow::showMessageBoxAsync(
+                                 juce::AlertWindow::WarningIcon, "Failed to Load IR", error, "OK");
+                             irLCDDisplay_.setText("Failed to load IR");
+                           }
+                         }
+                       });
 }
 
 void OctoBassEditor::irClearClicked()
