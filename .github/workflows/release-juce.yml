@@ -66,9 +66,11 @@ jobs:
         echo "product_name=$PRODUCT_NAME" >> $GITHUB_OUTPUT
 
   build-macos:
-    name: Build JUCE Plugin - macOS
-    runs-on: macos-latest
+    name: Build JUCE Plugin - macOS (universal)
+    runs-on: macos-14
     needs: [resolve-plugin]
+    env:
+      BUILD_DIR: build/release-macos-universal
 
     steps:
     - name: Checkout code
@@ -80,16 +82,35 @@ jobs:
       run: |
         brew install cmake ninja
 
-    - name: Build plugin
+    - name: Build plugin (universal arm64 + x86_64)
       run: |
         PLUGIN="${{ needs.resolve-plugin.outputs.plugin }}"
         TARGET="${{ needs.resolve-plugin.outputs.cmake_target }}"
         UPPER_PLUGIN=$(echo "$PLUGIN" | tr '[:lower:]' '[:upper:]')
-        cmake --preset release \
+        cmake --preset release-macos-universal \
           -DBUILD_${UPPER_PLUGIN}_JUCE=ON \
           -DBUILD_${UPPER_PLUGIN}_VCV=OFF \
           -G Ninja
-        cmake --build build/release --target "$TARGET" --config Release -j
+        cmake --build "$BUILD_DIR" --target "$TARGET" --config Release -j
+
+    - name: Verify universal binary
+      run: |
+        PLUGIN="${{ needs.resolve-plugin.outputs.plugin }}"
+        PRODUCT="${{ needs.resolve-plugin.outputs.product_name }}"
+        TARGET="${{ needs.resolve-plugin.outputs.cmake_target }}"
+        ARTEFACTS="$BUILD_DIR/plugins/$PLUGIN/juce/${PRODUCT}_artefacts/Release"
+
+        echo "Checking VST3..."
+        lipo -info "$ARTEFACTS/VST3/$PRODUCT.vst3/Contents/MacOS/$PRODUCT"
+        file "$ARTEFACTS/VST3/$PRODUCT.vst3/Contents/MacOS/$PRODUCT" | grep -q "universal" \
+          || (echo "ERROR: VST3 is not a universal binary" && exit 1)
+
+        echo "Checking AU..."
+        lipo -info "$ARTEFACTS/AU/$PRODUCT.component/Contents/MacOS/$PRODUCT"
+        file "$ARTEFACTS/AU/$PRODUCT.component/Contents/MacOS/$PRODUCT" | grep -q "universal" \
+          || (echo "ERROR: AU is not a universal binary" && exit 1)
+
+        echo "Universal binary verification passed"
 
     - name: Build installer
       env:

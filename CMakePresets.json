@@ -63,12 +63,26 @@
       }
     },
     {
+      "name": "_macos-universal",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "arm64;x86_64",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "11.0"
+      }
+    },
+    {
       "name": "release",
       "displayName": "Release Build (all plugins)",
       "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "release-macos-universal",
+      "displayName": "Release Build (macOS universal binary)",
+      "inherits": ["release", "_macos-universal"],
+      "binaryDir": "${sourceDir}/build/release-macos-universal"
     },
     {
       "name": "test-octobir-core",
@@ -143,6 +157,7 @@
     { "name": "dev-octobir-vcv", "configurePreset": "dev-octobir-vcv", "jobs": 0 },
     { "name": "dev-octobass", "configurePreset": "dev-octobass", "jobs": 0 },
     { "name": "release", "configurePreset": "release", "jobs": 0 },
+    { "name": "release-macos-universal", "configurePreset": "release-macos-universal", "jobs": 0 },
     { "name": "test-octobir-core", "configurePreset": "test-octobir-core", "jobs": 0 },
     { "name": "test-octobir-juce", "configurePreset": "test-octobir-juce", "jobs": 0 },
     { "name": "test-octobir-vcv", "configurePreset": "test-octobir-vcv", "jobs": 0 },

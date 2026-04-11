@@ -8,6 +8,7 @@
 #include <NAM/wavenet.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <filesystem>
 #include <stdexcept>
@@ -52,6 +53,7 @@ namespace octob
 
 struct NamProcessor::Impl
 {
+  // Active model, only touched by the audio thread (after initial setup)
   std::unique_ptr<nam::DSP> model;
   std::string modelPath;
   double sampleRate = 44100.0;
@@ -59,11 +61,34 @@ struct NamProcessor::Impl
   std::vector<NAM_SAMPLE> inputBuffer;
   std::vector<NAM_SAMPLE> outputBuffer;
 
+  // Thread-safe model swap: message thread stages a fully-prepared model here,
+  // audio thread picks it up at the start of the next process() call.
+  std::unique_ptr<nam::DSP> pendingModel;
+  std::string pendingModelPath;
+  std::atomic<bool> hasPendingModel{false};
+  std::atomic<bool> pendingClear{false};
+
   void resetModel()
   {
     if (model && maxBlockSize > 0)
     {
       model->ResetAndPrewarm(sampleRate, maxBlockSize);
+    }
+  }
+
+  void consumePending()
+  {
+    if (pendingClear.load(std::memory_order_acquire))
+    {
+      model.reset();
+      modelPath.clear();
+      pendingClear.store(false, std::memory_order_release);
+    }
+    if (hasPendingModel.load(std::memory_order_acquire))
+    {
+      model = std::move(pendingModel);
+      modelPath = std::move(pendingModelPath);
+      hasPendingModel.store(false, std::memory_order_release);
     }
   }
 };
@@ -81,20 +106,21 @@ bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMess
 
   try
   {
-    auto model = nam::get_dsp(std::filesystem::path(filepath));
-    if (!model)
+    auto newModel = nam::get_dsp(std::filesystem::path(filepath));
+    if (!newModel)
     {
       errorMessage = "Failed to create NAM model from file: " + filepath;
       return false;
     }
 
-    impl_->model = std::move(model);
-    impl_->modelPath = filepath;
-
     if (impl_->maxBlockSize > 0)
     {
-      impl_->resetModel();
+      newModel->ResetAndPrewarm(impl_->sampleRate, impl_->maxBlockSize);
     }
+
+    impl_->pendingModel = std::move(newModel);
+    impl_->pendingModelPath = filepath;
+    impl_->hasPendingModel.store(true, std::memory_order_release);
 
     return true;
   }
@@ -107,17 +133,27 @@ bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMess
 
 void NamProcessor::clearModel()
 {
-  impl_->model.reset();
-  impl_->modelPath.clear();
+  impl_->hasPendingModel.store(false, std::memory_order_release);
+  impl_->pendingModel.reset();
+  impl_->pendingModelPath.clear();
+  impl_->pendingClear.store(true, std::memory_order_release);
 }
 
 bool NamProcessor::isModelLoaded() const
 {
+  if (impl_->pendingClear.load(std::memory_order_acquire))
+    return false;
+  if (impl_->hasPendingModel.load(std::memory_order_acquire))
+    return true;
   return impl_->model != nullptr;
 }
 
 std::string NamProcessor::getCurrentModelPath() const
 {
+  if (impl_->pendingClear.load(std::memory_order_acquire))
+    return {};
+  if (impl_->hasPendingModel.load(std::memory_order_acquire))
+    return impl_->pendingModelPath;
   return impl_->modelPath;
 }
 
@@ -137,6 +173,8 @@ void NamProcessor::setMaxBlockSize(size_t maxBlockSize)
 
 void NamProcessor::process(const float* input, float* output, size_t numFrames)
 {
+  impl_->consumePending();
+
   if (!impl_->model || numFrames == 0)
   {
     if (input != output)
@@ -180,6 +218,8 @@ int NamProcessor::getLatencySamples() const
 
 double NamProcessor::getExpectedSampleRate() const
 {
+  if (impl_->hasPendingModel.load(std::memory_order_acquire) && impl_->pendingModel)
+    return impl_->pendingModel->GetExpectedSampleRate();
   if (impl_->model)
     return impl_->model->GetExpectedSampleRate();
   return 0.0;

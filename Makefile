@@ -22,8 +22,11 @@ NPROC   := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 # Note: macOS `leaks` tool is incompatible with ASan's malloc replacement.
 ifeq ($(UNAME_S),Darwin)
     TEST_RUNNER :=
+    HOST_ARCH       := $(shell uname -m)
+    MACOS_ARCH_FLAG := -DCMAKE_OSX_ARCHITECTURES=$(HOST_ARCH) -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 else
     TEST_RUNNER := ASAN_OPTIONS=detect_leaks=1
+    MACOS_ARCH_FLAG :=
 endif
 
 ALL_SOURCES  := $(shell find libs plugins -name "*.cpp" -o -name "*.hpp" -o -name "*.h")
@@ -76,13 +79,17 @@ octobir: octobir-juce octobir-vcv
 
 octobir-juce: header
 	@echo "Building and installing OctobIR JUCE plugin (Release)..."
+ifeq ($(UNAME_S),Darwin)
+	@echo "  Target architecture: $(HOST_ARCH)"
+endif
 	@rm -rf build/release-juce
 	@cmake -B build/release-juce \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DBUILD_OCTOBIR_JUCE=ON \
 		-DBUILD_OCTOBIR_VCV=OFF \
 		-DBUILD_OCTOBASS=OFF \
-		-DBUILD_OCTOBASS_JUCE=OFF
+		-DBUILD_OCTOBASS_JUCE=OFF \
+		$(MACOS_ARCH_FLAG)
 	@cmake --build build/release-juce --target OctobIR_All --config Release -j$(NPROC)
 	@echo ""
 	@echo "Installing plugins to system directories..."
@@ -119,13 +126,17 @@ octobass: octobass-juce
 
 octobass-juce: header
 	@echo "Building and installing OctoBASS JUCE plugin (Release)..."
+ifeq ($(UNAME_S),Darwin)
+	@echo "  Target architecture: $(HOST_ARCH)"
+endif
 	@rm -rf build/release-octobass-juce
 	@cmake -B build/release-octobass-juce \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DBUILD_OCTOBIR=OFF \
 		-DBUILD_OCTOBIR_JUCE=OFF \
 		-DBUILD_OCTOBIR_VCV=OFF \
-		-DBUILD_OCTOBASS_JUCE=ON
+		-DBUILD_OCTOBASS_JUCE=ON \
+		$(MACOS_ARCH_FLAG)
 	@cmake --build build/release-octobass-juce --target OctoBASS_All --config Release -j$(NPROC)
 	@echo ""
 	@echo "Installing plugins to system directories..."
