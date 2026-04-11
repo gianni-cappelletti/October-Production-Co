@@ -9,7 +9,7 @@
 class OctoBassEditor : public juce::AudioProcessorEditor
 {
  public:
-  static constexpr int kDesignWidth = 700;
+  static constexpr int kDesignWidth = 740;
   static constexpr int kDesignHeight = 500;
 
   explicit OctoBassEditor(OctoBassProcessor&);
