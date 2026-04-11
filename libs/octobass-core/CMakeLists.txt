@@ -53,6 +53,7 @@ target_include_directories(octobass-core SYSTEM
 target_compile_definitions(octobass-core
     PRIVATE
         NAM_SAMPLE_FLOAT
+        NAM_USE_INLINE_GEMM
 )
 
 target_link_libraries(octobass-core
@@ -64,7 +65,7 @@ target_link_libraries(octobass-core
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     set_source_files_properties(${NAM_SOURCES}
         PROPERTIES
-        COMPILE_FLAGS "-Wno-unused-parameter -Wno-error"
+        COMPILE_FLAGS "-Wno-unused-parameter -Wno-error -ffast-math"
     )
 endif()
 

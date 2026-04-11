@@ -48,11 +48,19 @@ target_include_directories(octobir-core SYSTEM
         ${PFFFT_DIR}/include/pffft
 )
 
+# Enable NEON SIMD for PFFFT on ARM (without this, PFFFT falls back to scalar code)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64|ARM64")
+    set_source_files_properties(${PFFFT_SOURCES}
+        PROPERTIES
+        COMPILE_DEFINITIONS "PFFFT_ENABLE_NEON=1"
+    )
+endif()
+
 # Suppress warnings in third-party code that we cannot modify
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     set_source_files_properties(${WDL_SOURCES} ${PFFFT_SOURCES}
         PROPERTIES
-        COMPILE_FLAGS "-Wno-unused-parameter"
+        COMPILE_FLAGS "-Wno-unused-parameter -ffast-math"
     )
 endif()
 
