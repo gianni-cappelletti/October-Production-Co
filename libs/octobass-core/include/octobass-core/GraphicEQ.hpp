@@ -58,8 +58,8 @@ class GraphicEQ
   }};
 
   // Proportional-Q constants (API 550A-style)
-  static constexpr float kQMin = 0.3f;
-  static constexpr float kQMax = 2.0f;
+  static constexpr float kQMin = 0.8f;
+  static constexpr float kQMax = 8.0f;
 
   static float computeQ(float absGainDb);
 

@@ -12,8 +12,8 @@ class GraphicEQDisplay : public juce::Component
 {
  public:
   static constexpr int kNumEQBands = octob::kGraphicEQNumBands;
-  static constexpr float kMinGainDb = -18.0f;
-  static constexpr float kMaxGainDb = 18.0f;
+  static constexpr float kMinGainDb = -12.0f;
+  static constexpr float kMaxGainDb = 12.0f;
 
   GraphicEQDisplay()
   {
@@ -22,7 +22,11 @@ class GraphicEQDisplay : public juce::Component
     spectrumDisplay_.setInterceptsMouseClicks(false, false);
   }
 
-  void setTypeface(juce::Typeface::Ptr tf) { spectrumDisplay_.setTypeface(tf); }
+  void setTypeface(juce::Typeface::Ptr tf)
+  {
+    typeface_ = tf;
+    spectrumDisplay_.setTypeface(tf);
+  }
 
   void setBandLevels(const float* levelsDb, int count)
   {
@@ -144,6 +148,59 @@ class GraphicEQDisplay : public juce::Component
       g.setColour(juce::Colour(0xff1c1c30));
       g.fillEllipse(x - radius, y - radius, radius * 2.0f, radius * 2.0f);
     }
+
+    // dB tooltip for hovered or dragged band
+    int tooltipBand = (dragBand_ >= 0) ? dragBand_ : hoverBand_;
+    if (tooltipBand >= 0)
+    {
+      float gain = eqGainsDb_[static_cast<size_t>(tooltipBand)];
+      juce::String text = ((gain >= 0.0f) ? "+" : "") + juce::String(gain, 1) + " dB";
+
+      constexpr float kTooltipFontH = 9.0f;
+      constexpr float kTooltipPadX = 4.0f;
+      constexpr float kTooltipPadY = 2.0f;
+      constexpr float kTooltipCorner = 3.0f;
+
+      juce::Font tooltipFont =
+          typeface_ != nullptr
+              ? juce::Font(juce::FontOptions().withTypeface(typeface_).withHeight(kTooltipFontH))
+              : juce::Font(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(),
+                                             kTooltipFontH, juce::Font::plain));
+      g.setFont(tooltipFont);
+
+      juce::GlyphArrangement glyphs;
+      glyphs.addLineOfText(tooltipFont, text, 0.0f, 0.0f);
+      float textW = glyphs.getBoundingBox(0, glyphs.getNumGlyphs(), true).getWidth();
+      float boxW = textW + kTooltipPadX * 2.0f;
+      float boxH = kTooltipFontH + kTooltipPadY * 2.0f;
+
+      float bandNorm = eqBandNormX(tooltipBand);
+      float ptX = areaLeft + bandNorm * areaW;
+      float freq = octob::GraphicEQ::kCenterFreqs[static_cast<size_t>(tooltipBand)];
+      float ptResponseDb = anyActive
+                               ? octob::GraphicEQ::computeMagnitudeResponseDb(
+                                     eqGainsDb_.data(), freq, sampleRate_)
+                               : 0.0f;
+      ptResponseDb = juce::jlimit(kMinGainDb, kMaxGainDb, ptResponseDb);
+      float ptY = gainToY(ptResponseDb, areaTop, areaH);
+
+      float boxX = ptX + 6.0f;
+      float boxY = ptY - boxH - 4.0f;
+
+      // Flip to left side if near right edge
+      if (boxX + boxW > areaLeft + areaW)
+        boxX = ptX - boxW - 6.0f;
+      // Flip below if near top edge
+      if (boxY < areaTop)
+        boxY = ptY + 6.0f;
+
+      auto boxRect = juce::Rectangle<float>(boxX, boxY, boxW, boxH);
+      g.setColour(juce::Colour(0xff1c1c30));
+      g.fillRoundedRectangle(boxRect, kTooltipCorner);
+
+      g.setColour(juce::Colour(0xffF08830));
+      g.drawText(text, boxRect.toNearestInt(), juce::Justification::centred, false);
+    }
   }
 
   void mouseMove(const juce::MouseEvent& e) override
@@ -218,6 +275,7 @@ class GraphicEQDisplay : public juce::Component
   LCDSpectrumDisplay spectrumDisplay_;
   std::array<float, kNumEQBands> eqGainsDb_{};
   double sampleRate_ = 44100.0;
+  juce::Typeface::Ptr typeface_;
 
   int dragBand_ = -1;
   float dragStartGain_ = 0.0f;

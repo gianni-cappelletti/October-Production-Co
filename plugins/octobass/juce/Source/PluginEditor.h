@@ -12,7 +12,7 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
  public:
   static constexpr int kDesignWidth = 760;
-  static constexpr int kDesignHeight = 500;
+  static constexpr int kDesignHeight = 540;
 
   explicit OctoBassEditor(OctoBassProcessor&);
   ~OctoBassEditor() override;

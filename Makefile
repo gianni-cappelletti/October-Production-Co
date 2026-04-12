@@ -37,7 +37,7 @@ VCV_SOURCES  := $(shell find plugins/octobir/vcv-rack/src -name "*.cpp" 2>/dev/n
 .PHONY: octobir octobass all test core header help clean tidy format license
 .PHONY: octobir-juce octobir-vcv octobass-juce
 .PHONY: test-octobir test-octobir-core test-octobir-juce test-octobir-vcv
-.PHONY: test-octobass test-octobass-core test-octobass-juce install-vcv
+.PHONY: test-octobass test-octobass-core test-octobass-juce
 
 header:
 	@./scripts/show-header.sh
@@ -272,25 +272,3 @@ format:
 	fi
 	@echo $(ALL_SOURCES) | xargs clang-format -i --style=file
 	@echo "Code formatted"
-
-# ── VCV install (release) ──────────────────────────────────────
-install-vcv:
-	@if [ -z "$$RACK_DIR" ] && [ ! -d "../Rack" ] && [ ! -d "../../Rack" ]; then \
-		echo "Error: RACK_DIR not set and VCV Rack SDK not found"; \
-		echo ""; \
-		echo "Please set RACK_DIR to your VCV Rack SDK location:"; \
-		echo "  export RACK_DIR=/path/to/Rack"; \
-		echo "  make install-vcv"; \
-		echo ""; \
-		echo "Or download the SDK to ../Rack or ../../Rack"; \
-		exit 1; \
-	fi
-	@echo "Building and installing VCV plugin (Release)..."
-	@./scripts/sync-vcv-version.sh
-	@cd plugins/octobir/vcv-rack && \
-		export RACK_DIR=$${RACK_DIR:-../../../../Rack} && \
-		make clean && \
-		make -j$(NPROC) && \
-		make install
-	@echo ""
-	@echo "VCV plugin installed"

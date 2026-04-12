@@ -89,10 +89,14 @@ class LCDSpectrumDisplay : public juce::Component
                            barAreaLeft + barAreaWidth);
     }
 
-    // Axis lines
+    // Border lines around the graph area
     g.setColour(juce::Colour(0xff1c1c30));
     g.drawVerticalLine(static_cast<int>(barAreaLeft), barAreaTop,
                        barAreaTop + barAreaHeight);
+    g.drawVerticalLine(static_cast<int>(barAreaLeft + barAreaWidth), barAreaTop,
+                       barAreaTop + barAreaHeight);
+    g.drawHorizontalLine(static_cast<int>(barAreaTop), barAreaLeft,
+                         barAreaLeft + barAreaWidth);
     g.drawHorizontalLine(static_cast<int>(barAreaTop + barAreaHeight),
                          barAreaLeft, barAreaLeft + barAreaWidth);
 
@@ -163,7 +167,7 @@ class LCDSpectrumDisplay : public juce::Component
   static constexpr int kXAxisH = 14;
   static constexpr int kBarGap = 2;
   static constexpr float kLabelFontH = 7.0f;
-  static constexpr float kMarkerW = 4.0f;
+  static constexpr float kMarkerW = 3.0f;
 
  private:
   static constexpr std::array<int, 5> kYAxisDbValues = {{0, -20, -40, -60, -80}};

@@ -49,9 +49,9 @@ static void setupTrimSlider(juce::Slider& s)
 
 // Diagonal line parameters: both lines lean / (upper-right to lower-left)
 // x(y) = topX - shift * (y / height)
-static constexpr float kLineShift = 80.0f;
-static constexpr float kLeftLineTopX = 288.0f;
-static constexpr float kRightLineTopX = 428.0f;
+static constexpr float kLineShift = 86.4f;
+static constexpr float kLeftLineTopX = 294.4f;
+static constexpr float kRightLineTopX = 434.4f;
 
 static float lineXAtY(float topX, float y)
 {
@@ -98,6 +98,9 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
 
   addAndMakeVisible(compressionModeSlider_);
   setupRotarySlider(compressionModeSlider_);
+  compressionModeSlider_.setRotaryParameters(juce::MathConstants<float>::pi * 1.5f,
+                                             juce::MathConstants<float>::pi * 2.5f, true);
+  compressionModeSlider_.getProperties().set("numTicks", 4);
   compressionModeAttachment_ =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           audioProcessor.getAPVTS(), "compressionMode", compressionModeSlider_);
@@ -372,7 +375,7 @@ void OctoBassEditor::resized()
 
   const int pad = 15;
   const int lcdY = pad + 10;
-  const int lcdH = 134;
+  const int lcdH = 174;
   const int lcdBottom = lcdY + lcdH;
 
   // Knob rows at 1/3 and 2/3 of space between LCD bottom and plugin bottom, with tweaks

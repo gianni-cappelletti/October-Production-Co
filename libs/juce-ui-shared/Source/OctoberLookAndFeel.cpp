@@ -40,7 +40,7 @@ OctoberLookAndFeel::OctoberLookAndFeel()
 
 void OctoberLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
                                           float sliderPos, float rotaryStartAngle,
-                                          float rotaryEndAngle, juce::Slider& /*slider*/)
+                                          float rotaryEndAngle, juce::Slider& slider)
 {
   const bool isCompact = juce::jmin(width, height) < 40;
   const float reducedAmt = isCompact ? 3.0f : 10.0f;
@@ -116,14 +116,19 @@ void OctoberLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w
                centreX + outerR * 0.90f * cosA, centreY + outerR * 0.90f * sinA, 1.5f);
 
     // External tick marks around the rotation arc
-    const int numTicks = 11;
+    const int numTicks =
+        static_cast<int>(slider.getProperties().getWithDefault("numTicks", 11));
+    const float tickStart = static_cast<float>(
+        slider.getProperties().getWithDefault("tickStartAngle", rotaryStartAngle));
+    const float tickEnd = static_cast<float>(
+        slider.getProperties().getWithDefault("tickEndAngle", rotaryEndAngle));
     const float tickInner = outerR + 3.0f;
     const float tickOuter = outerR + 9.0f;
     g.setColour(juce::Colour(0xff888888));
     for (int i = 0; i < numTicks; ++i)
     {
       float tickAngle =
-          rotaryStartAngle + (float)i / (float)(numTicks - 1) * (rotaryEndAngle - rotaryStartAngle);
+          tickStart + (float)i / (float)(numTicks - 1) * (tickEnd - tickStart);
       float tCosA = std::cos(tickAngle - juce::MathConstants<float>::halfPi);
       float tSinA = std::sin(tickAngle - juce::MathConstants<float>::halfPi);
       g.drawLine(centreX + tickInner * tCosA, centreY + tickInner * tSinA,

@@ -8,7 +8,7 @@ namespace octob
 // Crossover defaults and limits
 constexpr float DefaultCrossoverFrequency = 250.0f;
 constexpr float MinCrossoverFrequency = 50.0f;
-constexpr float MaxCrossoverFrequency = 1000.0f;
+constexpr float MaxCrossoverFrequency = 800.0f;
 
 // Level defaults and limits
 constexpr float DefaultBandLevelDb = 0.0f;
@@ -49,7 +49,7 @@ constexpr float MaxGateThresholdDb = 0.0f;
 // Graphic EQ defaults and limits
 constexpr int kGraphicEQNumBands = 24;
 constexpr float DefaultGraphicEQGainDb = 0.0f;
-constexpr float MinGraphicEQGainDb = -18.0f;
-constexpr float MaxGraphicEQGainDb = 18.0f;
+constexpr float MinGraphicEQGainDb = -12.0f;
+constexpr float MaxGraphicEQGainDb = 12.0f;
 
 }  // namespace octob
