@@ -27,7 +27,6 @@ path = [
     ".gitignore",
     ".gitmodules",
     "VERSION",
-    "plugins/*/VERSION",
 ]
 SPDX-FileCopyrightText = "2024-2026 October Production Co."
 SPDX-License-Identifier = "GPL-3.0-only"
@@ -54,6 +53,8 @@ path = [
     "docs/development/REMAINING_WORK.md",
     "libs/octobir-core/README.md",
     "libs/octobir-core/tests/README.md",
+    "libs/octobass-core/README.md",
+    "libs/octobass-core/tests/README.md",
     "tests/README.md",
 ]
 SPDX-FileCopyrightText = "2024-2026 October Production Co."

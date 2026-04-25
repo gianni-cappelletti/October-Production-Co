@@ -1,8 +1,8 @@
-# OctobIR Licensing Information
+# October Production Co. Licensing Information
 
 ## Project License
 
-**OctobIR is licensed under GPL-3.0 (GNU General Public License v3.0)**
+**All software in this repository is licensed under GPL-3.0 (GNU General Public License v3.0)**
 
 This means:
 - **Free and open source** - Anyone can use, modify, and distribute
@@ -34,6 +34,9 @@ All third-party dependencies are GPL-compatible:
 | **pffft** | BSD-style (permissive) | Fast Fourier Transform | GPL-compatible |
 | **dr_wav** | Public Domain / MIT | WAV file loading | GPL-compatible |
 | **VCV Rack SDK** | GPL-3.0+ | VCV Rack plugin API | GPL-3.0 |
+| **NeuralAmpModelerCore** | MIT | Neural amp modeling (OctoBASS) | GPL-compatible |
+| **Eigen** | MPL-2.0 | Linear algebra (via NAM) | GPL-compatible |
+| **nlohmann/json** | MIT | JSON parsing (via NAM) | GPL-compatible |
 | **Courier Prime** | SIL Open Font License 1.1 | UI typeface (bundled) | GPL-compatible |
 | **Press Start 2P** | SIL Open Font License 1.1 | LCD display typeface (bundled) | GPL-compatible |
 
@@ -51,20 +54,30 @@ All third-party dependencies are GPL-compatible:
 
 **Our technology stack:**
 ```
-┌─────────────────────────────────────┐
-│   JUCE Plugin Framework (GPL-3.0)   │  ← Plugin wrapper (VST3/AU)
-└────────────┬────────────────────────┘
-             │
-┌────────────▼────────────────────────┐
-│   octobir-core (our code)          │  ← Core DSP logic (GPL-3.0)
-└────────────┬────────────────────────┘
-             │
-      ┌──────┼──────┐
-      ▼      ▼      ▼
-┌────────┐ ┌─────┐ ┌──────────────┐
-│  WDL   │ │pffft│ │   dr_wav     │   ← Low-level libraries
-│ (zlib) │ │(BSD)│ │ (public dom) │
-└────────┘ └─────┘ └──────────────┘
+┌──────────────────────────────────────────────────────────┐
+│              JUCE Plugin Framework (GPL-3.0)              │
+└───────────┬──────────────────────────┬───────────────────┘
+            │                          │
+┌───────────▼───────────┐  ┌───────────▼───────────────────┐
+│   OctobIR Plugin      │  │      OctoBASS Plugin          │
+│   (VST3/AU/VCV)       │  │      (VST3/AU)                │
+└───────────┬───────────┘  └───────────┬───────────────────┘
+            │                          │
+┌───────────▼───────────┐  ┌───────────▼───────────────────┐
+│   octobir-core        │◄─┤      octobass-core            │
+│   (IR convolution)    │  │  (bass processing + NAM)      │
+└───────────┬───────────┘  └──┬──────────┬──────────┬──────┘
+            │                 │          │          │
+     ┌──────┼──────┐         │   ┌──────▼───┐ ┌────▼─────┐
+     ▼      ▼      ▼         │   │  Eigen   │ │ nlohmann │
+┌────────┐┌─────┐┌──────┐   │   │ (MPL-2.0)│ │   json   │
+│  WDL   ││pffft││dr_wav│   │   └──────────┘ │  (MIT)   │
+│ (zlib) ││(BSD)││ (PD) │   │                └──────────┘
+└────────┘└─────┘└──────┘   │
+                        ┌────▼─────────────────┐
+                        │ NeuralAmpModelerCore  │
+                        │       (MIT)           │
+                        └──────────────────────┘
 ```
 
 ## License Compatibility Summary
@@ -76,7 +89,7 @@ All third-party dependencies are GPL-compatible:
 
 ## For Contributors
 
-By contributing to OctobIR, you agree that your contributions will be licensed under GPL-3.0. This ensures:
+By contributing to this project, you agree that your contributions will be licensed under GPL-3.0. This ensures:
 - Your code remains open source
 - You retain copyright to your contributions
 - The project can be distributed freely
@@ -115,7 +128,7 @@ full trademark policy.
 **Essay**: The "Art and Craft" essay is a personal creative work by the author,
 licensed under Creative Commons Attribution-NoDerivatives 4.0 International. You
 may read and share it with attribution, but you may not modify or adapt it. It is
-not part of the OctobIR software.
+not part of the October Production Co. software.
 
 Per-file license declarations are maintained in `REUSE.toml` at the repository root,
 following the [REUSE specification](https://reuse.software) (FSFE). All license

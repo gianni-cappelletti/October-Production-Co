@@ -1,8 +1,0 @@
-Copyright (c) 2026 Gianni Cappelletti. All rights reserved.
-Licensed under CC BY-ND 4.0 (https://creativecommons.org/licenses/by-nd/4.0/).
-This essay is not part of the OctobIR software and is not covered by the GPL-3.0.
-You may share it with attribution, but you may not modify or adapt it.
-
-================================================================================
-
-Art and Craft: On the use of generative AI

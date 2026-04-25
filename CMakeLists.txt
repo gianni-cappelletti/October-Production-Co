@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Make version available to subprojects
 set(OCTOBIR_VERSION ${PROJECT_VERSION} CACHE STRING "OctobIR version" FORCE)
+set(OCTOBASS_VERSION ${PROJECT_VERSION} CACHE STRING "OctoBASS version" FORCE)
 
 # Plugin selection
 option(BUILD_OCTOBIR "Build OctobIR plugin" ON)

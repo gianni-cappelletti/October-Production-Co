@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.22)
 
-# Use version from per-plugin VERSION file
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../VERSION" OCTOBASS_VERSION)
-string(STRIP "${OCTOBASS_VERSION}" OCTOBASS_VERSION)
+# Use version from parent project (read from VERSION file)
+if(NOT DEFINED OCTOBASS_VERSION)
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../../../VERSION" OCTOBASS_VERSION)
+    string(STRIP "${OCTOBASS_VERSION}" OCTOBASS_VERSION)
+endif()
 
 project(OctoBASS VERSION ${OCTOBASS_VERSION})
 

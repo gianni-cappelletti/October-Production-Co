@@ -135,4 +135,4 @@ Simple audio buffer wrapper.
 
 GNU General Public License v3.0 (GPL-3.0)
 
-This core library is part of the OctobIR project and is licensed under GPL-3.0 to ensure compatibility with JUCE (GPL-3.0) and VCV Rack (GPL-3.0+) requirements.
+This core library is part of the October Production Co. monorepo. It is used by both the OctobIR plugin (dual-IR blending) and OctoBASS plugin (IR convolution in the high-frequency chain). Licensed under GPL-3.0 to ensure compatibility with JUCE (GPL-3.0) and VCV Rack (GPL-3.0+) requirements.

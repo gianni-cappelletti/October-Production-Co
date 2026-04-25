@@ -78,7 +78,7 @@ Copyright 2015 The Courier Prime Project Authors (https://github.com/quoteunquot
 Source: https://fonts.google.com/specimen/Courier+Prime
 
 License: SIL Open Font License, Version 1.1
-Full license text: plugins/juce-multiformat/Resources/Fonts/CourierPrime-OFL.txt
+Full license text: libs/juce-ui-shared/Resources/Fonts/CourierPrime-OFL.txt
 
 Used for: UI typeface, embedded in the JUCE plugin binary via juce_add_binary_data.
 
@@ -92,7 +92,7 @@ Copyright 2012 The Press Start 2P Project Authors (cody@zone38.net)
 Source: https://fonts.google.com/specimen/Press+Start+2P
 
 License: SIL Open Font License, Version 1.1
-Full license text: plugins/juce-multiformat/Resources/Fonts/PressStart2P-OFL.txt
+Full license text: libs/juce-ui-shared/Resources/Fonts/PressStart2P-OFL.txt
 
 Used for: LCD display typeface (file name displays and rotary value labels), embedded in the JUCE plugin binary via juce_add_binary_data.
 
@@ -106,7 +106,7 @@ Copyright (c) October Production Co. — All Rights Reserved
 
 License: Proprietary (not GPL-3.0)
 
-This asset is bundled with OctobIR for branding purposes only. It is NOT licensed
+This asset is bundled with October Production Co. plugins for branding purposes only. It is NOT licensed
 under GPL-3.0 and may not be redistributed, modified, or used in derivative works.
 See TRADEMARK.md for the full trademark policy.
 
@@ -123,3 +123,78 @@ Used for: VCV Rack plugin API and module framework
 Note: VCV Rack plugins MUST be GPL-3.0 or later by VCV Rack requirements.
 
 Full license: https://www.gnu.org/licenses/gpl-3.0.html
+
+
+9. NeuralAmpModelerCore (OctoBASS Only)
+----------------------------------------
+Copyright (c) 2023-2025 Steven Atkinson
+Source: https://github.com/sdatkinson/NeuralAmpModelerCore
+
+License: MIT
+
+Used for: Neural amp modeling in OctoBASS high-frequency chain
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+10. Eigen (via NeuralAmpModelerCore, OctoBASS Only)
+----------------------------------------------------
+Source: https://eigen.tuxfamily.org/
+
+License: Mozilla Public License 2.0 (MPL-2.0)
+
+Used for: Linear algebra operations in NeuralAmpModelerCore
+
+Bundled in: third_party/NeuralAmpModelerCore/Dependencies/eigen/
+
+MPL-2.0 is GPL-3.0 compatible per Mozilla and FSF guidance. Some files within
+Eigen contain third-party code under BSD or Apache 2.0 licenses, which are also
+GPL-compatible.
+
+Full MPL-2.0 text: https://www.mozilla.org/en-US/MPL/2.0/
+
+
+11. nlohmann/json (via NeuralAmpModelerCore, OctoBASS Only)
+------------------------------------------------------------
+Copyright (c) 2013-2025 Niels Lohmann <https://nlohmann.me>
+Source: https://github.com/nlohmann/json
+
+License: MIT
+
+Used for: JSON parsing in NeuralAmpModelerCore (model file loading)
+
+Bundled in: third_party/NeuralAmpModelerCore/Dependencies/nlohmann/
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

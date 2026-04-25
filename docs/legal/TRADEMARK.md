@@ -1,8 +1,8 @@
 # Trademark Policy
 
-The "October Production Co." name, the "OctobIR" name, and the October Production
-Co. logo (collectively, the "Marks") are proprietary trademarks of October
-Production Co. They are **not** covered by the GPL-3.0 license that governs this
+The "October Production Co." name, the "OctobIR" name, the "OctoBASS" name, and
+the October Production Co. logo (collectively, the "Marks") are proprietary
+trademarks of October Production Co. They are **not** covered by the GPL-3.0 license that governs this
 software's source code.
 
 This separation is permitted under GPL-3.0 Section 7(e), which explicitly allows
@@ -12,10 +12,11 @@ trademarks, or service marks." This is standard practice for open source project
 
 ## Permitted Uses
 
-- Referring to the official, unmodified OctobIR software and its publisher.
-- Stating that your project is "based on OctobIR" or "compatible with OctobIR,"
-  provided you include equally prominent notice that your project is not affiliated
-  with or endorsed by October Production Co.
+- Referring to the official, unmodified October Production Co. software (OctobIR,
+  OctoBASS) and its publisher.
+- Stating that your project is "based on OctobIR/OctoBASS" or "compatible with
+  OctobIR/OctoBASS," provided you include equally prominent notice that your
+  project is not affiliated with or endorsed by October Production Co.
 
 ## Prohibited Uses
 
@@ -26,7 +27,7 @@ trademarks, or service marks." This is standard practice for open source project
 
 ## For Forks and Derivatives
 
-If you fork or redistribute modified versions of OctobIR under the GPL-3.0, you
+If you fork or redistribute modified versions of OctobIR or OctoBASS under the GPL-3.0, you
 **must** remove all October Production Co. branding (name and logo) and use your
 own distinct identity. This ensures users can distinguish official releases from
 third-party modifications.
