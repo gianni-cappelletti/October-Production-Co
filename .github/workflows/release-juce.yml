@@ -125,9 +125,6 @@ jobs:
     needs: [resolve-version]
     env:
       RELEASE_VERSION: ${{ needs.resolve-version.outputs.version }}
-    defaults:
-      run:
-        working-directory: source
     strategy:
       matrix:
         plugin:
@@ -139,13 +136,19 @@ jobs:
             product_name: OctoBASS
 
     steps:
-    # Windows strips trailing dots from directory names, which breaks the
-    # default checkout path derived from the repo name "October-Production-Co."
+    # Windows strips trailing dots from directory names. The runner creates the
+    # workspace at a dot-stripped path but GITHUB_WORKSPACE retains the dots,
+    # causing actions/checkout to fail. Fix the env var to match the real path.
+    - name: Fix workspace path
+      shell: powershell
+      run: |
+        $fixed = $env:GITHUB_WORKSPACE -replace '\.(?=\\|$)', ''
+        echo "GITHUB_WORKSPACE=$fixed" >> $env:GITHUB_ENV
+
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         submodules: recursive
-        path: source
 
     - name: Set up MSVC
       uses: ilammy/msvc-dev-cmd@v1
@@ -187,7 +190,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.plugin.product_name }}-windows-installer
-        path: source/dist/${{ matrix.plugin.product_name }}-*-Windows.exe
+        path: dist/${{ matrix.plugin.product_name }}-*-Windows.exe
 
   build-linux:
     name: Build JUCE Plugins - Linux
