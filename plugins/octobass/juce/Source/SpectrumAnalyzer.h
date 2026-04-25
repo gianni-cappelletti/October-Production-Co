@@ -104,16 +104,14 @@ class SpectrumAnalyzer
     fft_.performFrequencyOnlyForwardTransform(fftData_.data(), true);
 
     // fftData_[0..kFFTSize/2] now contains magnitude values
-    const auto binWidth =
-        static_cast<float>(sampleRate_) / static_cast<float>(kFFTSize);
+    const auto binWidth = static_cast<float>(sampleRate_) / static_cast<float>(kFFTSize);
 
     for (int b = 0; b < kNumBands; ++b)
     {
       const auto& range = kBandRanges[static_cast<size_t>(b)];
 
       int lowBin = std::max(1, static_cast<int>(std::ceil(range.lowHz / binWidth)));
-      int highBin =
-          std::min(kFFTSize / 2, static_cast<int>(std::floor(range.highHz / binWidth)));
+      int highBin = std::min(kFFTSize / 2, static_cast<int>(std::floor(range.highHz / binWidth)));
 
       // At high sample rates, lowest bands may have zero bins -- use nearest
       if (lowBin > highBin)
@@ -142,8 +140,7 @@ class SpectrumAnalyzer
       db = std::max(kMinDb, std::min(kMaxDb, db));
 
       // Asymmetric exponential smoothing: fast attack, slow decay
-      float alpha =
-          (db > smoothedLevels_[static_cast<size_t>(b)]) ? kAttackAlpha : kDecayAlpha;
+      float alpha = (db > smoothedLevels_[static_cast<size_t>(b)]) ? kAttackAlpha : kDecayAlpha;
       smoothedLevels_[static_cast<size_t>(b)] +=
           alpha * (db - smoothedLevels_[static_cast<size_t>(b)]);
       smoothedLevels_[static_cast<size_t>(b)] =

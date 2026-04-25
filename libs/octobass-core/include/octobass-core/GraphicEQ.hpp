@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Types.hpp"
-
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+
+#include "Types.hpp"
 
 namespace octob
 {

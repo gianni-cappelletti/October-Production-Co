@@ -113,8 +113,8 @@ TEST_F(GraphicEQTest, OutOfBandRejection)
   double outputRMS = computeRMS(output, kSkip, kNumSamples - kSkip);
   double ratioDb = 20.0 * std::log10(outputRMS / inputRMS);
 
-  EXPECT_NEAR(ratioDb, 0.0, 1.5)
-      << "100Hz should be minimally affected by a 1kHz boost, got " << ratioDb << " dB";
+  EXPECT_NEAR(ratioDb, 0.0, 1.5) << "100Hz should be minimally affected by a 1kHz boost, got "
+                                 << ratioDb << " dB";
 }
 
 TEST_F(GraphicEQTest, ProportionalQ_NarrowAtHighGain)
@@ -250,14 +250,13 @@ TEST_F(GraphicEQTest, MultipleBands)
   constexpr size_t kNumSamples = 16384;
   constexpr size_t kSkip = 4096;
 
-  eq.setBandGain(4, 6.0f);     // 100 Hz
+  eq.setBandGain(4, 6.0f);           // 100 Hz
   eq.setBandGain(kTestBand, -6.0f);  // 1 kHz
 
   auto input100 = generateSine(100.0f, 44100.0f, kNumSamples);
   std::vector<float> output100(kNumSamples);
   eq.process(input100.data(), output100.data(), kNumSamples);
-  double boost100 =
-      20.0 * std::log10(computeRMS(output100, kSkip) / computeRMS(input100, kSkip));
+  double boost100 = 20.0 * std::log10(computeRMS(output100, kSkip) / computeRMS(input100, kSkip));
 
   eq.reset();
 
@@ -314,8 +313,7 @@ TEST_F(GraphicEQTest, MagnitudeResponse_LowFreqBoost_AtCenter)
   gainsDb[3] = 12.0f;  // 12dB boost at 80 Hz
 
   float response = GraphicEQ::computeMagnitudeResponseDb(gainsDb, 79.69f, 44100.0);
-  EXPECT_NEAR(response, 12.0, 1.0)
-      << "Response at 80Hz center should be ~12dB, got " << response;
+  EXPECT_NEAR(response, 12.0, 1.0) << "Response at 80Hz center should be ~12dB, got " << response;
 }
 
 TEST_F(GraphicEQTest, MagnitudeResponse_AwayFromBand_NearUnity)
@@ -325,8 +323,7 @@ TEST_F(GraphicEQTest, MagnitudeResponse_AwayFromBand_NearUnity)
   gainsDb[3] = -18.0f;  // Max cut at 80 Hz
 
   float response5k = GraphicEQ::computeMagnitudeResponseDb(gainsDb, 5000.0f, 44100.0);
-  EXPECT_NEAR(response5k, 0.0, 1.0)
-      << "5kHz should be unaffected by 80Hz cut, got " << response5k;
+  EXPECT_NEAR(response5k, 0.0, 1.0) << "5kHz should be unaffected by 80Hz cut, got " << response5k;
 }
 
 TEST_F(GraphicEQTest, MagnitudeResponseMatchesProcessing)
@@ -340,8 +337,7 @@ TEST_F(GraphicEQTest, MagnitudeResponseMatchesProcessing)
   std::vector<float> output(kNumSamples);
   eq.process(input.data(), output.data(), kNumSamples);
 
-  double measuredDb =
-      20.0 * std::log10(computeRMS(output, kSkip) / computeRMS(input, kSkip));
+  double measuredDb = 20.0 * std::log10(computeRMS(output, kSkip) / computeRMS(input, kSkip));
 
   float gainsDb[kGraphicEQNumBands] = {};
   gainsDb[kTestBand] = 8.0f;

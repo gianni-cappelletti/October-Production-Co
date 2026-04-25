@@ -1,11 +1,10 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <octobass-core/Types.hpp>
 #include <string>
 
 #include "PluginProcessor.h"
-
-#include <octobass-core/Types.hpp>
 
 static const std::string kIrPath = std::string(TEST_DATA_DIR) + "/INPUT_ir_a.wav";
 
@@ -222,11 +221,9 @@ TEST_F(OctoBassProcessorTest, EQParametersExist)
 {
   for (int i = 0; i < octob::kGraphicEQNumBands; ++i)
   {
-    auto* param =
-        processor.getAPVTS().getRawParameterValue("eqBandGain" + juce::String(i));
+    auto* param = processor.getAPVTS().getRawParameterValue("eqBandGain" + juce::String(i));
     ASSERT_NE(param, nullptr) << "Missing EQ parameter for band " << i;
-    EXPECT_NEAR(param->load(), 0.0f, 0.01f)
-        << "EQ band " << i << " should default to 0 dB";
+    EXPECT_NEAR(param->load(), 0.0f, 0.01f) << "EQ band " << i << " should default to 0 dB";
   }
 }
 

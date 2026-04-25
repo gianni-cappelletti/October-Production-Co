@@ -26,8 +26,8 @@ class CompressorMode
  protected:
   // log2/exp2-based conversions: on ARM, log2f/exp2f map more directly to
   // hardware than log10f/powf, avoiding the extra multiply inside the library.
-  static constexpr float kLog2ToDb = 6.02059991f;   // 20 * log10(2)
-  static constexpr float kDbToLog2 = 0.16609640474f; // 1 / (20 * log10(2))
+  static constexpr float kLog2ToDb = 6.02059991f;     // 20 * log10(2)
+  static constexpr float kDbToLog2 = 0.16609640474f;  // 1 / (20 * log10(2))
 
   static float linearToDb(float linear)
   {

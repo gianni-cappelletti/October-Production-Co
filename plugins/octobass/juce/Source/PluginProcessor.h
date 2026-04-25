@@ -2,11 +2,10 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
-#include <octobass-core/BassProcessor.hpp>
-#include <octobass-core/Types.hpp>
-
 #include <array>
 #include <atomic>
+#include <octobass-core/BassProcessor.hpp>
+#include <octobass-core/Types.hpp>
 
 class OctoBassProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
 {

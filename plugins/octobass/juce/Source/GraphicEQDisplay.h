@@ -1,12 +1,11 @@
 #pragma once
 
-#include "LCDSpectrumDisplay.h"
-
-#include <octobass-core/GraphicEQ.hpp>
-
 #include <array>
 #include <cmath>
 #include <functional>
+#include <octobass-core/GraphicEQ.hpp>
+
+#include "LCDSpectrumDisplay.h"
 
 class GraphicEQDisplay : public juce::Component
 {
@@ -113,8 +112,8 @@ class GraphicEQDisplay : public juce::Component
       if (anyActive)
       {
         float freq = normXToFreq(t);
-        responseDb = octob::GraphicEQ::computeMagnitudeResponseDb(eqGainsDb_.data(), freq,
-                                                                  sampleRate_);
+        responseDb =
+            octob::GraphicEQ::computeMagnitudeResponseDb(eqGainsDb_.data(), freq, sampleRate_);
         responseDb = juce::jlimit(kMinGainDb, kMaxGainDb, responseDb);
       }
 
@@ -139,8 +138,8 @@ class GraphicEQDisplay : public juce::Component
       float x = areaLeft + normX * areaW;
 
       float freq = octob::GraphicEQ::kCenterFreqs[static_cast<size_t>(i)];
-      float responseDb = octob::GraphicEQ::computeMagnitudeResponseDb(eqGainsDb_.data(), freq,
-                                                                      sampleRate_);
+      float responseDb =
+          octob::GraphicEQ::computeMagnitudeResponseDb(eqGainsDb_.data(), freq, sampleRate_);
       responseDb = juce::jlimit(kMinGainDb, kMaxGainDb, responseDb);
       float y = gainToY(responseDb, areaTop, areaH);
 
@@ -177,10 +176,9 @@ class GraphicEQDisplay : public juce::Component
       float bandNorm = eqBandNormX(tooltipBand);
       float ptX = areaLeft + bandNorm * areaW;
       float freq = octob::GraphicEQ::kCenterFreqs[static_cast<size_t>(tooltipBand)];
-      float ptResponseDb = anyActive
-                               ? octob::GraphicEQ::computeMagnitudeResponseDb(
-                                     eqGainsDb_.data(), freq, sampleRate_)
-                               : 0.0f;
+      float ptResponseDb = anyActive ? octob::GraphicEQ::computeMagnitudeResponseDb(
+                                           eqGainsDb_.data(), freq, sampleRate_)
+                                     : 0.0f;
       ptResponseDb = juce::jlimit(kMinGainDb, kMaxGainDb, ptResponseDb);
       float ptY = gainToY(ptResponseDb, areaTop, areaH);
 
