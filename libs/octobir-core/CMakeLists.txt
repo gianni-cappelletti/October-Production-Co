@@ -70,6 +70,7 @@ elseif(WIN32)
     target_compile_definitions(octobir-core PRIVATE
         _CRT_SECURE_NO_WARNINGS
         NOMINMAX
+        PFFFT_STATIC_DEFINE
     )
 endif()
 

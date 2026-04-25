@@ -247,6 +247,93 @@ jobs:
     - name: Run OctoBASS JUCE tests
       run: ASAN_OPTIONS=detect_leaks=1 ./build/test-octobass-juce/plugins/octobass/juce/tests/octobass-plugin-tests
 
+  test-octobir-core-windows:
+    name: Run OctobIR Core Tests (Windows)
+    runs-on: windows-latest
+    needs: [lint]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Configure CMake
+      shell: bash
+      run: cmake --preset test-octobir-core-windows -G Ninja
+
+    - name: Build core tests
+      shell: bash
+      run: cmake --build build/test-octobir-core-windows --target octobir-core-tests -j
+
+    - name: Run core tests
+      shell: bash
+      run: ./build/test-octobir-core-windows/libs/octobir-core/tests/octobir-core-tests.exe
+
+  test-octobir-juce-windows:
+    name: Run OctobIR JUCE Tests (Windows)
+    runs-on: windows-latest
+    needs: [lint]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Configure CMake
+      shell: bash
+      run: cmake --preset test-octobir-juce-windows -G Ninja
+
+    - name: Build JUCE tests
+      shell: bash
+      run: cmake --build build/test-octobir-juce-windows --target octobir-plugin-tests -j
+
+    - name: Run JUCE tests
+      shell: bash
+      run: ./build/test-octobir-juce-windows/plugins/octobir/juce/tests/octobir-plugin-tests.exe
+
+  test-octobass-juce-windows:
+    name: Run OctoBASS JUCE Tests (Windows)
+    runs-on: windows-latest
+    needs: [lint]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Configure CMake
+      shell: bash
+      run: cmake --preset test-octobass-juce-windows -G Ninja
+
+    - name: Build OctoBASS JUCE tests
+      shell: bash
+      run: cmake --build build/test-octobass-juce-windows --target octobass-plugin-tests -j
+
+    - name: Run OctoBASS JUCE tests
+      shell: bash
+      run: ./build/test-octobass-juce-windows/plugins/octobass/juce/tests/octobass-plugin-tests.exe
+
   build-vcv:
     name: Build VCV Plugin
     runs-on: ubuntu-latest
@@ -351,3 +438,57 @@ jobs:
       run: |
         cmake --preset dev-octobass -G Ninja
         cmake --build build/dev-octobass --target OctoBASS_All -j
+
+  build-octobir-juce-windows:
+    name: Build OctobIR JUCE Plugin (Windows)
+    runs-on: windows-latest
+    needs: [lint]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Build OctobIR JUCE Plugin
+      shell: bash
+      run: |
+        cmake --preset release \
+          -DBUILD_OCTOBIR_JUCE=ON \
+          -DBUILD_OCTOBIR_VCV=OFF \
+          -DBUILD_OCTOBASS_JUCE=OFF \
+          -G "Visual Studio 17 2022" -A x64
+        cmake --build build/release --target OctobIR_All --config Release -j
+
+  build-octobass-juce-windows:
+    name: Build OctoBASS JUCE Plugin (Windows)
+    runs-on: windows-latest
+    needs: [lint]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Build OctoBASS JUCE Plugin
+      shell: bash
+      run: |
+        cmake --preset release \
+          -DBUILD_OCTOBASS_JUCE=ON \
+          -DBUILD_OCTOBIR_JUCE=OFF \
+          -DBUILD_OCTOBIR_VCV=OFF \
+          -G "Visual Studio 17 2022" -A x64
+        cmake --build build/release --target OctoBASS_All --config Release -j
