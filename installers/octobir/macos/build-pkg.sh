@@ -6,10 +6,10 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-$PROJECT_DIR/build/release}/plugins/octobir/juce/OctobIR_artefacts/Release"
 DIST_DIR="$PROJECT_DIR/dist"
 
-# Read version from VERSION file
-VERSION=$(cat "$PROJECT_DIR/VERSION" | tr -d '[:space:]')
+# Prefer RELEASE_VERSION env var (set by CI from git tag), fall back to VERSION file
+VERSION="${RELEASE_VERSION:-$(cat "$PROJECT_DIR/VERSION" | tr -d '[:space:]')}"
 if [ -z "$VERSION" ]; then
-  echo "Error: Could not read version from VERSION file"
+  echo "Error: Could not determine version"
   exit 1
 fi
 echo "Building version: $VERSION"

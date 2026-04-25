@@ -1,17 +1,21 @@
 cmake_minimum_required(VERSION 3.22)
 
-# Read version from VERSION file
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" PROJECT_VERSION)
-string(STRIP "${PROJECT_VERSION}" PROJECT_VERSION)
+# Read version from VERSION file (may contain prerelease suffix, e.g. "2.0.0-beta.1")
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" OPC_VERSION_FULL)
+string(STRIP "${OPC_VERSION_FULL}" OPC_VERSION_FULL)
 
-project(OPC-Monorepo VERSION ${PROJECT_VERSION})
+# CMake project(VERSION ...) only accepts numeric MAJOR.MINOR.PATCH
+string(REGEX REPLACE "-.*$" "" OPC_VERSION_NUMERIC "${OPC_VERSION_FULL}")
+
+project(OPC-Monorepo VERSION ${OPC_VERSION_NUMERIC})
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Make version available to subprojects
-set(OCTOBIR_VERSION ${PROJECT_VERSION} CACHE STRING "OctobIR version" FORCE)
-set(OCTOBASS_VERSION ${PROJECT_VERSION} CACHE STRING "OctoBASS version" FORCE)
+# Make version available to subprojects (numeric for CMake, full for display/packaging)
+set(OPC_VERSION_FULL "${OPC_VERSION_FULL}" CACHE STRING "Full version string" FORCE)
+set(OCTOBIR_VERSION ${OPC_VERSION_NUMERIC} CACHE STRING "OctobIR version (numeric)" FORCE)
+set(OCTOBASS_VERSION ${OPC_VERSION_NUMERIC} CACHE STRING "OctoBASS version (numeric)" FORCE)
 
 # Plugin selection
 option(BUILD_OCTOBIR "Build OctobIR plugin" ON)

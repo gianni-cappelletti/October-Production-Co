@@ -7,14 +7,48 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g., 2.0.0)'
+        description: 'Version number (e.g., 2.0.0 or 2.0.0-beta.1)'
         required: true
         default: '2.0.0'
 
 jobs:
+  resolve-version:
+    name: Resolve Release Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            FILE_VERSION="$(cat VERSION | tr -d '[:space:]')"
+            if [ "$TAG_VERSION" != "$FILE_VERSION" ]; then
+              echo "::warning::Tag version ($TAG_VERSION) differs from VERSION file ($FILE_VERSION). Using tag."
+            fi
+            VERSION="$TAG_VERSION"
+          else
+            VERSION="$(cat VERSION | tr -d '[:space:]')"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if echo "$VERSION" | grep -qE '-(alpha|beta|rc)'; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Resolved version: $VERSION"
+
   build-macos:
     name: Build JUCE Plugins - macOS (universal)
     runs-on: macos-14
+    needs: [resolve-version]
     strategy:
       matrix:
         plugin:
@@ -26,6 +60,7 @@ jobs:
             product_name: OctoBASS
     env:
       BUILD_DIR: build/release-macos-universal
+      RELEASE_VERSION: ${{ needs.resolve-version.outputs.version }}
 
     steps:
     - name: Checkout code
@@ -87,6 +122,9 @@ jobs:
   build-windows:
     name: Build JUCE Plugins - Windows
     runs-on: windows-latest
+    needs: [resolve-version]
+    env:
+      RELEASE_VERSION: ${{ needs.resolve-version.outputs.version }}
     strategy:
       matrix:
         plugin:
@@ -134,7 +172,7 @@ jobs:
         PLUGIN="${{ matrix.plugin.name }}"
         PRODUCT="${{ matrix.plugin.product_name }}"
         if [ -f "installers/$PLUGIN/windows/$PRODUCT.iss" ]; then
-          iscc "installers/$PLUGIN/windows/$PRODUCT.iss"
+          iscc "/DAppVersion=$RELEASE_VERSION" "installers/$PLUGIN/windows/$PRODUCT.iss"
         else
           echo "No Windows installer script for $PLUGIN"
         fi
@@ -148,6 +186,9 @@ jobs:
   build-linux:
     name: Build JUCE Plugins - Linux
     runs-on: ubuntu-latest
+    needs: [resolve-version]
+    env:
+      RELEASE_VERSION: ${{ needs.resolve-version.outputs.version }}
     strategy:
       matrix:
         plugin:
@@ -220,17 +261,17 @@ jobs:
       run: |
         PRODUCT="${{ matrix.plugin.product_name }}"
         cd package
-        tar -czf "../${PRODUCT}-Linux.tar.gz" "$PRODUCT"
+        tar -czf "../${PRODUCT}-${RELEASE_VERSION}-Linux.tar.gz" "$PRODUCT"
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.plugin.product_name }}-linux
-        path: ${{ matrix.plugin.product_name }}-Linux.tar.gz
+        path: ${{ matrix.plugin.product_name }}-*-Linux.tar.gz
 
   release:
     name: Create GitHub Release
-    needs: [build-macos, build-windows, build-linux]
+    needs: [resolve-version, build-macos, build-windows, build-linux]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
@@ -251,6 +292,7 @@ jobs:
           artifacts/**/*.exe
           artifacts/**/*.tar.gz
         draft: true
+        prerelease: ${{ needs.resolve-version.outputs.is_prerelease == 'true' }}
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

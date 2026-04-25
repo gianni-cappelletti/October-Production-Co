@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.22)
 
 # Use version from parent project (read from VERSION file)
 if(NOT DEFINED OCTOBIR_VERSION)
-    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../../../VERSION" OCTOBIR_VERSION)
-    string(STRIP "${OCTOBIR_VERSION}" OCTOBIR_VERSION)
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../../../VERSION" _OCTOBIR_VERSION_RAW)
+    string(STRIP "${_OCTOBIR_VERSION_RAW}" _OCTOBIR_VERSION_RAW)
+    string(REGEX REPLACE "-.*$" "" OCTOBIR_VERSION "${_OCTOBIR_VERSION_RAW}")
 endif()
 
 project(OctobIR VERSION ${OCTOBIR_VERSION})

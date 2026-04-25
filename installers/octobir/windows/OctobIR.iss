@@ -1,13 +1,15 @@
-; Read version from VERSION file (two directories up from this script)
-; Using SourcePath ensures proper path resolution (see ISPP docs)
-#define VersionFile SourcePath + "\..\..\..\VERSION"
-#define FileHandle FileOpen(VersionFile)
-#if FileHandle
-  #define AppVersion Trim(FileRead(FileHandle))
-  #expr FileClose(FileHandle)
-#else
-  #pragma error "Could not open VERSION file at: " + VersionFile
-  #define AppVersion "2.0.0"
+; AppVersion can be overridden via /DAppVersion=x.y.z-beta.1 on the iscc command line.
+; Falls back to reading the VERSION file.
+#ifndef AppVersion
+  #define VersionFile SourcePath + "\..\..\..\VERSION"
+  #define FileHandle FileOpen(VersionFile)
+  #if FileHandle
+    #define AppVersion Trim(FileRead(FileHandle))
+    #expr FileClose(FileHandle)
+  #else
+    #pragma error "Could not open VERSION file at: " + VersionFile
+    #define AppVersion "2.0.0"
+  #endif
 #endif
 
 [Setup]
