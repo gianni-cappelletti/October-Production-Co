@@ -358,6 +358,8 @@ jobs:
     needs: [resolve-version, package-macos-installer, package-windows-installer, package-linux-installer]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
 
     steps:
     - name: Download all artifacts
