@@ -266,7 +266,8 @@ TEST_F(ComponentTest, ConvolutionMatchesReference_IrAOnly)
   constexpr int kBlockSize = 512;
   std::vector<float> actualOutput = processAndAlign(processor, dryInput, kBlockSize);
 
-  writeWavMono(::testing::TempDir() + "octobir_component_ir_a_only.wav", actualOutput, drySampleRate);
+  writeWavMono(::testing::TempDir() + "octobir_component_ir_a_only.wav", actualOutput,
+               drySampleRate);
 
   float peak = 0.0f;
   for (float s : actualOutput)
@@ -362,7 +363,8 @@ TEST_F(ComponentTest, ConvolutionMatchesReference_EvenBlend)
   constexpr int kBlockSize = 512;
   std::vector<float> actualOutput = processAndAlign(processor, dryInput, kBlockSize);
 
-  writeWavMono(::testing::TempDir() + "octobir_component_even_blend.wav", actualOutput, drySampleRate);
+  writeWavMono(::testing::TempDir() + "octobir_component_even_blend.wav", actualOutput,
+               drySampleRate);
 
   float peak = 0.0f;
   for (float s : actualOutput)
