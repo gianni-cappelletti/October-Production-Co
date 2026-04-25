@@ -125,6 +125,9 @@ jobs:
     needs: [resolve-version]
     env:
       RELEASE_VERSION: ${{ needs.resolve-version.outputs.version }}
+    defaults:
+      run:
+        working-directory: source
     strategy:
       matrix:
         plugin:
@@ -136,10 +139,13 @@ jobs:
             product_name: OctoBASS
 
     steps:
+    # Windows strips trailing dots from directory names, which breaks the
+    # default checkout path derived from the repo name "October-Production-Co."
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         submodules: recursive
+        path: source
 
     - name: Set up MSVC
       uses: ilammy/msvc-dev-cmd@v1
@@ -181,7 +187,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.plugin.product_name }}-windows-installer
-        path: dist/${{ matrix.plugin.product_name }}-*-Windows.exe
+        path: source/dist/${{ matrix.plugin.product_name }}-*-Windows.exe
 
   build-linux:
     name: Build JUCE Plugins - Linux
