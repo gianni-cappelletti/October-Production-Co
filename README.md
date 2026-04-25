@@ -83,6 +83,10 @@ Installed locations:
 - **VCV Rack** (OctobIR only): `~/Documents/Rack2/plugins/OctobIR` (or your Rack plugins directory)
 
 
+## Reporting Issues
+
+Found a bug, crash, or unexpected behavior? Please open an issue on [GitHub Issues](https://github.com/gianni-cappelletti/October-Production-Co/issues). When reporting, include your OS and version, plugin and host (DAW or VCV Rack) versions, and steps to reproduce. Logs or a short audio/video clip help a lot.
+
 ## A note on the use of Claude Code
 
 As a software engineer and a musician, I've spent a lot of time thinking about generative AI and its implications for both sides of my career. I've undergone several existential crises as it relates to my livelihood and the role of my creative work as an artist. In an effort to add some nuanced, principled thoughts to the cultural conversation beyond "AI is an unabated good" and "AI is a scourge on humanity", I've written up an essay here that I hope can provide some sound (no pun intended) thinking on the just and proper use of generative AI as it relates to art and craft.
