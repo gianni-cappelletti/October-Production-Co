@@ -12,18 +12,17 @@
 *.so
 *.dylib
 *.dll
-/build
-/dep
-/dist
+build/
+dep/
+dist/
 
 # VCV Rack plugin build artifacts
-/plugins/vcv-rack/dist
-/plugins/vcv-rack/plugin.dylib
-/plugins/vcv-rack/plugin.so
-/plugins/vcv-rack/plugin.dll
+plugins/*/vcv-rack/dist/
+plugins/*/vcv-rack/plugin.dylib
+plugins/*/vcv-rack/plugin.so
+plugins/*/vcv-rack/plugin.dll
 
 # CMake build directories
-build/
 cmake-build-*/
 
 # JUCE
