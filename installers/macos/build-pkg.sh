@@ -48,10 +48,10 @@ build_component() {
     fi
 }
 
-build_component octobass OctoBASS VST3 "$HOME/Library/Audio/Plug-Ins/VST3"       com.octoberprod.octobass.vst3
-build_component octobass OctoBASS AU   "$HOME/Library/Audio/Plug-Ins/Components" com.octoberprod.octobass.au
-build_component octobir  OctobIR  VST3 "$HOME/Library/Audio/Plug-Ins/VST3"       com.octoberprod.octobir.vst3
-build_component octobir  OctobIR  AU   "$HOME/Library/Audio/Plug-Ins/Components" com.octoberprod.octobir.au
+build_component octobass OctoBASS VST3 "/Library/Audio/Plug-Ins/VST3"       com.octoberprod.octobass.vst3
+build_component octobass OctoBASS AU   "/Library/Audio/Plug-Ins/Components" com.octoberprod.octobass.au
+build_component octobir  OctobIR  VST3 "/Library/Audio/Plug-Ins/VST3"       com.octoberprod.octobir.vst3
+build_component octobir  OctobIR  AU   "/Library/Audio/Plug-Ins/Components" com.octoberprod.octobir.au
 
 # Substitute version into the distribution template
 sed "s/{VERSION}/$VERSION/g" "$SCRIPT_DIR/distribution.xml" > "$DIST_DIR/distribution.xml"
