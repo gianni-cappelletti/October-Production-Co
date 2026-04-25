@@ -42,6 +42,10 @@ target_compile_definitions(octobir-core-tests
     TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data"
 )
 
+if(WIN32)
+  target_compile_definitions(octobir-core-tests PRIVATE _USE_MATH_DEFINES)
+endif()
+
 target_include_directories(octobir-core-tests
   SYSTEM PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party

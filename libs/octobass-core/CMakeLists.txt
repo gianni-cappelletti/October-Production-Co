@@ -76,6 +76,7 @@ elseif(WIN32)
     target_compile_definitions(octobass-core PRIVATE
         _CRT_SECURE_NO_WARNINGS
         NOMINMAX
+        __restrict__=__restrict
     )
 endif()
 
