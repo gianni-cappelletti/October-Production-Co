@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Display OctobIR ASCII art header with colored logo
+# Display ASCII art header with colored logo
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-HEADER_FILE="$PROJECT_DIR/scripts/header.txt"
+
+PLUGIN="${1:-octobir}"
+HEADER_FILE="$SCRIPT_DIR/${PLUGIN}_header.txt"
 
 # ANSI color codes
 ORANGE='\033[38;5;208m'

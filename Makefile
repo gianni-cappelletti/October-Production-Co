@@ -34,15 +34,21 @@ CORE_SOURCES := $(shell find libs/octobir-core/src -name "*.cpp")
 VCV_SOURCES  := $(shell find plugins/octobir/vcv-rack/src -name "*.cpp" 2>/dev/null)
 
 # ── Convenience aggregate targets ──────────────────────────────
-.PHONY: octobir octobass all test core header help clean tidy format license
+.PHONY: octobir octobass all test core header-opc header-octobir header-octobass help clean tidy format license
 .PHONY: octobir-juce octobir-vcv octobass-juce
 .PHONY: test-octobir test-octobir-core test-octobir-juce test-octobir-vcv
 .PHONY: test-octobass test-octobass-core test-octobass-juce
 
-header:
-	@./scripts/show-header.sh
+header-opc:
+	@./scripts/show-header.sh opc
 
-help: header
+header-octobir:
+	@./scripts/show-header.sh octobir
+
+header-octobass:
+	@./scripts/show-header.sh octobass
+
+help: header-opc
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Build and install:"
@@ -77,7 +83,7 @@ help: header
 # ── OctobIR aggregate ──────────────────────────────────────────
 octobir: octobir-juce octobir-vcv
 
-octobir-juce: header
+octobir-juce: header-octobir
 	@echo "Building and installing OctobIR JUCE plugin (Release)..."
 ifeq ($(UNAME_S),Darwin)
 	@echo "  Target architecture: $(HOST_ARCH)"
@@ -114,7 +120,7 @@ endif
 	@echo "  VST3: ~/Library/Audio/Plug-Ins/VST3/OctobIR.vst3"
 	@echo "  AU:   ~/Library/Audio/Plug-Ins/Components/OctobIR.component"
 
-octobir-vcv: header
+octobir-vcv: header-octobir
 	@cmake --preset dev-octobir-vcv
 	@cmake --build build/dev-octobir-vcv --target vcv-plugin-clean || true
 	@cmake --build build/dev-octobir-vcv --target vcv-plugin -j$(NPROC)
@@ -124,7 +130,7 @@ octobir-vcv: header
 # ── OctoBASS aggregate ─────────────────────────────────────────
 octobass: octobass-juce
 
-octobass-juce: header
+octobass-juce: header-octobass
 	@echo "Building and installing OctoBASS JUCE plugin (Release)..."
 ifeq ($(UNAME_S),Darwin)
 	@echo "  Target architecture: $(HOST_ARCH)"
@@ -162,7 +168,7 @@ endif
 	@echo "  AU:   ~/Library/Audio/Plug-Ins/Components/OctoBASS.component"
 
 # ── Core libraries ─────────────────────────────────────────────
-core: header
+core: header-opc
 	@cmake --preset dev
 	@cmake --build build/dev --target octobir-core octobass-core -j$(NPROC)
 	@echo "Core libraries built"

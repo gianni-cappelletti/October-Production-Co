@@ -1,14 +1,3 @@
-#################################################################
-
-     _____           __           __       ______   ____
-    /\  __`\        /\ \__       /\ \     /\__  _\ /\  _`\
-    \ \ \/\ \    ___\ \ ,_\   ___\ \ \____\/_/\ \/ \ \ \L\ \
-     \ \ \ \ \  /'___\ \ \/  / __`\ \ '__`\  \ \ \  \ \ ,  /
-      \ \ \_\ \/\ \__/\ \ \_/\ \L\ \ \ \L\ \  \_\ \__\ \ \\ \
-       \ \_____\ \____\\ \__\ \____/\ \_,__/  /\_____\\ \_\ \_\
-        \/_____/\/____/ \/__/\/___/  \/___/   \/_____/ \/_/\/ /
-
-#################################################################
 
 OctobIR is a free, open source impulse response loader with static and dynamics driven blending options. Load up two impulse responses (say, a guitar cabinet and a big reverb) and enable dynamic mode. Then the blend between the two IRs will change depending on the dynamics of your source input or a sidechained input. This is an effect I played around with in VCV Rack with a somewhat cumbersome and large patch, but wanted it in a simple all in one plugin that I could use in my DAW as well.
 
