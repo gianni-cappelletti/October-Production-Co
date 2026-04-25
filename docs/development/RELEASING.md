@@ -1,6 +1,6 @@
 ### Creating a Release
 
-Each plugin is released independently. The CI workflow (`.github/workflows/release-juce.yml`) determines which plugin to build based on the git tag prefix.
+A single git tag triggers CI to build and package all plugins. The CI workflow (`.github/workflows/release-juce.yml`) uses a matrix strategy to build both OctobIR and OctoBASS for every release.
 
 #### Version Management
 
@@ -35,19 +35,12 @@ For VCV Rack, run the sync script to update `plugin.json`:
    ```
 
 3. **Create and push a git tag:**
-
-   Tags use per-plugin prefixes so CI knows which plugin to build:
    ```bash
-   # OctobIR release
-   git tag -a octobir-v2.1.0 -m "OctobIR v2.1.0: Brief description of changes"
-   git push origin octobir-v2.1.0
-
-   # OctoBASS release
-   git tag -a octobass-v2.1.0 -m "OctoBASS v2.1.0: Brief description of changes"
-   git push origin octobass-v2.1.0
+   git tag -a v2.1.0 -m "v2.1.0: Brief description of changes"
+   git push origin v2.1.0
    ```
 
-   You can push both tags from the same commit if both plugins are being released together.
+   This single tag triggers builds for all plugins across all platforms.
 
 4. **Automated build triggers:**
     - GitHub Actions automatically builds installers for all platforms:

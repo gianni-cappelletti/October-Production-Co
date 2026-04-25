@@ -1,74 +1,29 @@
-name: Release JUCE Plugin
+name: Release JUCE Plugins
 
 on:
   push:
     tags:
-      - 'octobir-v*'
-      - 'octobass-v*'
+      - 'v*'
   workflow_dispatch:
     inputs:
-      plugin:
-        description: 'Plugin to release'
-        required: true
-        type: choice
-        options:
-          - octobir
-          - octobass
       version:
-        description: 'Version number (e.g., 1.0.0)'
+        description: 'Version number (e.g., 2.0.0)'
         required: true
-        default: '1.0.0'
+        default: '2.0.0'
 
 jobs:
-  resolve-plugin:
-    name: Resolve Plugin
-    runs-on: ubuntu-latest
-    outputs:
-      plugin: ${{ steps.resolve.outputs.plugin }}
-      version: ${{ steps.resolve.outputs.version }}
-      cmake_target: ${{ steps.resolve.outputs.cmake_target }}
-      product_name: ${{ steps.resolve.outputs.product_name }}
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Resolve plugin and version from tag or input
-      id: resolve
-      run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          PLUGIN="${{ inputs.plugin }}"
-          VERSION="${{ inputs.version }}"
-        else
-          TAG="${GITHUB_REF#refs/tags/}"
-          if [[ "$TAG" == octobir-v* ]]; then
-            PLUGIN="octobir"
-            VERSION="${TAG#octobir-v}"
-          elif [[ "$TAG" == octobass-v* ]]; then
-            PLUGIN="octobass"
-            VERSION="${TAG#octobass-v}"
-          else
-            echo "Error: Unknown tag format: $TAG"
-            exit 1
-          fi
-        fi
-
-        if [ "$PLUGIN" = "octobir" ]; then
-          CMAKE_TARGET="OctobIR_All"
-          PRODUCT_NAME="OctobIR"
-        elif [ "$PLUGIN" = "octobass" ]; then
-          CMAKE_TARGET="OctoBASS_All"
-          PRODUCT_NAME="OctoBASS"
-        fi
-
-        echo "plugin=$PLUGIN" >> $GITHUB_OUTPUT
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "cmake_target=$CMAKE_TARGET" >> $GITHUB_OUTPUT
-        echo "product_name=$PRODUCT_NAME" >> $GITHUB_OUTPUT
-
   build-macos:
-    name: Build JUCE Plugin - macOS (universal)
+    name: Build JUCE Plugins - macOS (universal)
     runs-on: macos-14
-    needs: [resolve-plugin]
+    strategy:
+      matrix:
+        plugin:
+          - name: octobir
+            cmake_target: OctobIR_All
+            product_name: OctobIR
+          - name: octobass
+            cmake_target: OctoBASS_All
+            product_name: OctoBASS
     env:
       BUILD_DIR: build/release-macos-universal
 
@@ -84,8 +39,8 @@ jobs:
 
     - name: Build plugin (universal arm64 + x86_64)
       run: |
-        PLUGIN="${{ needs.resolve-plugin.outputs.plugin }}"
-        TARGET="${{ needs.resolve-plugin.outputs.cmake_target }}"
+        PLUGIN="${{ matrix.plugin.name }}"
+        TARGET="${{ matrix.plugin.cmake_target }}"
         UPPER_PLUGIN=$(echo "$PLUGIN" | tr '[:lower:]' '[:upper:]')
         cmake --preset release-macos-universal \
           -DBUILD_${UPPER_PLUGIN}_JUCE=ON \
@@ -95,9 +50,8 @@ jobs:
 
     - name: Verify universal binary
       run: |
-        PLUGIN="${{ needs.resolve-plugin.outputs.plugin }}"
-        PRODUCT="${{ needs.resolve-plugin.outputs.product_name }}"
-        TARGET="${{ needs.resolve-plugin.outputs.cmake_target }}"
+        PLUGIN="${{ matrix.plugin.name }}"
+        PRODUCT="${{ matrix.plugin.product_name }}"
         ARTEFACTS="$BUILD_DIR/plugins/$PLUGIN/juce/${PRODUCT}_artefacts/Release"
 
         echo "Checking VST3..."
@@ -116,7 +70,7 @@ jobs:
       env:
         SIGNING_IDENTITY: "-"
       run: |
-        PLUGIN="${{ needs.resolve-plugin.outputs.plugin }}"
+        PLUGIN="${{ matrix.plugin.name }}"
         if [ -f "installers/$PLUGIN/macos/build-pkg.sh" ]; then
           chmod +x "installers/$PLUGIN/macos/build-pkg.sh"
           "./installers/$PLUGIN/macos/build-pkg.sh"
@@ -127,13 +81,21 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: juce-plugin-macos-installer
-        path: dist/${{ needs.resolve-plugin.outputs.product_name }}-*-macOS.dmg
+        name: ${{ matrix.plugin.product_name }}-macos-installer
+        path: dist/${{ matrix.plugin.product_name }}-*-macOS.dmg
 
   build-windows:
-    name: Build JUCE Plugin - Windows
+    name: Build JUCE Plugins - Windows
     runs-on: windows-latest
-    needs: [resolve-plugin]
+    strategy:
+      matrix:
+        plugin:
+          - name: octobir
+            cmake_target: OctobIR_All
+            product_name: OctobIR
+          - name: octobass
+            cmake_target: OctoBASS_All
+            product_name: OctoBASS
 
     steps:
     - name: Checkout code
@@ -150,8 +112,8 @@ jobs:
     - name: Build plugin
       shell: bash
       run: |
-        PLUGIN="${{ needs.resolve-plugin.outputs.plugin }}"
-        TARGET="${{ needs.resolve-plugin.outputs.cmake_target }}"
+        PLUGIN="${{ matrix.plugin.name }}"
+        TARGET="${{ matrix.plugin.cmake_target }}"
         UPPER_PLUGIN=$(echo "$PLUGIN" | tr '[:lower:]' '[:upper:]')
         cmake --preset release \
           -DBUILD_${UPPER_PLUGIN}_JUCE=ON \
@@ -169,8 +131,8 @@ jobs:
     - name: Build installer
       shell: bash
       run: |
-        PLUGIN="${{ needs.resolve-plugin.outputs.plugin }}"
-        PRODUCT="${{ needs.resolve-plugin.outputs.product_name }}"
+        PLUGIN="${{ matrix.plugin.name }}"
+        PRODUCT="${{ matrix.plugin.product_name }}"
         if [ -f "installers/$PLUGIN/windows/$PRODUCT.iss" ]; then
           iscc "installers/$PLUGIN/windows/$PRODUCT.iss"
         else
@@ -180,13 +142,21 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: juce-plugin-windows-installer
-        path: dist/${{ needs.resolve-plugin.outputs.product_name }}-*-Windows.exe
+        name: ${{ matrix.plugin.product_name }}-windows-installer
+        path: dist/${{ matrix.plugin.product_name }}-*-Windows.exe
 
   build-linux:
-    name: Build JUCE Plugin - Linux
+    name: Build JUCE Plugins - Linux
     runs-on: ubuntu-latest
-    needs: [resolve-plugin]
+    strategy:
+      matrix:
+        plugin:
+          - name: octobir
+            cmake_target: OctobIR_All
+            product_name: OctobIR
+          - name: octobass
+            cmake_target: OctoBASS_All
+            product_name: OctoBASS
 
     steps:
     - name: Checkout code
@@ -218,8 +188,8 @@ jobs:
 
     - name: Build plugin
       run: |
-        PLUGIN="${{ needs.resolve-plugin.outputs.plugin }}"
-        TARGET="${{ needs.resolve-plugin.outputs.cmake_target }}"
+        PLUGIN="${{ matrix.plugin.name }}"
+        TARGET="${{ matrix.plugin.cmake_target }}"
         UPPER_PLUGIN=$(echo "$PLUGIN" | tr '[:lower:]' '[:upper:]')
         cmake --preset release \
           -DBUILD_${UPPER_PLUGIN}_JUCE=ON \
@@ -229,8 +199,8 @@ jobs:
 
     - name: Create package directory
       run: |
-        PLUGIN="${{ needs.resolve-plugin.outputs.plugin }}"
-        PRODUCT="${{ needs.resolve-plugin.outputs.product_name }}"
+        PLUGIN="${{ matrix.plugin.name }}"
+        PRODUCT="${{ matrix.plugin.product_name }}"
 
         mkdir -p "package/$PRODUCT"
 
@@ -248,19 +218,19 @@ jobs:
 
     - name: Create tarball
       run: |
-        PRODUCT="${{ needs.resolve-plugin.outputs.product_name }}"
+        PRODUCT="${{ matrix.plugin.product_name }}"
         cd package
         tar -czf "../${PRODUCT}-Linux.tar.gz" "$PRODUCT"
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: juce-plugin-linux
-        path: ${{ needs.resolve-plugin.outputs.product_name }}-Linux.tar.gz
+        name: ${{ matrix.plugin.product_name }}-linux
+        path: ${{ matrix.plugin.product_name }}-Linux.tar.gz
 
   release:
     name: Create GitHub Release
-    needs: [resolve-plugin, build-macos, build-windows, build-linux]
+    needs: [build-macos, build-windows, build-linux]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
@@ -277,9 +247,9 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          artifacts/juce-plugin-macos-installer/*.dmg
-          artifacts/juce-plugin-windows-installer/*.exe
-          artifacts/juce-plugin-linux/*.tar.gz
+          artifacts/**/*.dmg
+          artifacts/**/*.exe
+          artifacts/**/*.tar.gz
         draft: true
         generate_release_notes: true
       env:
