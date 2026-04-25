@@ -17,7 +17,7 @@ Hey there! Welcome to the repo. There are two plugins in here at the moment: Oct
 
 ### Option 1: Pre-built Installers (Recommended)
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/gianni-cappelletti/October-Production-Co./releases).
+Download the latest release for your platform from [GitHub Releases](https://github.com/gianni-cappelletti/October-Production-Co/releases).
 
 **macOS**
 1. Download `OctobIR-macOS.dmg` and/or `OctoBASS-macOS.dmg`
@@ -47,8 +47,8 @@ Download the latest release for your platform from [GitHub Releases](https://git
 
 ```bash
 # Clone with submodules
-git clone --recursive https://github.com/gianni-cappelletti/October-Production-Co..git
-cd October-Production-Co.
+git clone --recursive https://github.com/gianni-cappelletti/October-Production-Co.git
+cd October-Production-Co
 
 # Or if already cloned
 git submodule update --init --recursive
