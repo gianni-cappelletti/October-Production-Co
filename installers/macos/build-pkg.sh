@@ -39,6 +39,7 @@ build_component() {
         pkgbuild --root "$root" \
             --identifier "$ident" \
             --version "$VERSION" \
+            --ownership recommended \
             --scripts "$SCRIPT_DIR/scripts" \
             --install-location "$dest" \
             $SIGN_ARGS \
