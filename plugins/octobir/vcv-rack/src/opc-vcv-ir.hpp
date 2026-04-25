@@ -83,6 +83,8 @@ struct OpcVcvIr final : Module
   mutable std::mutex path_mutex_;
   bool sidechainConnTracked_ = false;
   bool prevSidechainConnected_ = false;
+  bool blendCvConnTracked_ = false;
+  bool prevBlendCvConnected_ = false;
 
  public:
   OpcVcvIr()
@@ -240,6 +242,26 @@ struct OpcVcvIr final : Module
       }
     }
     prevSidechainConnected_ = scConnected;
+
+    // Mirror of the sidechain auto-enable: a Blend CV cable expresses the user's
+    // intent to drive blend manually, so on the rising edge we auto-disable the
+    // dynamic mode button. Seeded on the first tick to avoid clobbering saved patches.
+    const bool blendCvConnected = inputs[static_cast<int>(InputId::BlendCvIn)].isConnected();
+    if (!blendCvConnTracked_)
+    {
+      prevBlendCvConnected_ = blendCvConnected;
+      blendCvConnTracked_ = true;
+    }
+    else if (blendCvConnected && !prevBlendCvConnected_)
+    {
+      auto& dynParam = params[static_cast<int>(ParamId::DynamicModeParam)];
+      if (dynParam.getValue() > 0.5f)
+      {
+        dynParam.setValue(0.f);
+        INFO("Blend CV input connected; auto-disabling dynamic mode button");
+      }
+    }
+    prevBlendCvConnected_ = blendCvConnected;
 
     bool sidechainEnabled =
         params[static_cast<int>(ParamId::SidechainEnableParam)].getValue() > 0.5f;

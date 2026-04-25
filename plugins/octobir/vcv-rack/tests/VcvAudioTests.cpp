@@ -851,6 +851,62 @@ TEST_F(VcvAudioTest, SCConnected_FirstConnection_AutoEnablesSidechainButton)
       << "Connecting an SC cable should auto-enable the sidechain button";
 }
 
+TEST_F(VcvAudioTest, BlendCvConnected_FirstConnection_AutoDisablesDynamicMode)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+  module.loadIR(kIrAPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(1.f);
+
+  const int blendCvIn = static_cast<int>(OpcVcvIr::InputId::BlendCvIn);
+
+  // Tick once with Blend CV disconnected so the rising-edge tracker has a clean baseline.
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.inputs[static_cast<size_t>(blendCvIn)].connected = false;
+  module.process(args);
+
+  // Patch in the Blend CV cable: the dynamic mode button should auto-disable.
+  module.inputs[static_cast<size_t>(blendCvIn)].connected = true;
+  module.process(args);
+
+  EXPECT_LT(module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].getValue(),
+            0.5f)
+      << "Connecting a Blend CV cable should auto-disable the dynamic mode button";
+}
+
+TEST_F(VcvAudioTest, BlendCvConnected_UserTurnsDynamicBackOn_RemainsOn)
+{
+  OpcVcvIr module;
+  SampleRateChangeEvent sr{kSampleRate};
+  module.onSampleRateChange(sr);
+  module.loadIR(kIrAPath);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::IrAEnableParam)].setValue(1.f);
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(1.f);
+
+  const int blendCvIn = static_cast<int>(OpcVcvIr::InputId::BlendCvIn);
+
+  // First connection auto-disables the dynamic mode button (rising edge).
+  ProcessArgs args{kSampleRate, 1.f / kSampleRate};
+  module.inputs[static_cast<size_t>(blendCvIn)].connected = false;
+  module.process(args);
+  module.inputs[static_cast<size_t>(blendCvIn)].connected = true;
+  module.process(args);
+  ASSERT_LT(module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].getValue(),
+            0.5f);
+
+  // User re-enables dynamic mode. With the cable still connected (no new rising
+  // edge), the button must remain on across subsequent ticks.
+  module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].setValue(1.f);
+  module.process(args);
+  module.process(args);
+
+  EXPECT_GT(module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].getValue(),
+            0.5f)
+      << "User-re-enabled dynamic mode should not be re-disabled while Blend CV stays connected";
+}
+
 TEST_F(VcvAudioTest, SCConnected_UserTurnsButtonOff_RemainsOff)
 {
   OpcVcvIr module;
