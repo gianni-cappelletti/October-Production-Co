@@ -871,8 +871,7 @@ TEST_F(VcvAudioTest, BlendCvConnected_FirstConnection_AutoDisablesDynamicMode)
   module.inputs[static_cast<size_t>(blendCvIn)].connected = true;
   module.process(args);
 
-  EXPECT_LT(module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].getValue(),
-            0.5f)
+  EXPECT_LT(module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].getValue(), 0.5f)
       << "Connecting a Blend CV cable should auto-disable the dynamic mode button";
 }
 
@@ -893,8 +892,7 @@ TEST_F(VcvAudioTest, BlendCvConnected_UserTurnsDynamicBackOn_RemainsOn)
   module.process(args);
   module.inputs[static_cast<size_t>(blendCvIn)].connected = true;
   module.process(args);
-  ASSERT_LT(module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].getValue(),
-            0.5f);
+  ASSERT_LT(module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].getValue(), 0.5f);
 
   // User re-enables dynamic mode. With the cable still connected (no new rising
   // edge), the button must remain on across subsequent ticks.
@@ -902,8 +900,7 @@ TEST_F(VcvAudioTest, BlendCvConnected_UserTurnsDynamicBackOn_RemainsOn)
   module.process(args);
   module.process(args);
 
-  EXPECT_GT(module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].getValue(),
-            0.5f)
+  EXPECT_GT(module.params[static_cast<int>(OpcVcvIr::ParamId::DynamicModeParam)].getValue(), 0.5f)
       << "User-re-enabled dynamic mode should not be re-disabled while Blend CV stays connected";
 }
 

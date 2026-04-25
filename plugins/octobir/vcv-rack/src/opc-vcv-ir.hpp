@@ -317,15 +317,15 @@ struct OpcVcvIr final : Module
 
     if (dynamicMode && sidechainEnabled && scConnected)
     {
-      float sc = inputs[static_cast<int>(InputId::SidechainIn)].getVoltage()
-                 * kVcvAudioToNormalized;
+      float sc =
+          inputs[static_cast<int>(InputId::SidechainIn)].getVoltage() * kVcvAudioToNormalized;
 
       if (leftConnected && rightConnected)
       {
-        float inputL = inputs[static_cast<int>(InputId::AudioInL)].getVoltage()
-                       * kVcvAudioToNormalized;
-        float inputR = inputs[static_cast<int>(InputId::AudioInR)].getVoltage()
-                       * kVcvAudioToNormalized;
+        float inputL =
+            inputs[static_cast<int>(InputId::AudioInL)].getVoltage() * kVcvAudioToNormalized;
+        float inputR =
+            inputs[static_cast<int>(InputId::AudioInR)].getVoltage() * kVcvAudioToNormalized;
         float outputL = 0.0f;
         float outputR = 0.0f;
         irProcessor_.processStereoWithSidechain(&inputL, &inputR, &sc, &sc, &outputL, &outputR, 1);
@@ -334,8 +334,8 @@ struct OpcVcvIr final : Module
       }
       else if (leftConnected)
       {
-        float input = inputs[static_cast<int>(InputId::AudioInL)].getVoltage()
-                      * kVcvAudioToNormalized;
+        float input =
+            inputs[static_cast<int>(InputId::AudioInL)].getVoltage() * kVcvAudioToNormalized;
         float outputL = 0.0f;
         float outputR = 0.0f;
         irProcessor_.processMonoToStereoWithSidechain(&input, &sc, &outputL, &outputR, 1);
@@ -344,8 +344,8 @@ struct OpcVcvIr final : Module
       }
       else if (rightConnected)
       {
-        float input = inputs[static_cast<int>(InputId::AudioInR)].getVoltage()
-                      * kVcvAudioToNormalized;
+        float input =
+            inputs[static_cast<int>(InputId::AudioInR)].getVoltage() * kVcvAudioToNormalized;
         float outputL = 0.0f;
         float outputR = 0.0f;
         irProcessor_.processMonoToStereoWithSidechain(&input, &sc, &outputL, &outputR, 1);
@@ -362,10 +362,10 @@ struct OpcVcvIr final : Module
     {
       if (leftConnected && rightConnected)
       {
-        float inputL = inputs[static_cast<int>(InputId::AudioInL)].getVoltage()
-                       * kVcvAudioToNormalized;
-        float inputR = inputs[static_cast<int>(InputId::AudioInR)].getVoltage()
-                       * kVcvAudioToNormalized;
+        float inputL =
+            inputs[static_cast<int>(InputId::AudioInL)].getVoltage() * kVcvAudioToNormalized;
+        float inputR =
+            inputs[static_cast<int>(InputId::AudioInR)].getVoltage() * kVcvAudioToNormalized;
         float outputL = 0.0f;
         float outputR = 0.0f;
         irProcessor_.processStereo(&inputL, &inputR, &outputL, &outputR, 1);
@@ -374,8 +374,8 @@ struct OpcVcvIr final : Module
       }
       else if (leftConnected)
       {
-        float input = inputs[static_cast<int>(InputId::AudioInL)].getVoltage()
-                      * kVcvAudioToNormalized;
+        float input =
+            inputs[static_cast<int>(InputId::AudioInL)].getVoltage() * kVcvAudioToNormalized;
         float outputL = 0.0f;
         float outputR = 0.0f;
         irProcessor_.processMonoToStereo(&input, &outputL, &outputR, 1);
@@ -384,8 +384,8 @@ struct OpcVcvIr final : Module
       }
       else if (rightConnected)
       {
-        float input = inputs[static_cast<int>(InputId::AudioInR)].getVoltage()
-                      * kVcvAudioToNormalized;
+        float input =
+            inputs[static_cast<int>(InputId::AudioInR)].getVoltage() * kVcvAudioToNormalized;
         float outputL = 0.0f;
         float outputR = 0.0f;
         irProcessor_.processMonoToStereo(&input, &outputL, &outputR, 1);
