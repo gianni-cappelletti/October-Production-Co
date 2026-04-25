@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="1">
+    <title>October Production Co. Plugins</title>
+    <organization>com.octoberprod</organization>
+    <domains enable_localSystem="true"/>
+    <options customize="always" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+
+    <welcome file="welcome.html" mime-type="text/html"/>
+    <license file="LICENSE"/>
+
+    <choices-outline>
+        <line choice="octobass-au"/>
+        <line choice="octobass-vst3"/>
+        <line choice="octobir-au"/>
+        <line choice="octobir-vst3"/>
+    </choices-outline>
+
+    <choice id="octobass-au" title="OctoBASS - Audio Unit" selected="true"
+            description="Install the OctoBASS AU plugin for Logic Pro, GarageBand, etc.">
+        <pkg-ref id="com.octoberprod.octobass.au"/>
+    </choice>
+
+    <choice id="octobass-vst3" title="OctoBASS - VST3" selected="true"
+            description="Install the OctoBASS VST3 plugin for most DAWs">
+        <pkg-ref id="com.octoberprod.octobass.vst3"/>
+    </choice>
+
+    <choice id="octobir-au" title="OctobIR - Audio Unit" selected="true"
+            description="Install the OctobIR AU plugin for Logic Pro, GarageBand, etc.">
+        <pkg-ref id="com.octoberprod.octobir.au"/>
+    </choice>
+
+    <choice id="octobir-vst3" title="OctobIR - VST3" selected="true"
+            description="Install the OctobIR VST3 plugin for most DAWs">
+        <pkg-ref id="com.octoberprod.octobir.vst3"/>
+    </choice>
+
+    <pkg-ref id="com.octoberprod.octobass.au"   version="{VERSION}">OctoBASS-AU.pkg</pkg-ref>
+    <pkg-ref id="com.octoberprod.octobass.vst3" version="{VERSION}">OctoBASS-VST3.pkg</pkg-ref>
+    <pkg-ref id="com.octoberprod.octobir.au"    version="{VERSION}">OctobIR-AU.pkg</pkg-ref>
+    <pkg-ref id="com.octoberprod.octobir.vst3"  version="{VERSION}">OctobIR-VST3.pkg</pkg-ref>
+</installer-gui-script>

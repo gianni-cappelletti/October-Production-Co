@@ -45,7 +45,7 @@ jobs:
           fi
           echo "Resolved version: $VERSION"
 
-  build-macos:
+  build-macos-plugins:
     name: Build JUCE Plugins - macOS (universal)
     runs-on: macos-14
     needs: [resolve-version]
@@ -69,8 +69,7 @@ jobs:
         submodules: recursive
 
     - name: Install dependencies
-      run: |
-        brew install cmake ninja
+      run: brew install cmake ninja
 
     - name: Build plugin (universal arm64 + x86_64)
       run: |
@@ -101,25 +100,50 @@ jobs:
 
         echo "Universal binary verification passed"
 
-    - name: Build installer
+    - name: Upload build artefacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.plugin.name }}-macos-build
+        path: ${{ env.BUILD_DIR }}/plugins/${{ matrix.plugin.name }}/juce/${{ matrix.plugin.product_name }}_artefacts/Release/
+
+  package-macos-installer:
+    name: Package macOS Installer (OctoberPluginsSuite)
+    runs-on: macos-14
+    needs: [resolve-version, build-macos-plugins]
+    env:
+      BUILD_DIR: build/release-macos-universal
+      RELEASE_VERSION: ${{ needs.resolve-version.outputs.version }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download OctoBASS build
+      uses: actions/download-artifact@v4
+      with:
+        name: octobass-macos-build
+        path: ${{ env.BUILD_DIR }}/plugins/octobass/juce/OctoBASS_artefacts/Release
+
+    - name: Download OctobIR build
+      uses: actions/download-artifact@v4
+      with:
+        name: octobir-macos-build
+        path: ${{ env.BUILD_DIR }}/plugins/octobir/juce/OctobIR_artefacts/Release
+
+    - name: Build unified installer
       env:
         SIGNING_IDENTITY: "-"
       run: |
-        PLUGIN="${{ matrix.plugin.name }}"
-        if [ -f "installers/$PLUGIN/macos/build-pkg.sh" ]; then
-          chmod +x "installers/$PLUGIN/macos/build-pkg.sh"
-          "./installers/$PLUGIN/macos/build-pkg.sh"
-        else
-          echo "No macOS installer script for $PLUGIN"
-        fi
+        chmod +x installers/macos/build-pkg.sh
+        ./installers/macos/build-pkg.sh
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.plugin.product_name }}-macos-installer
-        path: dist/${{ matrix.plugin.product_name }}-*-macOS.dmg
+        name: OctoberPluginsSuite-macos-installer
+        path: dist/OctoberPluginsSuite-*-macOS.dmg
 
-  build-windows:
+  build-windows-plugins:
     name: Build JUCE Plugins - Windows
     runs-on: windows-latest
     needs: [resolve-version]
@@ -159,31 +183,56 @@ jobs:
           -G "Visual Studio 17 2022" -A x64
         cmake --build build/release --config Release -j
 
+    - name: Upload build artefacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.plugin.name }}-windows-build
+        path: build/release/plugins/${{ matrix.plugin.name }}/juce/${{ matrix.plugin.product_name }}_artefacts/Release/
+
+  package-windows-installer:
+    name: Package Windows Installer (OctoberPluginsSuite)
+    runs-on: windows-latest
+    needs: [resolve-version, build-windows-plugins]
+    env:
+      RELEASE_VERSION: ${{ needs.resolve-version.outputs.version }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download OctoBASS build
+      uses: actions/download-artifact@v4
+      with:
+        name: octobass-windows-build
+        path: build/release/plugins/octobass/juce/OctoBASS_artefacts/Release
+
+    - name: Download OctobIR build
+      uses: actions/download-artifact@v4
+      with:
+        name: octobir-windows-build
+        path: build/release/plugins/octobir/juce/OctobIR_artefacts/Release
+
     - name: Install Inno Setup
       run: choco install innosetup -y
 
     - name: Create dist directory
-      shell: bash
-      run: mkdir -p dist
+      shell: pwsh
+      run: New-Item -ItemType Directory -Force -Path dist | Out-Null
 
-    - name: Build installer
-      shell: bash
+    # Use pwsh (not bash) so MSYS does not mangle the leading-slash /D argument
+    # passed to native iscc.exe. See plan file for full rationale.
+    - name: Build unified installer
+      shell: pwsh
       run: |
-        PLUGIN="${{ matrix.plugin.name }}"
-        PRODUCT="${{ matrix.plugin.product_name }}"
-        if [ -f "installers/$PLUGIN/windows/$PRODUCT.iss" ]; then
-          iscc "/DAppVersion=$RELEASE_VERSION" "installers/$PLUGIN/windows/$PRODUCT.iss"
-        else
-          echo "No Windows installer script for $PLUGIN"
-        fi
+        iscc "/DAppVersion=$env:RELEASE_VERSION" installers/windows/OctoberPluginsSuite.iss
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.plugin.product_name }}-windows-installer
-        path: dist/${{ matrix.plugin.product_name }}-*-Windows.exe
+        name: OctoberPluginsSuite-windows-installer
+        path: dist/OctoberPluginsSuite-*-Windows.exe
 
-  build-linux:
+  build-linux-plugins:
     name: Build JUCE Plugins - Linux
     runs-on: ubuntu-latest
     needs: [resolve-version]
@@ -238,40 +287,71 @@ jobs:
           -G Ninja
         cmake --build build/release --target "$TARGET" --config Release -j
 
-    - name: Create package directory
+    - name: Upload build artefacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.plugin.name }}-linux-build
+        path: build/release/plugins/${{ matrix.plugin.name }}/juce/${{ matrix.plugin.product_name }}_artefacts/Release/
+
+  package-linux-installer:
+    name: Package Linux Tarball (OctoberPluginsSuite)
+    runs-on: ubuntu-latest
+    needs: [resolve-version, build-linux-plugins]
+    env:
+      RELEASE_VERSION: ${{ needs.resolve-version.outputs.version }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download OctoBASS build
+      uses: actions/download-artifact@v4
+      with:
+        name: octobass-linux-build
+        path: build/release/plugins/octobass/juce/OctoBASS_artefacts/Release
+
+    - name: Download OctobIR build
+      uses: actions/download-artifact@v4
+      with:
+        name: octobir-linux-build
+        path: build/release/plugins/octobir/juce/OctobIR_artefacts/Release
+
+    - name: Assemble tarball
       run: |
-        PLUGIN="${{ matrix.plugin.name }}"
-        PRODUCT="${{ matrix.plugin.product_name }}"
+        STAGE="package/OctoberPluginsSuite"
+        mkdir -p "$STAGE"
 
-        mkdir -p "package/$PRODUCT"
+        OCTOBASS_VST3="build/release/plugins/octobass/juce/OctoBASS_artefacts/Release/VST3/OctoBASS.vst3"
+        OCTOBIR_VST3="build/release/plugins/octobir/juce/OctobIR_artefacts/Release/VST3/OctobIR.vst3"
 
-        if [ -d "build/release/plugins/$PLUGIN/juce/${PRODUCT}_artefacts/Release/VST3/$PRODUCT.vst3" ]; then
-          cp -r "build/release/plugins/$PLUGIN/juce/${PRODUCT}_artefacts/Release/VST3/$PRODUCT.vst3" "package/$PRODUCT/"
+        if [ -d "$OCTOBASS_VST3" ]; then
+          cp -r "$OCTOBASS_VST3" "$STAGE/"
+        else
+          echo "Warning: OctoBASS.vst3 missing"
         fi
 
-        cp LICENSE "package/$PRODUCT/"
-        cp README.md "package/$PRODUCT/"
-
-        if [ -f "installers/$PLUGIN/linux/install.sh" ]; then
-          cp "installers/$PLUGIN/linux/install.sh" "package/$PRODUCT/"
-          chmod +x "package/$PRODUCT/install.sh"
+        if [ -d "$OCTOBIR_VST3" ]; then
+          cp -r "$OCTOBIR_VST3" "$STAGE/"
+        else
+          echo "Warning: OctobIR.vst3 missing"
         fi
 
-    - name: Create tarball
-      run: |
-        PRODUCT="${{ matrix.plugin.product_name }}"
-        cd package
-        tar -czf "../${PRODUCT}-${RELEASE_VERSION}-Linux.tar.gz" "$PRODUCT"
+        cp LICENSE README.md "$STAGE/"
+        cp installers/linux/install.sh "$STAGE/"
+        chmod +x "$STAGE/install.sh"
+
+        mkdir -p dist
+        tar -czf "dist/OctoberPluginsSuite-${RELEASE_VERSION}-Linux.tar.gz" -C package OctoberPluginsSuite
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.plugin.product_name }}-linux
-        path: ${{ matrix.plugin.product_name }}-*-Linux.tar.gz
+        name: OctoberPluginsSuite-linux
+        path: dist/OctoberPluginsSuite-*-Linux.tar.gz
 
   release:
     name: Create GitHub Release
-    needs: [resolve-version, build-macos, build-windows, build-linux]
+    needs: [resolve-version, package-macos-installer, package-windows-installer, package-linux-installer]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
