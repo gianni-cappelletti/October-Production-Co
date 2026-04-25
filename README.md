@@ -22,9 +22,9 @@ Download the latest release for your platform from [GitHub Releases](https://git
 **macOS**
 1. Download `OctobIR-macOS.dmg` and/or `OctoBASS-macOS.dmg`
 2. Open the DMG and run the installer
-3. Select components to install (VST3, AU)
-4. Apple will try and block it as untrusted, as I am not going to pay them $99 a year for package signing rights on a FOSS project at this stage.
-5. Go to System settings and allow the install anyway to complete setup
+3. Apple will try and block it as untrusted, as I am not going to pay them $99 a year for package signing rights on a FOSS project at this stage.
+4. Go to System settings and allow the install anyway to complete setup
+5. Select components to install (VST3, AU)
 
 **Windows**
 1. Download `OctobIR-Windows.exe` and/or `OctoBASS-Windows.exe`
