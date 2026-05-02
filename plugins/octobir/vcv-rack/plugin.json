@@ -6,23 +6,21 @@
   "brand": "October Production Co.",
   "author": "Gianni Cappelletti",
   "authorEmail": "gianni@octoberproductionco.com",
-  "authorUrl": "",
-  "pluginUrl": "",
-  "manualUrl": "",
+  "pluginUrl": "https://github.com/gianni-cappelletti/October-Production-Co",
+  "manualUrl": "https://github.com/gianni-cappelletti/October-Production-Co/tree/main/plugins/octobir/vcv-rack",
   "sourceUrl": "https://github.com/gianni-cappelletti/October-Production-Co",
-  "donateUrl": "",
-  "changelogUrl": "",
+  "donateUrl": "https://github.com/sponsors/gianni-cappelletti",
+  "changelogUrl": "https://github.com/gianni-cappelletti/October-Production-Co/releases",
   "modules": [
     {
       "slug": "OPC-OctobIR",
       "name": "OctobIR",
       "description": "Impulse response loader with static and dynamic blending options",
       "tags": [
-        "physical modeling",
-        "sampler",
-        "effect",
-        "dynamics",
-        "reverb"
+        "Effect",
+        "Reverb",
+        "Filter",
+        "Envelope follower"
       ]
     }
   ]
