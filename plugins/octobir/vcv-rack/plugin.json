@@ -1,5 +1,5 @@
 {
-  "slug": "opc-octobir",
+  "slug": "OPC-OctobIR",
   "name": "OctobIR",
   "version": "2.0.0",
   "license": "GPL-3.0-or-later",
@@ -14,7 +14,7 @@
   "changelogUrl": "",
   "modules": [
     {
-      "slug": "opc-octobir",
+      "slug": "OPC-OctobIR",
       "name": "OctobIR",
       "description": "Impulse response loader with static and dynamic blending options",
       "tags": [
