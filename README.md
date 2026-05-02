@@ -96,35 +96,8 @@ As a software engineer and a musician, I've spent a lot of time thinking about g
 
 ## License
 
-**All software in this repository is licensed under GPL-3.0 (GNU General Public License v3.0)**
+GPL-3.0. Brand assets and the "Art and Craft" essay have separate terms. Per-file license declarations follow the [REUSE specification](https://reuse.software).
 
-This applies to all software components:
-- Core libraries (`libs/octobir-core/`, `libs/octobass-core/`)
-- Shared UI library (`libs/juce-ui-shared/`)
-- OctobIR JUCE plugin (VST3/AU)
-- OctobIR VCV Rack plugin
-- OctoBASS JUCE plugin (VST3/AU)
+Built on JUCE, WDL, pffft, dr_wav, NeuralAmpModelerCore, Eigen, nlohmann/json, and the VCV Rack SDK -- see notices for licenses.
 
-The following non-software content is under separate licenses:
-- **Brand assets** (October Production Co. name and logo) -- Proprietary trademark, not GPL. See `docs/legal/TRADEMARK.md`.
-- **"Art and Craft" essay** (`docs/ART_AND_CRAFT.txt`) -- CC BY-ND 4.0. Share with attribution, no modifications.
-
-Per-file license declarations follow the [REUSE specification](https://reuse.software). See `REUSE.toml` and `LICENSES/` for details.
-
-See `LICENSE` for the full GPL text and `docs/legal/LICENSING.md` for detailed licensing information.
-
-## Third-Party Components
-
-- **JUCE** - Audio plugin framework (VST3/AU) - GPL-3.0
-- **WDL** - DSP algorithms: convolution engine, FFT, resampling - zlib-style license
-  - Source: https://github.com/justinfrankel/WDL (official Cockos repository)
-- **pffft** - Fast Fourier Transform - BSD-style license
-  - Source: https://github.com/marton78/pffft
-- **dr_wav** - WAV file loading (header-only) - Public Domain
-- **NeuralAmpModelerCore** - Neural amp modeling (OctoBASS) - MIT
-  - Source: https://github.com/sdatkinson/NeuralAmpModelerCore
-- **Eigen** - Linear algebra (used by NeuralAmpModelerCore) - MPL-2.0
-- **nlohmann/json** - JSON parsing (used by NeuralAmpModelerCore) - MIT
-- **VCV Rack SDK** - VCV Rack plugin API - GPL-3.0+
-
-See `docs/legal/LICENSING.md` and `docs/legal/THIRD_PARTY_NOTICES.txt` for detailed information.
+See [`LICENSE`](LICENSE), [`docs/legal/LICENSING.md`](docs/legal/LICENSING.md), [`docs/legal/THIRD_PARTY_NOTICES.txt`](docs/legal/THIRD_PARTY_NOTICES.txt), and [`docs/legal/TRADEMARK.md`](docs/legal/TRADEMARK.md) for full details and third-party attributions.
