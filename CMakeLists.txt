@@ -12,6 +12,15 @@ project(OPC-Monorepo VERSION ${OPC_VERSION_NUMERIC})
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# WDL (third_party) static-asserts that `char` is signed. On ARM-family targets
+# the platform ABI makes `char` unsigned by default with GCC/Clang, which trips
+# the assertion. Force signed `char` everywhere so x86 and ARM agree; this is a
+# no-op on x86 where signed is already the default. MSVC also defaults to
+# signed char, so this only needs to be set for GCC/Clang.
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-fsigned-char)
+endif()
+
 # Make version available to subprojects (numeric for CMake, full for display/packaging)
 set(OPC_VERSION_FULL "${OPC_VERSION_FULL}" CACHE STRING "Full version string" FORCE)
 set(OCTOBIR_VERSION ${OPC_VERSION_NUMERIC} CACHE STRING "OctobIR version (numeric)" FORCE)
