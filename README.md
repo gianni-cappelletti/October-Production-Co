@@ -6,24 +6,18 @@ Hey there! Welcome to the repo. There are two plugins in here at the moment: Oct
 - OctobIR is a dual impulse response loader with static and dynamic blending modes. Load up two different guitar cabs and blend between them statically, based on the guitar input volume, or even based on an external sidechain! 
 - OctoBASS seeks to be an all-in-one bass plugin, akin to modern metal bass splitting plugins that have compression for the low end and distortion for the high end. Set the crossover frequency, compress the low end to sit well in a mix, and apply a NAM capture to the high band for an infinite amount of distortion options. It's intended to be a free open source alternative to modern bass plugins like Neural DSP's Parallax. 
 
-## Demos
-
 ### OctobIR
-
 ![OctobIR](docs/media/octobir_ui.png)
 
 ### OctoBASS
-
 ![OctoBASS](docs/media/octobass_ui.png)
 
-Hear it in action -- raw bass DI, then the same DI processed by OctoBASS:
+Hear it in action! Raw bass DI, then the same DI processed by OctoBASS:
 
 **Raw DI**
-
 https://github.com/user-attachments/assets/dc8d3316-7a73-4e9f-92c5-e41b4101d1a1
 
 **Processed**
-
 https://github.com/user-attachments/assets/55826a40-47cb-4395-9ee8-78e17190db8d
 
 ## Supported Platforms
