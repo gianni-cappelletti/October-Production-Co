@@ -75,6 +75,12 @@ path = "tests/data/**"
 SPDX-FileCopyrightText = "2024-2026 October Production Co."
 SPDX-License-Identifier = "GPL-3.0-only"
 
+# README media (UI screenshots and demo assets)
+[[annotations]]
+path = "docs/media/**"
+SPDX-FileCopyrightText = "2024-2026 October Production Co."
+SPDX-License-Identifier = "GPL-3.0-only"
+
 # Brand assets (proprietary trademark)
 [[annotations]]
 path = [
