@@ -12,6 +12,15 @@ Hey there! Welcome to the repo. There are two plugins in here at the moment: Oct
 ### OctoBASS
 ![OctoBASS](docs/media/octobass_ui.png)
 
+### Included Tones
+
+The [`tones/`](tones) directory ships a starter pack of impulse responses and NAM captures for use with OctobIR and OctoBASS:
+
+- **Impulse responses** (`tones/impulse_responses/`): SM57-mic'd captures of two cabinets -- "Gray Wolf" and "Silver Wolf" -- in both straight-on and angled mic positions, with multiple takes per position.
+- **NAM captures** (`tones/nam_captures/`): Boss HM-2 and VHD distortion captures voiced for OctoBASS's high-band distortion stage.
+
+These assets are GPL-3.0-licensed alongside the rest of the project -- drop them into OctobIR's IR slots or OctoBASS's NAM loader to get started.
+
 Hear it in action! Raw bass DI, then the same DI processed by OctoBASS:
 
 **Raw DI**

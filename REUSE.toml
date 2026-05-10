@@ -81,6 +81,15 @@ path = "docs/media/**"
 SPDX-FileCopyrightText = "2024-2026 October Production Co."
 SPDX-License-Identifier = "GPL-3.0-only"
 
+# Bundled tones (impulse responses and NAM captures)
+[[annotations]]
+path = [
+    "tones/impulse_responses/**",
+    "tones/nam_captures/**",
+]
+SPDX-FileCopyrightText = "2024-2026 October Production Co."
+SPDX-License-Identifier = "GPL-3.0-only"
+
 # Brand assets (proprietary trademark)
 [[annotations]]
 path = [
