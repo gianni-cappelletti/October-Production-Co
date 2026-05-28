@@ -41,6 +41,7 @@ class OctobIRProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
   void clearImpulseResponse1();
   void clearImpulseResponse2();
   void swapImpulseResponses();
+  bool exportBlendedIR(const juce::File& destinationFile, juce::String& errorMessage);
   juce::String getCurrentIR1Path() const { return currentIR1Path_; }
   juce::String getCurrentIR2Path() const { return currentIR2Path_; }
 

@@ -266,6 +266,11 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   swapIROrderButton_.setButtonText("SWAP");
   swapIROrderButton_.onClick = [this] { swapIROrderClicked(); };
 
+  addAndMakeVisible(exportButton_);
+  exportButton_.setPaintingIsUnclipped(true);
+  exportButton_.setButtonText("EXPORT");
+  exportButton_.onClick = [this] { exportClicked(); };
+
   addAndMakeVisible(blendLabel_);
   blendLabel_.setText("BLEND", juce::dontSendNotification);
   blendLabel_.setJustificationType(juce::Justification::centred);
@@ -472,10 +477,11 @@ void OctobIREditor::resized()
 
   irSection.removeFromTop(10);
   auto modeRow = irSection.removeFromTop(30);
-  auto modeColW = modeRow.getWidth() / 3;
+  auto modeColW = modeRow.getWidth() / 4;
   dynamicModeButton_.setBounds(modeRow.removeFromLeft(modeColW).reduced(2));
   swapIROrderButton_.setBounds(modeRow.removeFromLeft(modeColW).reduced(2));
-  sidechainEnableButton_.setBounds(modeRow.reduced(2));
+  sidechainEnableButton_.setBounds(modeRow.removeFromLeft(modeColW).reduced(2));
+  exportButton_.setBounds(modeRow.reduced(2));
 
   // --- Meters (96px) ---
   bounds.removeFromTop(10);
@@ -770,4 +776,70 @@ void OctobIREditor::updateLastBrowsedDirectory(const juce::File& file)
 {
   if (file.existsAsFile())
     lastBrowsedDirectory_ = file.getParentDirectory();
+}
+
+void OctobIREditor::exportClicked()
+{
+  const juce::String ir1Path = audioProcessor.getCurrentIR1Path();
+  const juce::String ir2Path = audioProcessor.getCurrentIR2Path();
+  if (ir1Path.isEmpty() && ir2Path.isEmpty())
+  {
+    juce::AlertWindow::showMessageBoxAsync(
+        juce::AlertWindow::WarningIcon, "Nothing to Export",
+        "No IR loaded — load at least one IR before exporting.", "OK");
+    return;
+  }
+
+  const float blendValue = audioProcessor.getAPVTS().getRawParameterValue("blend")->load();
+  const int blendPercent = static_cast<int>(std::round((blendValue + 1.0f) * 50.0f));
+
+  juce::String stem1 = ir1Path.isNotEmpty() ? juce::File(ir1Path).getFileNameWithoutExtension()
+                                            : juce::String();
+  juce::String stem2 = ir2Path.isNotEmpty() ? juce::File(ir2Path).getFileNameWithoutExtension()
+                                            : juce::String();
+
+  juce::String suggestedName;
+  if (stem1.isNotEmpty() && stem2.isNotEmpty())
+    suggestedName = stem1 + "_blend" + juce::String(blendPercent) + "_" + stem2 + ".wav";
+  else if (stem1.isNotEmpty())
+    suggestedName = stem1 + "_export.wav";
+  else
+    suggestedName = stem2 + "_export.wav";
+
+  juce::File suggestedFile = getLastBrowsedDirectory().getChildFile(suggestedName);
+
+  auto chooser = std::make_shared<juce::FileChooser>("Export blended IR as WAV", suggestedFile,
+                                                     "*.wav");
+
+  auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles |
+               juce::FileBrowserComponent::warnAboutOverwriting;
+
+  chooser->launchAsync(
+      flags,
+      [this, chooser](const juce::FileChooser& fc)
+      {
+        juce::File file = fc.getResult();
+        if (file == juce::File())
+          return;
+
+        if (file.getFileExtension().compareIgnoreCase(".wav") != 0)
+          file = file.withFileExtension(".wav");
+
+        auto parentDir = file.getParentDirectory();
+        if (parentDir.exists() && parentDir.isDirectory())
+          lastBrowsedDirectory_ = parentDir;
+
+        juce::String error;
+        if (audioProcessor.exportBlendedIR(file, error))
+        {
+          juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Export Complete",
+                                                 "Saved blended IR to:\n" + file.getFullPathName(),
+                                                 "OK");
+        }
+        else
+        {
+          juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Export Failed",
+                                                 error, "OK");
+        }
+      });
 }

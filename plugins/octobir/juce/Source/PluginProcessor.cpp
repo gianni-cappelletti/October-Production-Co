@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
 
+#include <juce_audio_formats/juce_audio_formats.h>
+
 #include "PluginEditor.h"
 
 OctobIRProcessor::OctobIRProcessor()
@@ -473,6 +475,70 @@ void OctobIRProcessor::swapImpulseResponses()
     param->setValueNotifyingHost(param->convertTo0to1(trimB));
   if (auto* param = apvts_.getParameter("irBTrimGain"))
     param->setValueNotifyingHost(param->convertTo0to1(trimA));
+}
+
+bool OctobIRProcessor::exportBlendedIR(const juce::File& destinationFile,
+                                       juce::String& errorMessage)
+{
+  octob::BlendedIRExport exportData;
+  std::string err;
+  if (!irProcessor_.getStaticBlendedIR(exportData, err))
+  {
+    errorMessage = juce::String(err);
+    DBG("Export blended IR failed: " + errorMessage);
+    return false;
+  }
+
+  const int numChannels = static_cast<int>(exportData.channels.size());
+  const int numSamples = numChannels > 0 ? static_cast<int>(exportData.channels[0].size()) : 0;
+  if (numChannels <= 0 || numSamples <= 0)
+  {
+    errorMessage = "Blended IR is empty";
+    DBG("Export blended IR failed: " + errorMessage);
+    return false;
+  }
+
+  juce::AudioBuffer<float> buffer(numChannels, numSamples);
+  for (int ch = 0; ch < numChannels; ++ch)
+    buffer.copyFrom(ch, 0, exportData.channels[static_cast<size_t>(ch)].data(), numSamples);
+
+  if (destinationFile.exists())
+    destinationFile.deleteFile();
+
+  std::unique_ptr<juce::OutputStream> outStream = destinationFile.createOutputStream();
+  if (outStream == nullptr)
+  {
+    errorMessage = "Failed to open output file: " + destinationFile.getFullPathName();
+    DBG("Export blended IR failed: " + errorMessage);
+    return false;
+  }
+
+  juce::WavAudioFormat wavFormat;
+  auto writer = wavFormat.createWriterFor(outStream, juce::AudioFormatWriterOptions{}
+                                                         .withSampleRate(exportData.sampleRate)
+                                                         .withNumChannels(numChannels)
+                                                         .withBitsPerSample(24));
+  if (writer == nullptr)
+  {
+    errorMessage = "Failed to create WAV writer";
+    DBG("Export blended IR failed: " + errorMessage);
+    return false;
+  }
+
+  if (!writer->writeFromAudioSampleBuffer(buffer, 0, numSamples))
+  {
+    errorMessage = "Failed to write WAV samples";
+    DBG("Export blended IR failed: " + errorMessage);
+    return false;
+  }
+
+  writer.reset();
+
+  DBG("Exported blended IR: " + destinationFile.getFullPathName() + " (" +
+      juce::String(numSamples) + " samples, " + juce::String(numChannels) + " ch, " +
+      juce::String(exportData.sampleRate, 0) + " Hz)");
+  errorMessage.clear();
+  return true;
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

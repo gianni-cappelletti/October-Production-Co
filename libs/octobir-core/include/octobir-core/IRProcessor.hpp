@@ -15,6 +15,12 @@ class WDL_ConvolutionEngine_Div;  // NOLINT(readability-identifier-naming)
 namespace octob
 {
 
+struct BlendedIRExport
+{
+  std::vector<std::vector<Sample>> channels;
+  SampleRate sampleRate = 0.0;
+};
+
 class IRProcessor
 {
  public:
@@ -89,6 +95,8 @@ class IRProcessor
   float getCurrentBlend() const { return currentBlend_; }
 
   void swapIRSlots();
+
+  bool getStaticBlendedIR(BlendedIRExport& out, std::string& errorMessage);
 
   void reset();
 

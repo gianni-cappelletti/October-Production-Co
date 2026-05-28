@@ -472,3 +472,76 @@ TEST_F(PluginAudioTest, MonoToStereo_ChannelsAreDifferent_StereoIR)
                        << ") despite loading a stereo IR — processMonoToStereo may "
                        << "be ignoring the right IR channel";
 }
+
+// Scenario: Export the static 50/50 blend to a WAV file, then convolve the exported
+// IR directly against the same dry input and verify that it reproduces the live
+// blended output sample-for-sample (up to peak normalisation).
+//
+// We deliberately do NOT reload the exported file through OctobIR's IRLoader for this
+// validation. The loader applies MPT on every load, and the sum of two minimum-phase
+// IRs is not itself minimum-phase — re-running MPT would change the time-domain
+// signal (same magnitude spectrum, different phase). Direct convolution avoids that
+// extra MPT pass and proves the export is a faithful representation of the live
+// blend by linearity of convolution.
+TEST_F(PluginAudioTest, ExportedIRMatchesStaticBlend)
+{
+  OctobIRProcessor blendProc;
+  blendProc.prepareToPlay(kSampleRate, kBlockSize);
+
+  auto& blendApvts = blendProc.getAPVTS();
+  blendApvts.getParameter("irAEnable")->setValueNotifyingHost(1.f);
+  blendApvts.getParameter("irBEnable")->setValueNotifyingHost(1.f);
+
+  juce::String err;
+  ASSERT_TRUE(blendProc.loadImpulseResponse1(kIrAPath, err)) << err;
+  ASSERT_TRUE(blendProc.loadImpulseResponse2(kIrBPath, err)) << err;
+
+  auto* blendParam = blendApvts.getParameter("blend");
+  blendParam->setValueNotifyingHost(blendParam->convertTo0to1(0.f));
+  blendApvts.getParameter("dynamicMode")->setValueNotifyingHost(0.f);
+
+  std::vector<float> liveOutput = processAndAlign(blendProc, dryInput_);
+
+  juce::File tempWav =
+      juce::File::getSpecialLocation(juce::File::tempDirectory)
+          .getChildFile("octobir_export_test_" +
+                        juce::String(juce::Random::getSystemRandom().nextInt()) + ".wav");
+  ASSERT_TRUE(blendProc.exportBlendedIR(tempWav, err)) << err;
+  ASSERT_TRUE(tempWav.existsAsFile()) << "Export reported success but file is missing";
+
+  unsigned int wavSampleRate = 0;
+  std::vector<float> exportedIR = loadWavMono(tempWav.getFullPathName().toStdString(), wavSampleRate);
+  ASSERT_FALSE(exportedIR.empty()) << "Failed to read exported WAV";
+  EXPECT_EQ(wavSampleRate, static_cast<unsigned int>(kSampleRate))
+      << "Exported file sample rate should match host sample rate";
+
+  const size_t outLen = dryInput_.size();
+  std::vector<float> convolvedOutput(outLen, 0.0f);
+  const size_t irLen = exportedIR.size();
+  for (size_t n = 0; n < outLen; ++n)
+  {
+    float sum = 0.0f;
+    const size_t kMax = std::min(irLen, n + 1);
+    for (size_t k = 0; k < kMax; ++k)
+      sum += exportedIR[k] * dryInput_[n - k];
+    convolvedOutput[n] = sum;
+  }
+
+  auto normalizePeak = [](std::vector<float>& v)
+  {
+    float pk = 0.0f;
+    for (float s : v)
+      pk = std::max(pk, std::abs(s));
+    if (pk > 0.0f)
+      for (float& s : v)
+        s /= pk;
+  };
+
+  normalizePeak(liveOutput);
+  normalizePeak(convolvedOutput);
+
+  const double r = pearsonCorrelation(liveOutput, convolvedOutput);
+  EXPECT_GT(r, 0.9999) << "Exported IR convolution diverged from live 50/50 blend (r=" << r << ")";
+
+  tempWav.deleteFile();
+}

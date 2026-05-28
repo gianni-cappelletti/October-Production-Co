@@ -116,6 +116,8 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
 
   juce::TextButton swapIROrderButton_;
 
+  juce::TextButton exportButton_;
+
   juce::Label blendLabel_;
   juce::Slider blendSlider_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> blendAttachment_;
@@ -157,6 +159,7 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
   void prevButton2Clicked();
   void nextButton2Clicked();
   void swapIROrderClicked();
+  void exportClicked();
   void updateMeters();
   void cycleIRFile(int irIndex, int direction);
   juce::File getLastBrowsedDirectory() const;

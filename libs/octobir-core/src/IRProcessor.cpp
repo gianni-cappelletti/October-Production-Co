@@ -638,6 +638,87 @@ void IRProcessor::swapIRSlots()
   std::swap(ir1DelayWritePosR_, ir2DelayWritePosR_);
 }
 
+bool IRProcessor::getStaticBlendedIR(BlendedIRExport& out, std::string& errorMessage)
+{
+  const bool ir1Loaded = ir1Loaded_.load(std::memory_order_relaxed);
+  const bool ir2Loaded = ir2Loaded_.load(std::memory_order_relaxed);
+
+  if (!ir1Loaded && !ir2Loaded)
+  {
+    errorMessage = "No IR loaded — load at least one IR before exporting";
+    return false;
+  }
+
+  if (sampleRate_ <= 0.0)
+  {
+    errorMessage = "Invalid sample rate — plugin not yet prepared";
+    return false;
+  }
+
+  const int len1 = ir1Loaded ? impulseBuffer1_->GetLength() : 0;
+  const int len2 = ir2Loaded ? impulseBuffer2_->GetLength() : 0;
+  const int outLen = std::max(len1, len2);
+  if (outLen <= 0)
+  {
+    errorMessage = "IR buffers are empty";
+    return false;
+  }
+
+  const float normalizedBlend = (blend_ + 1.0f) * 0.5f;
+  float gain1 = 0.0f;
+  float gain2 = 0.0f;
+  if (ir1Loaded && ir2Loaded)
+  {
+    gain1 = std::sqrt(1.0f - normalizedBlend);
+    gain2 = std::sqrt(normalizedBlend);
+  }
+  else if (ir1Loaded)
+  {
+    gain1 = 1.0f;
+    gain2 = 0.0f;
+  }
+  else
+  {
+    gain1 = 0.0f;
+    gain2 = 1.0f;
+  }
+
+  const float w1 = gain1 * irATrimGainLinear_;
+  const float w2 = gain2 * irBTrimGainLinear_;
+
+  const int ch1 = ir1Loaded ? (irLoader1_ ? irLoader1_->getNumChannels() : 0) : 0;
+  const int ch2 = ir2Loaded ? (irLoader2_ ? irLoader2_->getNumChannels() : 0) : 0;
+  const bool stereoOutput = (ch1 >= 2) || (ch2 >= 2);
+  const int outChannels = stereoOutput ? 2 : 1;
+
+  out.channels.assign(static_cast<size_t>(outChannels),
+                      std::vector<Sample>(static_cast<size_t>(outLen), 0.0f));
+  out.sampleRate = sampleRate_;
+
+  for (int ch = 0; ch < outChannels; ++ch)
+  {
+    Sample* dst = out.channels[static_cast<size_t>(ch)].data();
+    const WDL_FFT_REAL* src1 =
+        ir1Loaded ? impulseBuffer1_->impulses[ch].Get() : nullptr;
+    const WDL_FFT_REAL* src2 =
+        ir2Loaded ? impulseBuffer2_->impulses[ch].Get() : nullptr;
+
+    if (src1 != nullptr)
+    {
+      for (int i = 0; i < len1; ++i)
+        dst[i] += w1 * static_cast<Sample>(src1[i]);
+    }
+    if (src2 != nullptr)
+    {
+      for (int i = 0; i < len2; ++i)
+        dst[i] += w2 * static_cast<Sample>(src2[i]);
+    }
+  }
+
+  errorMessage.clear();
+  return true;
+}
+
 void IRProcessor::reset()
 {
   if (convolutionEngine1_)
