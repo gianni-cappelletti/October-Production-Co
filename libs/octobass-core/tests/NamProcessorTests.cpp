@@ -34,6 +34,31 @@ class NamProcessorTest : public ::testing::Test
 
   NamProcessor proc;
   const std::string wavenetModelPath = std::string(TEST_DATA_DIR) + "/INPUT_VHD.nam";
+  // A1 (legacy) model: file version 0.5.4, "WaveNet" architecture.
+  const std::string a1ModelPath = std::string(TEST_DATA_DIR) + "/INPUT_octobass_hm2_a1.nam";
+  // A2 model: file version 0.7.0, "SlimmableContainer" architecture.
+  const std::string a2ModelPath =
+      std::string(TEST_DATA_DIR) + "/INPUT_HM2-W OctoBASS distortion 2_a2.nam";
+
+  void expectLoadsAndRuns(const std::string& modelPath)
+  {
+    std::string err;
+    ASSERT_TRUE(proc.loadModel(modelPath, err)) << "Failed to load '" << modelPath << "': " << err;
+    EXPECT_TRUE(proc.isModelLoaded());
+    EXPECT_EQ(proc.getCurrentModelPath(), modelPath);
+    EXPECT_GT(proc.getExpectedSampleRate(), 0.0);
+
+    constexpr size_t kNumSamples = kBlockSize * 4;
+    const auto input = generateSine(1000.0f, 44100.0f, kNumSamples);
+    std::vector<float> output(kNumSamples);
+    for (size_t b = 0; b < kNumSamples / kBlockSize; ++b)
+      proc.process(input.data() + b * kBlockSize, output.data() + b * kBlockSize, kBlockSize);
+
+    float peak = 0.0f;
+    for (float s : output)
+      peak = std::max(peak, std::abs(s));
+    EXPECT_GT(peak, 1e-6f) << "NAM output should not be silent after loading model";
+  }
 };
 
 TEST_F(NamProcessorTest, LoadsWaveNetModelWithoutError)
@@ -47,6 +72,16 @@ TEST_F(NamProcessorTest, LoadsWaveNetModelWithoutError)
   EXPECT_TRUE(proc.isModelLoaded());
   EXPECT_EQ(proc.getCurrentModelPath(), wavenetModelPath);
   EXPECT_GT(proc.getExpectedSampleRate(), 0.0);
+}
+
+TEST_F(NamProcessorTest, LoadsA1WaveNetModel)
+{
+  expectLoadsAndRuns(a1ModelPath);
+}
+
+TEST_F(NamProcessorTest, LoadsA2SlimmableModel)
+{
+  expectLoadsAndRuns(a2ModelPath);
 }
 
 TEST_F(NamProcessorTest, LoadFailsCleanlyOnMissingFile)
