@@ -5,7 +5,7 @@
 #include <NAM/dsp.h>
 #include <NAM/get_dsp.h>
 #include <NAM/lstm.h>
-#include <NAM/wavenet.h>
+#include <NAM/wavenet/model.h>
 
 #include <algorithm>
 #include <atomic>
