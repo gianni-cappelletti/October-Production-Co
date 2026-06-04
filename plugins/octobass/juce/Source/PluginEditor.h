@@ -79,6 +79,8 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
   juce::TextButton namPrevButton_;
   juce::TextButton namNextButton_;
   LCDDisplay namLCDDisplay_;
+  juce::Slider namQualitySlider_;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> namQualityAttachment_;
 
   // IR file loader
   juce::TextButton irLoadButton_;

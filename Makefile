@@ -236,7 +236,7 @@ tidy:
 		echo "Error: clang-tidy not installed. Run ./scripts/setup-dev.sh"; \
 		exit 1; \
 	fi
-	@echo $(CORE_SOURCES) | xargs -I {} clang-tidy {} -- \
+	@printf '%s\n' $(CORE_SOURCES) | xargs -I {} clang-tidy {} -- \
 		-I./libs/octobir-core/include \
 		-I./third_party/WDL/WDL \
 		-I./third_party \
@@ -244,7 +244,7 @@ tidy:
 		-std=c++11 || \
 		(echo "Error: Static analysis found issues" && exit 1)
 	@if [ -n "$$RACK_DIR" ] && [ -d "$$RACK_DIR" ]; then \
-		echo $(VCV_SOURCES) | xargs -I {} clang-tidy {} -- \
+		printf '%s\n' $(VCV_SOURCES) | xargs -I {} clang-tidy {} -- \
 			-I./libs/octobir-core/include \
 			-I./third_party/WDL/WDL \
 			-I./third_party \

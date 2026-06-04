@@ -17,20 +17,41 @@ class GraphicEQ
 
   void setSampleRate(SampleRate sampleRate);
 
-  void setBandGain(int bandIndex, float gainDb);
-  float getBandGain(int bandIndex) const;
+  void setNodeActive(int slot, bool active);
+  bool getNodeActive(int slot) const;
+
+  void setNodeFrequency(int slot, float freqHz);
+  float getNodeFrequency(int slot) const;
+
+  void setNodeGain(int slot, float gainDb);
+  float getNodeGain(int slot) const;
+
+  void setNode(int slot, bool active, float freqHz, float gainDb);
+
+  // Low/high cut filters: fixed 24 dB/octave (4th-order Butterworth)
+  void setLowCut(bool active, float freqHz);
+  bool getLowCutActive() const;
+  float getLowCutFrequency() const;
+
+  void setHighCut(bool active, float freqHz);
+  bool getHighCutActive() const;
+  float getHighCutFrequency() const;
 
   void process(const Sample* input, Sample* output, FrameCount numFrames);
 
   void reset();
 
   // Compute the combined magnitude response in dB at a given frequency.
-  // This evaluates the actual biquad transfer function for all active bands.
-  static float computeMagnitudeResponseDb(const float* gainsDb, float freqHz,
-                                          SampleRate sampleRate);
+  // This evaluates the actual biquad transfer function for all active nodes
+  // and the low/high cut filters.
+  static float computeMagnitudeResponseDb(const bool* active, const float* freqsHz,
+                                          const float* gainsDb, int numNodes, bool lowCutActive,
+                                          float lowCutFreqHz, bool highCutActive,
+                                          float highCutFreqHz, float freqHz, SampleRate sampleRate);
 
-  // 24 bands from SpectrumAnalyzer ranges: sqrt(lowHz * highHz) per band
-  static constexpr std::array<float, kGraphicEQNumBands> kCenterFreqs = {{
+  // Center frequencies of the legacy 24 fixed bands (sqrt(lowHz * highHz) of the
+  // SpectrumAnalyzer ranges), retained for migrating old saved state into nodes.
+  static constexpr std::array<float, kGraphicEQNumBands> kLegacyCenterFreqs = {{
       28.23f,    // Band 0:  <50 Hz combined
       50.10f,    // Band 1:  50 Hz
       63.13f,    // Band 2:  63 Hz
@@ -61,6 +82,10 @@ class GraphicEQ
   static constexpr float kQMin = 0.8f;
   static constexpr float kQMax = 8.0f;
 
+  // Stage Q values for a 4th-order Butterworth cascade: 1/(2*cos(pi/8)), 1/(2*cos(3*pi/8))
+  static constexpr int kNumCutStages = 2;
+  static constexpr std::array<float, kNumCutStages> kCutStageQ = {{0.54119610f, 1.30656296f}};
+
   static float computeQ(float absGainDb);
 
  private:
@@ -79,15 +104,31 @@ class GraphicEQ
     float z2 = 0.0f;
   };
 
-  void updateCoefficients(int bandIndex);
+  static bool isValidSlot(int slot);
+
+  void updateCoefficients(int slot);
+  void updateLowCutCoefficients();
+  void updateHighCutCoefficients();
 
   static Sample tick(const BiquadCoeffs& c, BiquadState& s, Sample input);
 
-  std::array<float, kGraphicEQNumBands> gainsDb_{};
-  std::array<BiquadCoeffs, kGraphicEQNumBands> coeffs_{};
-  std::array<BiquadState, kGraphicEQNumBands> states_{};
+  std::array<bool, kGraphicEQNumNodes> active_{};
+  std::array<float, kGraphicEQNumNodes> freqsHz_{};
+  std::array<float, kGraphicEQNumNodes> gainsDb_{};
+  std::array<BiquadCoeffs, kGraphicEQNumNodes> coeffs_{};
+  std::array<BiquadState, kGraphicEQNumNodes> states_{};
 
-  uint32_t activeBandMask_ = 0;
+  bool lowCutActive_ = false;
+  float lowCutFreqHz_ = MinGraphicEQFreqHz;
+  std::array<BiquadCoeffs, kNumCutStages> lowCutCoeffs_{};
+  std::array<BiquadState, kNumCutStages> lowCutStates_{};
+
+  bool highCutActive_ = false;
+  float highCutFreqHz_ = MaxGraphicEQFreqHz;
+  std::array<BiquadCoeffs, kNumCutStages> highCutCoeffs_{};
+  std::array<BiquadState, kNumCutStages> highCutStates_{};
+
+  uint32_t activeNodeMask_ = 0;
   SampleRate sampleRate_ = 44100.0;
 };
 

@@ -132,3 +132,97 @@ TEST_F(NamProcessorTest, ClearModelResetsState)
   EXPECT_FALSE(proc.isModelLoaded());
   EXPECT_TRUE(proc.getCurrentModelPath().empty());
 }
+
+TEST_F(NamProcessorTest, QualityDefaultsToFullAndClamps)
+{
+  EXPECT_DOUBLE_EQ(proc.getQuality(), 1.0);
+
+  proc.setQuality(2.0);
+  EXPECT_DOUBLE_EQ(proc.getQuality(), 1.0);
+
+  proc.setQuality(-0.5);
+  EXPECT_DOUBLE_EQ(proc.getQuality(), 0.0);
+
+  proc.setQuality(0.5);
+  EXPECT_DOUBLE_EQ(proc.getQuality(), 0.5);
+}
+
+TEST_F(NamProcessorTest, QualityAffectsA2SlimmableModelOutput)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(a2ModelPath, err)) << err;
+
+  constexpr size_t kNumSamples = kBlockSize * 4;
+  const auto input = generateSine(1000.0f, 44100.0f, kNumSamples);
+
+  auto processAll = [&](std::vector<float>& output)
+  {
+    for (size_t b = 0; b < kNumSamples / kBlockSize; ++b)
+      proc.process(input.data() + b * kBlockSize, output.data() + b * kBlockSize, kBlockSize);
+  };
+
+  std::vector<float> fullQuality(kNumSamples);
+  proc.setQuality(1.0);
+  processAll(fullQuality);
+
+  proc.reset();
+
+  std::vector<float> slimQuality(kNumSamples);
+  proc.setQuality(0.0);
+  processAll(slimQuality);
+
+  float peakFull = 0.0f;
+  float peakSlim = 0.0f;
+  float maxDiff = 0.0f;
+  for (size_t i = 0; i < kNumSamples; ++i)
+  {
+    ASSERT_TRUE(std::isfinite(slimQuality[i])) << "Non-finite output at sample " << i;
+    peakFull = std::max(peakFull, std::abs(fullQuality[i]));
+    peakSlim = std::max(peakSlim, std::abs(slimQuality[i]));
+    maxDiff = std::max(maxDiff, std::abs(fullQuality[i] - slimQuality[i]));
+  }
+
+  EXPECT_GT(peakFull, 1e-6f) << "Full-quality output should not be silent";
+  EXPECT_GT(peakSlim, 1e-6f) << "Slim output should not be silent";
+  EXPECT_GT(maxDiff, 1e-9f) << "Slimmest submodel should produce different output than the "
+                               "full model, or SetSlimmableSize is not taking effect";
+}
+
+TEST_F(NamProcessorTest, QualityIsSafeOnNonSlimmableModel)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(wavenetModelPath, err)) << err;
+
+  proc.setQuality(0.25);
+  EXPECT_DOUBLE_EQ(proc.getQuality(), 0.25);
+
+  constexpr size_t kNumSamples = kBlockSize;
+  const auto input = generateSine(1000.0f, 44100.0f, kNumSamples);
+  std::vector<float> output(kNumSamples);
+  proc.process(input.data(), output.data(), kNumSamples);
+
+  float peak = 0.0f;
+  for (float s : output)
+    peak = std::max(peak, std::abs(s));
+  EXPECT_GT(peak, 1e-6f) << "Non-slimmable model must keep processing after a quality change";
+}
+
+TEST_F(NamProcessorTest, QualityPersistsAcrossModelLoads)
+{
+  proc.setQuality(0.0);
+
+  // Quality set before loading must apply to the freshly loaded model
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(a2ModelPath, err)) << err;
+  EXPECT_DOUBLE_EQ(proc.getQuality(), 0.0);
+
+  constexpr size_t kNumSamples = kBlockSize;
+  const auto input = generateSine(1000.0f, 44100.0f, kNumSamples);
+  std::vector<float> output(kNumSamples);
+  proc.process(input.data(), output.data(), kNumSamples);
+
+  float peak = 0.0f;
+  for (float s : output)
+    peak = std::max(peak, std::abs(s));
+  EXPECT_GT(peak, 1e-6f) << "Slimmest model should still produce output";
+}

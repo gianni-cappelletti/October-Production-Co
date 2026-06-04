@@ -35,6 +35,10 @@ class BassProcessor
   bool isNamModelLoaded() const;
   std::string getCurrentNamModelPath() const;
 
+  // Quality/CPU trade-off for slimmable NAM models (0.0 slimmest, 1.0 full).
+  // Message thread only -- not real-time safe.
+  void setNamQuality(float quality);
+
   // Crossover
   void setCrossoverFrequency(float frequencyHz);
 
@@ -53,8 +57,9 @@ class BassProcessor
   void setHighBandSolo(bool solo);
 
   // Graphic EQ
-  void setGraphicEQBandGain(int bandIndex, float gainDb);
-  float getGraphicEQBandGain(int bandIndex) const;
+  void setGraphicEQNode(int slot, bool active, float freqHz, float gainDb);
+  void setGraphicEQLowCut(bool active, float freqHz);
+  void setGraphicEQHighCut(bool active, float freqHz);
 
   // Levels
   void setLowBandLevel(float levelDb);

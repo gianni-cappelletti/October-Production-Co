@@ -7,7 +7,9 @@
 #include <octobass-core/BassProcessor.hpp>
 #include <octobass-core/Types.hpp>
 
-class OctoBassProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
+class OctoBassProcessor : public juce::AudioProcessor,
+                          private juce::AsyncUpdater,
+                          private juce::AudioProcessorValueTreeState::Listener
 {
  public:
   OctoBassProcessor();
@@ -79,7 +81,19 @@ class OctoBassProcessor : public juce::AudioProcessor, private juce::AsyncUpdate
   juce::ValueTree pendingState_;
   void handleAsyncUpdate() override;
 
-  std::array<std::atomic<float>*, octob::kGraphicEQNumBands> eqBandGainParams_{};
+  // NAM quality is applied on the message thread via the async updater because
+  // SetSlimmableSize is not real-time safe
+  void parameterChanged(const juce::String& parameterID, float newValue) override;
+  std::atomic<bool> namQualityDirty_{false};
+  std::atomic<float>* namQualityParam_ = nullptr;
+
+  std::array<std::atomic<float>*, octob::kGraphicEQNumNodes> eqNodeActiveParams_{};
+  std::array<std::atomic<float>*, octob::kGraphicEQNumNodes> eqNodeFreqParams_{};
+  std::array<std::atomic<float>*, octob::kGraphicEQNumNodes> eqNodeGainParams_{};
+  std::atomic<float>* eqLowCutActiveParam_ = nullptr;
+  std::atomic<float>* eqLowCutFreqParam_ = nullptr;
+  std::atomic<float>* eqHighCutActiveParam_ = nullptr;
+  std::atomic<float>* eqHighCutFreqParam_ = nullptr;
 
   juce::AbstractFifo spectrumFifo_{kSpectrumFifoSize};
   std::array<float, kSpectrumFifoSize> spectrumFifoBuffer_{};

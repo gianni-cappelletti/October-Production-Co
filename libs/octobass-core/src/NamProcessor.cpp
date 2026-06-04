@@ -5,6 +5,7 @@
 #include <NAM/dsp.h>
 #include <NAM/get_dsp.h>
 #include <NAM/lstm.h>
+#include <NAM/slimmable.h>
 #include <NAM/wavenet/model.h>
 
 #include <algorithm>
@@ -68,6 +69,14 @@ struct NamProcessor::Impl
   std::atomic<bool> hasPendingModel{false};
   std::atomic<bool> pendingClear{false};
 
+  double quality = 1.0;
+
+  void applyQuality(nam::DSP* target) const
+  {
+    if (auto* slimmable = dynamic_cast<nam::SlimmableModel*>(target))
+      slimmable->SetSlimmableSize(quality);
+  }
+
   void resetModel()
   {
     if (model && maxBlockSize > 0)
@@ -113,6 +122,8 @@ bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMess
       return false;
     }
 
+    impl_->applyQuality(newModel.get());
+
     if (impl_->maxBlockSize > 0)
     {
       newModel->ResetAndPrewarm(impl_->sampleRate, impl_->maxBlockSize);
@@ -155,6 +166,28 @@ std::string NamProcessor::getCurrentModelPath() const
   if (impl_->hasPendingModel.load(std::memory_order_acquire))
     return impl_->pendingModelPath;
   return impl_->modelPath;
+}
+
+void NamProcessor::setQuality(double quality)
+{
+  quality = std::max(0.0, std::min(1.0, quality));
+
+  if (impl_->quality == quality)
+    return;
+
+  impl_->quality = quality;
+
+  // Apply to the staged model if one is waiting, otherwise the active one.
+  // SetSlimmableSize is internally synchronized against concurrent process().
+  if (impl_->hasPendingModel.load(std::memory_order_acquire))
+    impl_->applyQuality(impl_->pendingModel.get());
+  else
+    impl_->applyQuality(impl_->model.get());
+}
+
+double NamProcessor::getQuality() const
+{
+  return impl_->quality;
 }
 
 void NamProcessor::setSampleRate(double sampleRate)

@@ -108,6 +108,11 @@ void BassProcessor::clearNamModel()
   currentNamModelPath_.clear();
 }
 
+void BassProcessor::setNamQuality(float quality)
+{
+  namProcessor_.setQuality(static_cast<double>(quality));
+}
+
 bool BassProcessor::isNamModelLoaded() const
 {
   return namProcessor_.isModelLoaded();
@@ -118,14 +123,19 @@ std::string BassProcessor::getCurrentNamModelPath() const
   return currentNamModelPath_;
 }
 
-void BassProcessor::setGraphicEQBandGain(int bandIndex, float gainDb)
+void BassProcessor::setGraphicEQNode(int slot, bool active, float freqHz, float gainDb)
 {
-  graphicEQ_.setBandGain(bandIndex, gainDb);
+  graphicEQ_.setNode(slot, active, freqHz, gainDb);
 }
 
-float BassProcessor::getGraphicEQBandGain(int bandIndex) const
+void BassProcessor::setGraphicEQLowCut(bool active, float freqHz)
 {
-  return graphicEQ_.getBandGain(bandIndex);
+  graphicEQ_.setLowCut(active, freqHz);
+}
+
+void BassProcessor::setGraphicEQHighCut(bool active, float freqHz)
+{
+  graphicEQ_.setHighCut(active, freqHz);
 }
 
 void BassProcessor::setCrossoverFrequency(float frequencyHz)

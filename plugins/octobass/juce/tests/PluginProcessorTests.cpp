@@ -1,9 +1,13 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <octobass-core/GraphicEQ.hpp>
 #include <octobass-core/Types.hpp>
 #include <string>
+#include <utility>
+#include <vector>
 
+#include "GraphicEQDisplay.h"
 #include "PluginProcessor.h"
 
 static const std::string kIrPath = std::string(TEST_DATA_DIR) + "/INPUT_ir_a.wav";
@@ -130,6 +134,29 @@ TEST_F(OctoBassProcessorTest, NamNotLoadedByDefault)
   EXPECT_FALSE(processor.isNamModelLoaded());
 }
 
+TEST_F(OctoBassProcessorTest, NamQualityParameterExists)
+{
+  auto* param = processor.getAPVTS().getRawParameterValue("namQuality");
+  ASSERT_NE(param, nullptr);
+  EXPECT_NEAR(param->load(), octob::DefaultNamQuality, 0.01f)
+      << "NAM quality should default to full quality";
+}
+
+TEST_F(OctoBassProcessorTest, StateRoundTripWithNamQuality)
+{
+  auto* param = processor.getAPVTS().getParameter("namQuality");
+  ASSERT_NE(param, nullptr);
+  param->setValueNotifyingHost(param->convertTo0to1(0.25f));
+
+  juce::MemoryBlock stateData;
+  processor.getStateInformation(stateData);
+
+  OctoBassProcessor processor2;
+  processor2.setStateInformation(stateData.getData(), static_cast<int>(stateData.getSize()));
+
+  EXPECT_NEAR(processor2.getAPVTS().getRawParameterValue("namQuality")->load(), 0.25f, 0.02f);
+}
+
 TEST_F(OctoBassProcessorTest, IRNotLoadedByDefault)
 {
   EXPECT_FALSE(processor.isIRLoaded());
@@ -217,26 +244,44 @@ TEST_F(OctoBassProcessorTest, StateRoundTrip)
   EXPECT_NEAR(mode2->load(), 2.0f, 0.1f);
 }
 
-TEST_F(OctoBassProcessorTest, EQParametersExist)
+TEST_F(OctoBassProcessorTest, EQNodeParametersExist)
 {
-  for (int i = 0; i < octob::kGraphicEQNumBands; ++i)
+  for (int i = 0; i < octob::kGraphicEQNumNodes; ++i)
   {
-    auto* param = processor.getAPVTS().getRawParameterValue("eqBandGain" + juce::String(i));
-    ASSERT_NE(param, nullptr) << "Missing EQ parameter for band " << i;
-    EXPECT_NEAR(param->load(), 0.0f, 0.01f) << "EQ band " << i << " should default to 0 dB";
+    auto slot = juce::String(i);
+    auto* active = processor.getAPVTS().getRawParameterValue("eqNodeActive" + slot);
+    auto* freq = processor.getAPVTS().getRawParameterValue("eqNodeFreq" + slot);
+    auto* gain = processor.getAPVTS().getRawParameterValue("eqNodeGain" + slot);
+
+    ASSERT_NE(active, nullptr) << "Missing active parameter for node " << i;
+    ASSERT_NE(freq, nullptr) << "Missing freq parameter for node " << i;
+    ASSERT_NE(gain, nullptr) << "Missing gain parameter for node " << i;
+
+    EXPECT_LT(active->load(), 0.5f) << "Node " << i << " should default to inactive";
+    EXPECT_NEAR(freq->load(), octob::DefaultGraphicEQFreqHz, 1.0f)
+        << "Node " << i << " should default to 1 kHz";
+    EXPECT_NEAR(gain->load(), 0.0f, 0.01f) << "Node " << i << " should default to 0 dB";
   }
 }
 
-TEST_F(OctoBassProcessorTest, StateRoundTripWithEQ)
+TEST_F(OctoBassProcessorTest, StateRoundTripWithNodes)
 {
-  // Set a few EQ bands to non-default values
-  auto* band5 = processor.getAPVTS().getParameter("eqBandGain5");
-  auto* band14 = processor.getAPVTS().getParameter("eqBandGain14");
-  ASSERT_NE(band5, nullptr);
-  ASSERT_NE(band14, nullptr);
+  auto setNodeParams = [this](int slot, float freqHz, float gainDb)
+  {
+    auto slotStr = juce::String(slot);
+    auto* active = processor.getAPVTS().getParameter("eqNodeActive" + slotStr);
+    auto* freq = processor.getAPVTS().getParameter("eqNodeFreq" + slotStr);
+    auto* gain = processor.getAPVTS().getParameter("eqNodeGain" + slotStr);
+    ASSERT_NE(active, nullptr);
+    ASSERT_NE(freq, nullptr);
+    ASSERT_NE(gain, nullptr);
+    active->setValueNotifyingHost(1.0f);
+    freq->setValueNotifyingHost(freq->convertTo0to1(freqHz));
+    gain->setValueNotifyingHost(gain->convertTo0to1(gainDb));
+  };
 
-  band5->setValueNotifyingHost(band5->convertTo0to1(6.0f));
-  band14->setValueNotifyingHost(band14->convertTo0to1(-3.0f));
+  setNodeParams(2, 250.0f, 6.0f);
+  setNodeParams(5, 3000.0f, -3.0f);
 
   juce::MemoryBlock stateData;
   processor.getStateInformation(stateData);
@@ -244,13 +289,226 @@ TEST_F(OctoBassProcessorTest, StateRoundTripWithEQ)
   OctoBassProcessor processor2;
   processor2.setStateInformation(stateData.getData(), static_cast<int>(stateData.getSize()));
 
-  auto* band5_2 = processor2.getAPVTS().getRawParameterValue("eqBandGain5");
-  auto* band14_2 = processor2.getAPVTS().getRawParameterValue("eqBandGain14");
-  ASSERT_NE(band5_2, nullptr);
-  ASSERT_NE(band14_2, nullptr);
+  auto& apvts2 = processor2.getAPVTS();
+  EXPECT_GE(apvts2.getRawParameterValue("eqNodeActive2")->load(), 0.5f);
+  EXPECT_NEAR(apvts2.getRawParameterValue("eqNodeFreq2")->load(), 250.0f, 2.0f);
+  EXPECT_NEAR(apvts2.getRawParameterValue("eqNodeGain2")->load(), 6.0f, 0.2f);
 
-  EXPECT_NEAR(band5_2->load(), 6.0f, 0.2f);
-  EXPECT_NEAR(band14_2->load(), -3.0f, 0.2f);
+  EXPECT_GE(apvts2.getRawParameterValue("eqNodeActive5")->load(), 0.5f);
+  EXPECT_NEAR(apvts2.getRawParameterValue("eqNodeFreq5")->load(), 3000.0f, 20.0f);
+  EXPECT_NEAR(apvts2.getRawParameterValue("eqNodeGain5")->load(), -3.0f, 0.2f);
+
+  EXPECT_LT(apvts2.getRawParameterValue("eqNodeActive0")->load(), 0.5f)
+      << "Untouched slots must stay inactive after a round trip";
+}
+
+namespace
+{
+
+// Build a binary state block in the legacy fixed-band format (eqBandGain0..23)
+juce::MemoryBlock buildLegacyState(const std::vector<std::pair<int, float>>& bandGains)
+{
+  juce::ValueTree state("OctoBassParams");
+  for (const auto& [band, gainDb] : bandGains)
+  {
+    juce::ValueTree param("PARAM");
+    param.setProperty("id", "eqBandGain" + juce::String(band), nullptr);
+    param.setProperty("value", gainDb, nullptr);
+    state.appendChild(param, nullptr);
+  }
+
+  juce::MemoryBlock data;
+  std::unique_ptr<juce::XmlElement> xml(state.createXml());
+  juce::AudioProcessor::copyXmlToBinary(*xml, data);
+  return data;
+}
+
+}  // namespace
+
+TEST_F(OctoBassProcessorTest, OldStateMigration)
+{
+  auto stateData = buildLegacyState({{5, 6.0f}, {14, -3.0f}});
+  processor.setStateInformation(stateData.getData(), static_cast<int>(stateData.getSize()));
+
+  auto& apvts = processor.getAPVTS();
+
+  // Slots assigned in ascending band order: slot 0 = band 5, slot 1 = band 14
+  EXPECT_GE(apvts.getRawParameterValue("eqNodeActive0")->load(), 0.5f);
+  EXPECT_NEAR(apvts.getRawParameterValue("eqNodeFreq0")->load(),
+              octob::GraphicEQ::kLegacyCenterFreqs[5], 1.0f);
+  EXPECT_NEAR(apvts.getRawParameterValue("eqNodeGain0")->load(), 6.0f, 0.2f);
+
+  EXPECT_GE(apvts.getRawParameterValue("eqNodeActive1")->load(), 0.5f);
+  EXPECT_NEAR(apvts.getRawParameterValue("eqNodeFreq1")->load(),
+              octob::GraphicEQ::kLegacyCenterFreqs[14], 5.0f);
+  EXPECT_NEAR(apvts.getRawParameterValue("eqNodeGain1")->load(), -3.0f, 0.2f);
+
+  for (int i = 2; i < octob::kGraphicEQNumNodes; ++i)
+    EXPECT_LT(apvts.getRawParameterValue("eqNodeActive" + juce::String(i))->load(), 0.5f)
+        << "Slot " << i << " should stay inactive after migrating two bands";
+}
+
+TEST_F(OctoBassProcessorTest, OldStateMigration_MoreThanNodeLimit)
+{
+  // 20 non-zero bands: only the 16 largest magnitudes (bands 0..15) must win
+  std::vector<std::pair<int, float>> bandGains;
+  for (int band = 0; band < 20; ++band)
+  {
+    float gainDb = (12.0f - 0.5f * static_cast<float>(band)) * ((band % 2 == 0) ? 1.0f : -1.0f);
+    bandGains.emplace_back(band, gainDb);
+  }
+
+  auto stateData = buildLegacyState(bandGains);
+  processor.setStateInformation(stateData.getData(), static_cast<int>(stateData.getSize()));
+
+  auto& apvts = processor.getAPVTS();
+  for (int slot = 0; slot < octob::kGraphicEQNumNodes; ++slot)
+  {
+    auto slotStr = juce::String(slot);
+    EXPECT_GE(apvts.getRawParameterValue("eqNodeActive" + slotStr)->load(), 0.5f)
+        << "Slot " << slot << " should be active";
+
+    // Slots follow ascending band order, so slot index == legacy band index here
+    float expectedFreq =
+        juce::jlimit(octob::MinGraphicEQFreqHz, octob::MaxGraphicEQFreqHz,
+                     octob::GraphicEQ::kLegacyCenterFreqs[static_cast<size_t>(slot)]);
+    float expectedGain =
+        (12.0f - 0.5f * static_cast<float>(slot)) * ((slot % 2 == 0) ? 1.0f : -1.0f);
+
+    EXPECT_NEAR(apvts.getRawParameterValue("eqNodeFreq" + slotStr)->load(), expectedFreq,
+                expectedFreq * 0.01f + 0.5f);
+    EXPECT_NEAR(apvts.getRawParameterValue("eqNodeGain" + slotStr)->load(), expectedGain, 0.2f);
+  }
+}
+
+TEST_F(OctoBassProcessorTest, CutParametersExist)
+{
+  auto& apvts = processor.getAPVTS();
+
+  auto* lowActive = apvts.getRawParameterValue("eqLowCutActive");
+  auto* lowFreq = apvts.getRawParameterValue("eqLowCutFreq");
+  auto* highActive = apvts.getRawParameterValue("eqHighCutActive");
+  auto* highFreq = apvts.getRawParameterValue("eqHighCutFreq");
+
+  ASSERT_NE(lowActive, nullptr);
+  ASSERT_NE(lowFreq, nullptr);
+  ASSERT_NE(highActive, nullptr);
+  ASSERT_NE(highFreq, nullptr);
+
+  EXPECT_GE(lowActive->load(), 0.5f)
+      << "Low cut should default to active so users can see the handle";
+  EXPECT_NEAR(lowFreq->load(), octob::MinGraphicEQFreqHz, 0.5f)
+      << "Low cut should default to the bottom of the range where it is transparent";
+  EXPECT_GE(highActive->load(), 0.5f)
+      << "High cut should default to active so users can see the handle";
+  EXPECT_NEAR(highFreq->load(), octob::MaxGraphicEQFreqHz, 50.0f)
+      << "High cut should default to the top of the range where it is transparent";
+}
+
+TEST_F(OctoBassProcessorTest, StateRoundTripWithCuts)
+{
+  auto& apvts = processor.getAPVTS();
+  apvts.getParameter("eqLowCutActive")->setValueNotifyingHost(1.0f);
+  auto* lowFreq = apvts.getParameter("eqLowCutFreq");
+  lowFreq->setValueNotifyingHost(lowFreq->convertTo0to1(80.0f));
+  apvts.getParameter("eqHighCutActive")->setValueNotifyingHost(1.0f);
+  auto* highFreq = apvts.getParameter("eqHighCutFreq");
+  highFreq->setValueNotifyingHost(highFreq->convertTo0to1(5000.0f));
+
+  juce::MemoryBlock stateData;
+  processor.getStateInformation(stateData);
+
+  OctoBassProcessor processor2;
+  processor2.setStateInformation(stateData.getData(), static_cast<int>(stateData.getSize()));
+
+  auto& apvts2 = processor2.getAPVTS();
+  EXPECT_GE(apvts2.getRawParameterValue("eqLowCutActive")->load(), 0.5f);
+  EXPECT_NEAR(apvts2.getRawParameterValue("eqLowCutFreq")->load(), 80.0f, 1.0f);
+  EXPECT_GE(apvts2.getRawParameterValue("eqHighCutActive")->load(), 0.5f);
+  EXPECT_NEAR(apvts2.getRawParameterValue("eqHighCutFreq")->load(), 5000.0f, 30.0f);
+}
+
+TEST_F(OctoBassProcessorTest, NewStateNotMigrated)
+{
+  // A state that already contains node parameters must not trigger migration
+  auto* active7 = processor.getAPVTS().getParameter("eqNodeActive7");
+  auto* gain7 = processor.getAPVTS().getParameter("eqNodeGain7");
+  ASSERT_NE(active7, nullptr);
+  ASSERT_NE(gain7, nullptr);
+  active7->setValueNotifyingHost(1.0f);
+  gain7->setValueNotifyingHost(gain7->convertTo0to1(-9.0f));
+
+  juce::MemoryBlock stateData;
+  processor.getStateInformation(stateData);
+
+  OctoBassProcessor processor2;
+  processor2.setStateInformation(stateData.getData(), static_cast<int>(stateData.getSize()));
+
+  auto& apvts2 = processor2.getAPVTS();
+  EXPECT_GE(apvts2.getRawParameterValue("eqNodeActive7")->load(), 0.5f);
+  EXPECT_NEAR(apvts2.getRawParameterValue("eqNodeGain7")->load(), -9.0f, 0.2f);
+  EXPECT_LT(apvts2.getRawParameterValue("eqNodeActive0")->load(), 0.5f);
+}
+
+TEST(GraphicEQDisplayMapping, FreqNormXRoundTrip)
+{
+  EXPECT_NEAR(GraphicEQDisplay::freqToNormX(GraphicEQDisplay::kMinFreqHz), 0.0f, 1e-5f);
+  EXPECT_NEAR(GraphicEQDisplay::freqToNormX(GraphicEQDisplay::kMaxFreqHz), 1.0f, 1e-5f);
+
+  for (float freq : {20.0f, 100.0f, 440.0f, 1000.0f, 5000.0f, 12600.0f, 20000.0f})
+  {
+    float roundTrip = GraphicEQDisplay::normXToFreq(GraphicEQDisplay::freqToNormX(freq));
+    EXPECT_NEAR(roundTrip, freq, freq * 0.001f) << "Round trip failed for " << freq << " Hz";
+  }
+
+  EXPECT_NEAR(GraphicEQDisplay::normXToFreq(-0.5f), GraphicEQDisplay::kMinFreqHz, 0.01f)
+      << "Out-of-range normX should clamp to the minimum frequency";
+  EXPECT_NEAR(GraphicEQDisplay::normXToFreq(1.5f), GraphicEQDisplay::kMaxFreqHz, 1.0f)
+      << "Out-of-range normX should clamp to the maximum frequency";
+}
+
+TEST(GraphicEQDisplayMapping, HitTestPicksNearestWithinRadius)
+{
+  constexpr int kCount = 3;
+  bool active[kCount] = {true, true, true};
+  float xs[kCount] = {100.0f, 110.0f, 300.0f};
+  float ys[kCount] = {50.0f, 50.0f, 50.0f};
+
+  EXPECT_EQ(GraphicEQDisplay::nearestNodeIndex(active, xs, ys, kCount, 101.0f, 50.0f, 8.0f), 0);
+  EXPECT_EQ(GraphicEQDisplay::nearestNodeIndex(active, xs, ys, kCount, 108.0f, 50.0f, 8.0f), 1);
+  EXPECT_EQ(GraphicEQDisplay::nearestNodeIndex(active, xs, ys, kCount, 300.0f, 55.0f, 8.0f), 2);
+}
+
+TEST(GraphicEQDisplayMapping, HitTestMissesOutsideRadius)
+{
+  constexpr int kCount = 2;
+  bool active[kCount] = {true, false};
+  float xs[kCount] = {100.0f, 200.0f};
+  float ys[kCount] = {50.0f, 50.0f};
+
+  EXPECT_EQ(GraphicEQDisplay::nearestNodeIndex(active, xs, ys, kCount, 150.0f, 50.0f, 8.0f), -1)
+      << "Point far from all nodes must miss";
+  EXPECT_EQ(GraphicEQDisplay::nearestNodeIndex(active, xs, ys, kCount, 200.0f, 50.0f, 8.0f), -1)
+      << "Inactive nodes must not be hit";
+}
+
+TEST(GraphicEQDisplayMapping, CutZones)
+{
+  // The cut zones span one spectrum-bar width (1/24) at each edge
+  EXPECT_TRUE(GraphicEQDisplay::isInLowCutZone(0.0f));
+  EXPECT_TRUE(GraphicEQDisplay::isInLowCutZone(GraphicEQDisplay::kCutZoneNormWidth - 0.001f));
+  EXPECT_FALSE(GraphicEQDisplay::isInLowCutZone(GraphicEQDisplay::kCutZoneNormWidth + 0.001f));
+  EXPECT_FALSE(GraphicEQDisplay::isInLowCutZone(0.5f));
+
+  EXPECT_TRUE(GraphicEQDisplay::isInHighCutZone(1.0f));
+  EXPECT_TRUE(
+      GraphicEQDisplay::isInHighCutZone(1.0f - GraphicEQDisplay::kCutZoneNormWidth + 0.001f));
+  EXPECT_FALSE(
+      GraphicEQDisplay::isInHighCutZone(1.0f - GraphicEQDisplay::kCutZoneNormWidth - 0.001f));
+  EXPECT_FALSE(GraphicEQDisplay::isInHighCutZone(0.5f));
+
+  EXPECT_FALSE(GraphicEQDisplay::isInLowCutZone(0.5f) || GraphicEQDisplay::isInHighCutZone(0.5f))
+      << "The center of the display must create peak nodes, not cuts";
 }
 
 TEST_F(OctoBassProcessorTest, StateRoundTripWithIRPath)

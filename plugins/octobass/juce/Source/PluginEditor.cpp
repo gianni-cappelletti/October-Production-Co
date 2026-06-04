@@ -71,11 +71,32 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
 
   // Spectrum analyzer + EQ display
   addAndMakeVisible(graphicEQDisplay_);
-  graphicEQDisplay_.onBandGainChanged = [this](int band, float gainDb)
+  graphicEQDisplay_.onNodeChanged = [this](int slot, bool active, float freqHz, float gainDb)
   {
-    auto* param = audioProcessor.getAPVTS().getParameter("eqBandGain" + juce::String(band));
-    if (param != nullptr)
-      param->setValueNotifyingHost(param->convertTo0to1(gainDb));
+    auto& apvts = audioProcessor.getAPVTS();
+    auto slotStr = juce::String(slot);
+    if (auto* activeParam = apvts.getParameter("eqNodeActive" + slotStr))
+      activeParam->setValueNotifyingHost(active ? 1.0f : 0.0f);
+    if (auto* freqParam = apvts.getParameter("eqNodeFreq" + slotStr))
+      freqParam->setValueNotifyingHost(freqParam->convertTo0to1(freqHz));
+    if (auto* gainParam = apvts.getParameter("eqNodeGain" + slotStr))
+      gainParam->setValueNotifyingHost(gainParam->convertTo0to1(gainDb));
+  };
+  graphicEQDisplay_.onLowCutChanged = [this](bool active, float freqHz)
+  {
+    auto& apvts = audioProcessor.getAPVTS();
+    if (auto* activeParam = apvts.getParameter("eqLowCutActive"))
+      activeParam->setValueNotifyingHost(active ? 1.0f : 0.0f);
+    if (auto* freqParam = apvts.getParameter("eqLowCutFreq"))
+      freqParam->setValueNotifyingHost(freqParam->convertTo0to1(freqHz));
+  };
+  graphicEQDisplay_.onHighCutChanged = [this](bool active, float freqHz)
+  {
+    auto& apvts = audioProcessor.getAPVTS();
+    if (auto* activeParam = apvts.getParameter("eqHighCutActive"))
+      activeParam->setValueNotifyingHost(active ? 1.0f : 0.0f);
+    if (auto* freqParam = apvts.getParameter("eqHighCutFreq"))
+      freqParam->setValueNotifyingHost(freqParam->convertTo0to1(freqHz));
   };
   spectrumAnalyzer_.setSampleRate(audioProcessor.getSampleRate());
   lastSampleRate_ = audioProcessor.getSampleRate();
@@ -218,6 +239,16 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   namNextButton_.setTitle("Next NAM Model");
   namNextButton_.onClick = [this] { namNextClicked(); };
 
+  addAndMakeVisible(namQualitySlider_);
+  setupTrimSlider(namQualitySlider_);
+  namQualitySlider_.setTitle("NAM Quality");
+  namQualityAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+      audioProcessor.getAPVTS(), "namQuality", namQualitySlider_);
+  // Override after the attachment: it installs the parameter's plain "75%"
+  // formatter, and the drag popup is the only place the name can live
+  namQualitySlider_.textFromValueFunction = [](double value)
+  { return "QUALITY " + juce::String(static_cast<int>(value * 100.0)) + "%"; };
+
   addAndMakeVisible(namLCDDisplay_);
   namLCDDisplay_.setTextColour(juce::Colour(0xff1c1c30));
   namLCDDisplay_.setOnClick([this] { namLoadClicked(); });
@@ -293,11 +324,20 @@ void OctoBassEditor::timerCallback()
   float crossoverHz = *audioProcessor.getAPVTS().getRawParameterValue("crossoverFrequency");
   graphicEQDisplay_.setCrossoverNormPosition(LCDSpectrumDisplay::freqToNormX(crossoverHz));
 
-  for (int i = 0; i < octob::kGraphicEQNumBands; ++i)
+  auto& apvts = audioProcessor.getAPVTS();
+  for (int i = 0; i < octob::kGraphicEQNumNodes; ++i)
   {
-    float gain = *audioProcessor.getAPVTS().getRawParameterValue("eqBandGain" + juce::String(i));
-    graphicEQDisplay_.setEQBandGain(i, gain);
+    auto slotStr = juce::String(i);
+    bool active = *apvts.getRawParameterValue("eqNodeActive" + slotStr) >= 0.5f;
+    float freqHz = *apvts.getRawParameterValue("eqNodeFreq" + slotStr);
+    float gainDb = *apvts.getRawParameterValue("eqNodeGain" + slotStr);
+    graphicEQDisplay_.setNode(i, active, freqHz, gainDb);
   }
+
+  graphicEQDisplay_.setLowCut(*apvts.getRawParameterValue("eqLowCutActive") >= 0.5f,
+                              *apvts.getRawParameterValue("eqLowCutFreq"));
+  graphicEQDisplay_.setHighCut(*apvts.getRawParameterValue("eqHighCutActive") >= 0.5f,
+                               *apvts.getRawParameterValue("eqHighCutFreq"));
 }
 
 void OctoBassEditor::paint(juce::Graphics& g)
@@ -510,6 +550,8 @@ void OctoBassEditor::resized()
     namClearButton_.setBounds(namButtonRow.removeFromLeft(48).reduced(2));
     namPrevButton_.setBounds(namButtonRow.removeFromLeft(28).reduced(2));
     namNextButton_.setBounds(namButtonRow.removeFromLeft(28).reduced(2));
+    namQualitySlider_.setBounds(
+        namButtonRow.removeFromRight(buttonH).withSizeKeepingCentre(trimKnobSize, trimKnobSize));
     namSection.removeFromTop(innerGap);
     namLCDDisplay_.setBounds(namSection.reduced(2, 0));
   }

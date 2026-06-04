@@ -41,15 +41,24 @@ constexpr float MaxHighOutputGainDb = 24.0f;
 // High band wet/dry blend
 constexpr float DefaultHighBandMix = 1.0f;
 
+// NAM model quality/CPU trade-off (0.0 slimmest, 1.0 full quality)
+constexpr float DefaultNamQuality = 1.0f;
+
 // Noise gate defaults and limits
 constexpr float DefaultGateThresholdDb = -96.0f;
 constexpr float MinGateThresholdDb = -96.0f;
 constexpr float MaxGateThresholdDb = 0.0f;
 
 // Graphic EQ defaults and limits
-constexpr int kGraphicEQNumBands = 24;
+constexpr int kGraphicEQNumNodes = 16;
 constexpr float DefaultGraphicEQGainDb = 0.0f;
 constexpr float MinGraphicEQGainDb = -12.0f;
 constexpr float MaxGraphicEQGainDb = 12.0f;
+constexpr float DefaultGraphicEQFreqHz = 1000.0f;
+constexpr float MinGraphicEQFreqHz = 20.0f;
+constexpr float MaxGraphicEQFreqHz = 20000.0f;
+
+// Band count of the legacy fixed-band EQ, retained for state migration
+constexpr int kGraphicEQNumBands = 24;
 
 }  // namespace octob
