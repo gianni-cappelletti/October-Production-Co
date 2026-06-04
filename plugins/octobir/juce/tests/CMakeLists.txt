@@ -47,6 +47,7 @@ target_link_libraries(octobir-plugin-tests
         juce-ui-shared
         October_SharedResources
         juce::juce_audio_utils
+        juce::juce_dsp
         GTest::gtest
 )
 

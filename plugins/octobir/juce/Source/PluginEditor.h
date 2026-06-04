@@ -160,6 +160,7 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
   void nextButton2Clicked();
   void swapIROrderClicked();
   void exportClicked();
+  void launchExportFileChooser();
   void updateMeters();
   void cycleIRFile(int irIndex, int direction);
   juce::File getLastBrowsedDirectory() const;

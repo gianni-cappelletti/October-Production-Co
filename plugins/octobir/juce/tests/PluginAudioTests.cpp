@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <juce_dsp/juce_dsp.h>
 
 #include <algorithm>
 #include <cmath>
@@ -117,6 +118,71 @@ std::vector<float> processAndAlign(OctobIRProcessor& processor, const std::vecto
   std::vector<float> aligned(rawOutput.begin() + latency,
                              rawOutput.begin() + latency + static_cast<ptrdiff_t>(totalFrames));
   return aligned;
+}
+
+std::vector<float> directConvolve(const std::vector<float>& ir, const std::vector<float>& dry)
+{
+  const size_t outLen = dry.size();
+  const size_t irLen = ir.size();
+  std::vector<float> out(outLen, 0.0f);
+  for (size_t n = 0; n < outLen; ++n)
+  {
+    float sum = 0.0f;
+    const size_t kMax = std::min(irLen, n + 1);
+    for (size_t k = 0; k < kMax; ++k)
+      sum += ir[k] * dry[n - k];
+    out[n] = sum;
+  }
+  return out;
+}
+
+unsigned int wavChannelCount(const std::string& path)
+{
+  drwav wav;
+  if (!drwav_init_file(&wav, path.c_str(), nullptr))
+    return 0;
+  const unsigned int channels = wav.channels;
+  drwav_uninit(&wav);
+  return channels;
+}
+
+float peakMagnitude(const std::vector<float>& v)
+{
+  float pk = 0.0f;
+  for (float s : v)
+    pk = std::max(pk, std::abs(s));
+  return pk;
+}
+
+// Magnitude spectrum (positive-frequency bins) via a zero-padded power-of-two FFT.
+// Used to compare signals whose phase differs but whose magnitude response should
+// match — e.g. an IR reloaded through IRLoader, which re-applies the minimum-phase
+// transform (preserves magnitude, changes phase).
+std::vector<float> magnitudeSpectrum(const std::vector<float>& signal)
+{
+  if (signal.empty())
+    return {};
+
+  int order = 0;
+  while ((static_cast<size_t>(1) << order) < signal.size())
+    ++order;
+  const int fftSize = 1 << order;
+
+  juce::dsp::FFT fft(order);
+  std::vector<float> data(static_cast<size_t>(2 * fftSize), 0.0f);
+  for (size_t i = 0; i < signal.size(); ++i)
+    data[i] = signal[i];
+
+  fft.performRealOnlyForwardTransform(data.data());
+
+  std::vector<float> mag(static_cast<size_t>(fftSize / 2 + 1), 0.0f);
+  for (int k = 0; k <= fftSize / 2; ++k)
+  {
+    const float re = data[static_cast<size_t>(2 * k)];
+    const float im = data[static_cast<size_t>(2 * k + 1)];
+    mag[static_cast<size_t>(k)] = std::sqrt(re * re + im * im);
+  }
+  return mag;
 }
 
 }  // namespace
@@ -510,7 +576,8 @@ TEST_F(PluginAudioTest, ExportedIRMatchesStaticBlend)
   ASSERT_TRUE(tempWav.existsAsFile()) << "Export reported success but file is missing";
 
   unsigned int wavSampleRate = 0;
-  std::vector<float> exportedIR = loadWavMono(tempWav.getFullPathName().toStdString(), wavSampleRate);
+  std::vector<float> exportedIR =
+      loadWavMono(tempWav.getFullPathName().toStdString(), wavSampleRate);
   ASSERT_FALSE(exportedIR.empty()) << "Failed to read exported WAV";
   EXPECT_EQ(wavSampleRate, static_cast<unsigned int>(kSampleRate))
       << "Exported file sample rate should match host sample rate";
@@ -543,5 +610,285 @@ TEST_F(PluginAudioTest, ExportedIRMatchesStaticBlend)
   const double r = pearsonCorrelation(liveOutput, convolvedOutput);
   EXPECT_GT(r, 0.9999) << "Exported IR convolution diverged from live 50/50 blend (r=" << r << ")";
 
+  tempWav.deleteFile();
+}
+
+namespace
+{
+// Builds a processor with both IRs loaded, both slots enabled and static mode, with
+// the blend set to the given native value. Returns the temp WAV path used for export.
+void prepareViableBlendProcessor(OctobIRProcessor& proc, float blendNative)
+{
+  proc.prepareToPlay(kSampleRate, kBlockSize);
+  auto& apvts = proc.getAPVTS();
+  apvts.getParameter("irAEnable")->setValueNotifyingHost(1.f);
+  apvts.getParameter("irBEnable")->setValueNotifyingHost(1.f);
+  apvts.getParameter("dynamicMode")->setValueNotifyingHost(0.f);
+
+  juce::String err;
+  ASSERT_TRUE(proc.loadImpulseResponse1(kIrAPath, err)) << err;
+  ASSERT_TRUE(proc.loadImpulseResponse2(kIrBPath, err)) << err;
+
+  auto* blendParam = apvts.getParameter("blend");
+  blendParam->setValueNotifyingHost(blendParam->convertTo0to1(blendNative));
+}
+
+juce::File makeTempWav()
+{
+  return juce::File::getSpecialLocation(juce::File::tempDirectory)
+      .getChildFile("octobir_export_test_" +
+                    juce::String(juce::Random::getSystemRandom().nextInt()) + ".wav");
+}
+}  // namespace
+
+// At blend = -1 the equal-power blend collapses to 100% IR A, so the exported IR
+// convolved against the dry input must reproduce the live full-A output.
+TEST_F(PluginAudioTest, Export_BlendFullA)
+{
+  OctobIRProcessor proc;
+  prepareViableBlendProcessor(proc, -1.0f);
+
+  const std::vector<float> liveOutput = processAndAlign(proc, dryInput_);
+
+  juce::String err;
+  juce::File tempWav = makeTempWav();
+  ASSERT_TRUE(proc.exportBlendedIR(tempWav, err)) << err;
+
+  unsigned int sr = 0;
+  std::vector<float> exportedIR = loadWavMono(tempWav.getFullPathName().toStdString(), sr);
+  ASSERT_FALSE(exportedIR.empty());
+
+  std::vector<float> convolved = directConvolve(exportedIR, dryInput_);
+  convolved.resize(liveOutput.size());
+
+  std::vector<float> live = liveOutput;
+  const float lp = peakMagnitude(live);
+  const float cp = peakMagnitude(convolved);
+  if (lp > 0.0f)
+    for (float& s : live)
+      s /= lp;
+  if (cp > 0.0f)
+    for (float& s : convolved)
+      s /= cp;
+
+  const double r = pearsonCorrelation(live, convolved);
+  EXPECT_GT(r, 0.9999) << "Exported full-A IR diverged from live full-A output (r=" << r << ")";
+  tempWav.deleteFile();
+}
+
+// At blend = +1 the equal-power blend collapses to 100% IR B.
+TEST_F(PluginAudioTest, Export_BlendFullB)
+{
+  OctobIRProcessor proc;
+  prepareViableBlendProcessor(proc, 1.0f);
+
+  const std::vector<float> liveOutput = processAndAlign(proc, dryInput_);
+
+  juce::String err;
+  juce::File tempWav = makeTempWav();
+  ASSERT_TRUE(proc.exportBlendedIR(tempWav, err)) << err;
+
+  unsigned int sr = 0;
+  std::vector<float> exportedIR = loadWavMono(tempWav.getFullPathName().toStdString(), sr);
+  ASSERT_FALSE(exportedIR.empty());
+
+  std::vector<float> convolved = directConvolve(exportedIR, dryInput_);
+  convolved.resize(liveOutput.size());
+
+  std::vector<float> live = liveOutput;
+  const float lp = peakMagnitude(live);
+  const float cp = peakMagnitude(convolved);
+  if (lp > 0.0f)
+    for (float& s : live)
+      s /= lp;
+  if (cp > 0.0f)
+    for (float& s : convolved)
+      s /= cp;
+
+  const double r = pearsonCorrelation(live, convolved);
+  EXPECT_GT(r, 0.9999) << "Exported full-B IR diverged from live full-B output (r=" << r << ")";
+  tempWav.deleteFile();
+}
+
+// The IR trim gain must be baked into the exported kernel. At blend = -1 (full A)
+// trimB is irrelevant; scaling trimA by a linear factor must scale the exported
+// kernel peak by the same factor, provided neither export engages overload
+// protection (peak stays under full scale).
+TEST_F(PluginAudioTest, Export_TrimGainBakedIn)
+{
+  OctobIRProcessor proc;
+  prepareViableBlendProcessor(proc, -1.0f);
+  auto& irp = proc.getIRProcessor();
+
+  octob::BlendedIRExport unity;
+  std::string err;
+  ASSERT_TRUE(irp.getStaticBlendedIR(-1.0f, 1.0f, 1.0f, unity, err)) << err;
+  ASSERT_EQ(unity.normalizationScale, 1.0f) << "Unity-trim full-A export should not clip";
+
+  const float peakUnity = peakMagnitude(unity.channels[0]);
+  ASSERT_GT(peakUnity, 0.0f);
+  constexpr float kFactor = 1.5f;
+  ASSERT_LT(peakUnity * kFactor, 1.0f)
+      << "Test IR too hot to isolate trim from overload protection";
+
+  octob::BlendedIRExport scaled;
+  ASSERT_TRUE(irp.getStaticBlendedIR(-1.0f, kFactor, 1.0f, scaled, err)) << err;
+  ASSERT_EQ(scaled.normalizationScale, 1.0f) << "Scaled-trim export unexpectedly clipped";
+
+  const float peakScaled = peakMagnitude(scaled.channels[0]);
+  EXPECT_NEAR(peakScaled / peakUnity, kFactor, 0.01f)
+      << "Trim gain was not baked in proportionally";
+}
+
+// When the blended kernel would exceed full scale, overload protection scales it
+// down by a single global factor so the peak just reaches 1.0 — preserving shape.
+TEST_F(PluginAudioTest, Export_OverloadProtection_PreventsClipping)
+{
+  OctobIRProcessor proc;
+  prepareViableBlendProcessor(proc, 0.0f);
+  auto& irp = proc.getIRProcessor();
+
+  octob::BlendedIRExport hot;
+  std::string err;
+  ASSERT_TRUE(irp.getStaticBlendedIR(0.0f, 1000.0f, 1000.0f, hot, err)) << err;
+
+  EXPECT_LT(hot.normalizationScale, 1.0f) << "Overload protection should have engaged";
+  const float peak = peakMagnitude(hot.channels[0]);
+  EXPECT_LE(peak, 1.0f + 1e-4f) << "Exported peak should not exceed full scale";
+  EXPECT_GT(peak, 0.99f) << "Overload protection should normalise the peak to ~full scale";
+
+  // Shape is preserved: a uniform scale relative to the un-protected blend.
+  octob::BlendedIRExport ref;
+  ASSERT_TRUE(irp.getStaticBlendedIR(0.0f, 1.0f, 1.0f, ref, err)) << err;
+  ASSERT_EQ(ref.normalizationScale, 1.0f);
+
+  std::vector<float> a = hot.channels[0];
+  std::vector<float> b = ref.channels[0];
+  const float ap = peakMagnitude(a);
+  const float bp = peakMagnitude(b);
+  for (float& s : a)
+    s /= ap;
+  for (float& s : b)
+    s /= bp;
+  const double r = pearsonCorrelation(a, b);
+  EXPECT_GT(r, 0.9999) << "Overload protection altered the kernel shape (r=" << r << ")";
+}
+
+// A stereo IR in either slot must produce a two-channel exported WAV.
+TEST_F(PluginAudioTest, Export_StereoProducesTwoChannels)
+{
+  OctobIRProcessor proc;
+  proc.prepareToPlay(kSampleRate, kBlockSize);
+  auto& apvts = proc.getAPVTS();
+  apvts.getParameter("irAEnable")->setValueNotifyingHost(1.f);
+  apvts.getParameter("irBEnable")->setValueNotifyingHost(1.f);
+  apvts.getParameter("dynamicMode")->setValueNotifyingHost(0.f);
+
+  juce::String err;
+  ASSERT_TRUE(proc.loadImpulseResponse1(kIrStereoPath, err)) << err;
+  ASSERT_TRUE(proc.loadImpulseResponse2(kIrBPath, err)) << err;
+
+  auto* blendParam = apvts.getParameter("blend");
+  blendParam->setValueNotifyingHost(blendParam->convertTo0to1(0.f));
+
+  juce::File tempWav = makeTempWav();
+  ASSERT_TRUE(proc.exportBlendedIR(tempWav, err)) << err;
+  EXPECT_EQ(wavChannelCount(tempWav.getFullPathName().toStdString()), 2u)
+      << "A stereo IR should export a two-channel WAV";
+  tempWav.deleteFile();
+}
+
+// Export is blocked unless two IRs are loaded, both enabled, in static mode. Each
+// non-viable state reports the corresponding reason and refuses to export.
+TEST_F(PluginAudioTest, Export_Blocked_DynamicMode)
+{
+  OctobIRProcessor proc;
+  prepareViableBlendProcessor(proc, 0.0f);
+  proc.getAPVTS().getParameter("dynamicMode")->setValueNotifyingHost(1.f);
+
+  EXPECT_EQ(proc.getBlendedIRExportInfo().viability, IRExportViability::DynamicModeActive);
+
+  juce::File tempWav = makeTempWav();
+  juce::String err;
+  EXPECT_FALSE(proc.exportBlendedIR(tempWav, err));
+  EXPECT_FALSE(tempWav.existsAsFile());
+}
+
+TEST_F(PluginAudioTest, Export_Blocked_SingleIR)
+{
+  OctobIRProcessor proc;
+  proc.prepareToPlay(kSampleRate, kBlockSize);
+  auto& apvts = proc.getAPVTS();
+  apvts.getParameter("irAEnable")->setValueNotifyingHost(1.f);
+  apvts.getParameter("irBEnable")->setValueNotifyingHost(1.f);
+  apvts.getParameter("dynamicMode")->setValueNotifyingHost(0.f);
+
+  juce::String err;
+  ASSERT_TRUE(proc.loadImpulseResponse1(kIrAPath, err)) << err;
+
+  EXPECT_EQ(proc.getBlendedIRExportInfo().viability, IRExportViability::NeedsTwoIRs);
+
+  juce::File tempWav = makeTempWav();
+  EXPECT_FALSE(proc.exportBlendedIR(tempWav, err));
+  EXPECT_FALSE(tempWav.existsAsFile());
+}
+
+TEST_F(PluginAudioTest, Export_Blocked_DisabledSlot)
+{
+  OctobIRProcessor proc;
+  prepareViableBlendProcessor(proc, 0.0f);
+  proc.getAPVTS().getParameter("irBEnable")->setValueNotifyingHost(0.f);
+
+  EXPECT_EQ(proc.getBlendedIRExportInfo().viability, IRExportViability::SlotDisabled);
+
+  juce::File tempWav = makeTempWav();
+  juce::String err;
+  EXPECT_FALSE(proc.exportBlendedIR(tempWav, err));
+  EXPECT_FALSE(tempWav.existsAsFile());
+}
+
+TEST_F(PluginAudioTest, Export_Blocked_NotPrepared)
+{
+  OctobIRProcessor proc;  // never prepared, no IRs
+  EXPECT_NE(proc.getBlendedIRExportInfo().viability, IRExportViability::Ok);
+
+  juce::File tempWav = makeTempWav();
+  juce::String err;
+  EXPECT_FALSE(proc.exportBlendedIR(tempWav, err));
+  EXPECT_FALSE(tempWav.existsAsFile());
+}
+
+// User-requested round trip: export the live 50/50 blend, reload it through the
+// plugin, and play it at 100% A. The reload re-applies IRLoader's unconditional
+// minimum-phase transform (IRLoader.cpp), which preserves the magnitude spectrum
+// but changes phase — so the two outputs match in MAGNITUDE, not sample-for-sample.
+TEST_F(PluginAudioTest, Export_RoundTripMagnitudeMatchesLiveBlend)
+{
+  OctobIRProcessor blendProc;
+  prepareViableBlendProcessor(blendProc, 0.0f);
+  const std::vector<float> liveOutput = processAndAlign(blendProc, dryInput_);
+
+  juce::String err;
+  juce::File tempWav = makeTempWav();
+  ASSERT_TRUE(blendProc.exportBlendedIR(tempWav, err)) << err;
+
+  OctobIRProcessor reloadProc;
+  reloadProc.prepareToPlay(kSampleRate, kBlockSize);
+  auto& apvts = reloadProc.getAPVTS();
+  apvts.getParameter("irAEnable")->setValueNotifyingHost(1.f);
+  apvts.getParameter("irBEnable")->setValueNotifyingHost(0.f);
+  apvts.getParameter("dynamicMode")->setValueNotifyingHost(0.f);
+  ASSERT_TRUE(reloadProc.loadImpulseResponse1(tempWav.getFullPathName(), err)) << err;
+  auto* blendParam = apvts.getParameter("blend");
+  blendParam->setValueNotifyingHost(blendParam->convertTo0to1(-1.0f));  // full A
+
+  const std::vector<float> roundTripOutput = processAndAlign(reloadProc, dryInput_);
+
+  std::vector<float> liveMag = magnitudeSpectrum(liveOutput);
+  std::vector<float> roundTripMag = magnitudeSpectrum(roundTripOutput);
+
+  const double r = pearsonCorrelation(liveMag, roundTripMag);
+  EXPECT_GT(r, 0.99) << "Reloaded exported IR magnitude spectrum diverged from the live 50/50 "
+                     << "blend (r=" << r << ")";
   tempWav.deleteFile();
 }

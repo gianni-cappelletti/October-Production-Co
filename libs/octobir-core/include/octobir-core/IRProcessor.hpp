@@ -19,6 +19,9 @@ struct BlendedIRExport
 {
   std::vector<std::vector<Sample>> channels;
   SampleRate sampleRate = 0.0;
+  // 1.0 when the kernel fit under full scale untouched; < 1.0 when overload
+  // protection scaled it down to prevent clipping the fixed-point WAV.
+  float normalizationScale = 1.0f;
 };
 
 class IRProcessor
@@ -67,6 +70,7 @@ class IRProcessor
   bool isIR2Loaded() const { return ir2Loaded_.load(); }
   std::string getCurrentIR1Path() const { return currentIR1Path_; }
   std::string getCurrentIR2Path() const { return currentIR2Path_; }
+  SampleRate getSampleRate() const { return sampleRate_; }
   SampleRate getIR1SampleRate() const;
   SampleRate getIR2SampleRate() const;
   size_t getIR1NumSamples() const;
@@ -96,7 +100,8 @@ class IRProcessor
 
   void swapIRSlots();
 
-  bool getStaticBlendedIR(BlendedIRExport& out, std::string& errorMessage);
+  bool getStaticBlendedIR(float blend, float irATrimGainLinear, float irBTrimGainLinear,
+                          BlendedIRExport& out, std::string& errorMessage);
 
   void reset();
 

@@ -4,6 +4,23 @@
 
 #include <octobir-core/IRProcessor.hpp>
 
+enum class IRExportViability
+{
+  Ok,
+  NotPrepared,
+  NeedsTwoIRs,
+  SlotDisabled,
+  DynamicModeActive
+};
+
+struct IRExportInfo
+{
+  IRExportViability viability = IRExportViability::NotPrepared;
+  int numChannels = 0;           // valid when viability == Ok (1 or 2)
+  double sampleRate = 0.0;       // valid when viability == Ok
+  float blendNormalized = 0.0f;  // 0..1, for percent display
+};
+
 class OctobIRProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
 {
  public:
@@ -41,7 +58,9 @@ class OctobIRProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
   void clearImpulseResponse1();
   void clearImpulseResponse2();
   void swapImpulseResponses();
-  bool exportBlendedIR(const juce::File& destinationFile, juce::String& errorMessage);
+  bool exportBlendedIR(const juce::File& destinationFile, juce::String& errorMessage,
+                       float* normalizationScaleOut = nullptr);
+  IRExportInfo getBlendedIRExportInfo() const;
   juce::String getCurrentIR1Path() const { return currentIR1Path_; }
   juce::String getCurrentIR2Path() const { return currentIR2Path_; }
 

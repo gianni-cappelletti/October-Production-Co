@@ -638,56 +638,37 @@ void IRProcessor::swapIRSlots()
   std::swap(ir1DelayWritePosR_, ir2DelayWritePosR_);
 }
 
-bool IRProcessor::getStaticBlendedIR(BlendedIRExport& out, std::string& errorMessage)
+bool IRProcessor::getStaticBlendedIR(float blend, float irATrimGainLinear, float irBTrimGainLinear,
+                                     BlendedIRExport& out, std::string& errorMessage)
 {
-  const bool ir1Loaded = ir1Loaded_.load(std::memory_order_relaxed);
-  const bool ir2Loaded = ir2Loaded_.load(std::memory_order_relaxed);
-
-  if (!ir1Loaded && !ir2Loaded)
-  {
-    errorMessage = "No IR loaded — load at least one IR before exporting";
-    return false;
-  }
-
+  // Gating on slot enable / dynamic mode lives in the plugin layer (it reads the
+  // authoritative APVTS state). This function is a pure two-IR blend: both impulse
+  // buffers must be present. They are populated synchronously on load, so we gate
+  // on the buffers themselves rather than the audio-thread ir*Loaded_ flags.
   if (sampleRate_ <= 0.0)
   {
-    errorMessage = "Invalid sample rate — plugin not yet prepared";
+    errorMessage = "Invalid sample rate - plugin not yet prepared";
     return false;
   }
 
-  const int len1 = ir1Loaded ? impulseBuffer1_->GetLength() : 0;
-  const int len2 = ir2Loaded ? impulseBuffer2_->GetLength() : 0;
+  const int len1 = impulseBuffer1_ ? impulseBuffer1_->GetLength() : 0;
+  const int len2 = impulseBuffer2_ ? impulseBuffer2_->GetLength() : 0;
+  if (len1 <= 0 || len2 <= 0)
+  {
+    errorMessage = "Export requires two loaded IRs";
+    return false;
+  }
+
   const int outLen = std::max(len1, len2);
-  if (outLen <= 0)
-  {
-    errorMessage = "IR buffers are empty";
-    return false;
-  }
 
-  const float normalizedBlend = (blend_ + 1.0f) * 0.5f;
-  float gain1 = 0.0f;
-  float gain2 = 0.0f;
-  if (ir1Loaded && ir2Loaded)
-  {
-    gain1 = std::sqrt(1.0f - normalizedBlend);
-    gain2 = std::sqrt(normalizedBlend);
-  }
-  else if (ir1Loaded)
-  {
-    gain1 = 1.0f;
-    gain2 = 0.0f;
-  }
-  else
-  {
-    gain1 = 0.0f;
-    gain2 = 1.0f;
-  }
+  const float normalizedBlend = (blend + 1.0f) * 0.5f;
+  const float gain1 = std::sqrt(1.0f - normalizedBlend);
+  const float gain2 = std::sqrt(normalizedBlend);
+  const float w1 = gain1 * irATrimGainLinear;
+  const float w2 = gain2 * irBTrimGainLinear;
 
-  const float w1 = gain1 * irATrimGainLinear_;
-  const float w2 = gain2 * irBTrimGainLinear_;
-
-  const int ch1 = ir1Loaded ? (irLoader1_ ? irLoader1_->getNumChannels() : 0) : 0;
-  const int ch2 = ir2Loaded ? (irLoader2_ ? irLoader2_->getNumChannels() : 0) : 0;
+  const int ch1 = irLoader1_ ? irLoader1_->getNumChannels() : 0;
+  const int ch2 = irLoader2_ ? irLoader2_->getNumChannels() : 0;
   const bool stereoOutput = (ch1 >= 2) || (ch2 >= 2);
   const int outChannels = stereoOutput ? 2 : 1;
 
@@ -695,24 +676,37 @@ bool IRProcessor::getStaticBlendedIR(BlendedIRExport& out, std::string& errorMes
                       std::vector<Sample>(static_cast<size_t>(outLen), 0.0f));
   out.sampleRate = sampleRate_;
 
+  // A mono IR placed in a stereo export contributes to both channels. WDL's
+  // impulses[] operator clamps an out-of-range channel index to channel 0, so a
+  // mono source duplicates into the right channel without a separate code path.
   for (int ch = 0; ch < outChannels; ++ch)
   {
     Sample* dst = out.channels[static_cast<size_t>(ch)].data();
-    const WDL_FFT_REAL* src1 =
-        ir1Loaded ? impulseBuffer1_->impulses[ch].Get() : nullptr;
-    const WDL_FFT_REAL* src2 =
-        ir2Loaded ? impulseBuffer2_->impulses[ch].Get() : nullptr;
+    const WDL_FFT_REAL* src1 = impulseBuffer1_->impulses[ch].Get();
+    const WDL_FFT_REAL* src2 = impulseBuffer2_->impulses[ch].Get();
 
-    if (src1 != nullptr)
-    {
-      for (int i = 0; i < len1; ++i)
-        dst[i] += w1 * static_cast<Sample>(src1[i]);
-    }
-    if (src2 != nullptr)
-    {
-      for (int i = 0; i < len2; ++i)
-        dst[i] += w2 * static_cast<Sample>(src2[i]);
-    }
+    for (int i = 0; i < len1; ++i)
+      dst[i] += w1 * static_cast<Sample>(src1[i]);
+    for (int i = 0; i < len2; ++i)
+      dst[i] += w2 * static_cast<Sample>(src2[i]);
+  }
+
+  // Output gain is intentionally not baked in — it is a post-IR master gain, not
+  // part of the kernel. The only level change applied here is overload protection:
+  // leave the IR untouched unless its peak would clip the fixed-point WAV, in which
+  // case scale every channel by a single factor so the peak just reaches full scale.
+  float peak = 0.0f;
+  for (const auto& channel : out.channels)
+    for (const Sample s : channel)
+      peak = std::max(peak, std::abs(s));
+
+  out.normalizationScale = 1.0f;
+  if (peak > 1.0f)
+  {
+    out.normalizationScale = 1.0f / peak;
+    for (auto& channel : out.channels)
+      for (Sample& s : channel)
+        s *= out.normalizationScale;
   }
 
   errorMessage.clear();

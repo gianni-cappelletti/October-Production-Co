@@ -780,36 +780,81 @@ void OctobIREditor::updateLastBrowsedDirectory(const juce::File& file)
 
 void OctobIREditor::exportClicked()
 {
-  const juce::String ir1Path = audioProcessor.getCurrentIR1Path();
-  const juce::String ir2Path = audioProcessor.getCurrentIR2Path();
-  if (ir1Path.isEmpty() && ir2Path.isEmpty())
+  const IRExportInfo info = audioProcessor.getBlendedIRExportInfo();
+
+  if (info.viability != IRExportViability::Ok)
   {
-    juce::AlertWindow::showMessageBoxAsync(
-        juce::AlertWindow::WarningIcon, "Nothing to Export",
-        "No IR loaded — load at least one IR before exporting.", "OK");
+    juce::String message;
+    switch (info.viability)
+    {
+      case IRExportViability::NotPrepared:
+        message = "The plugin is not ready yet. Start audio playback and try again.";
+        break;
+      case IRExportViability::NeedsTwoIRs:
+        message = "Export requires two IRs. Load an impulse response into both slot A and slot B.";
+        break;
+      case IRExportViability::SlotDisabled:
+        message =
+            "Export requires both IR slots enabled. Enable slot A and slot B, then try again.";
+        break;
+      case IRExportViability::DynamicModeActive:
+        message =
+            "Export captures a single static blend. Turn off Dynamic Mode to export the IR "
+            "at the current blend.";
+        break;
+      case IRExportViability::Ok:
+        break;
+    }
+
+    juce::AlertWindow::showAsync(juce::MessageBoxOptions()
+                                     .withIconType(juce::MessageBoxIconType::InfoIcon)
+                                     .withTitle("Cannot Export IR")
+                                     .withMessage(message)
+                                     .withButton("OK")
+                                     .withAssociatedComponent(this),
+                                 nullptr);
     return;
   }
+
+  const int blendPercent = static_cast<int>(std::round(info.blendNormalized * 100.0f));
+  const juce::String channelsStr = info.numChannels == 2 ? "stereo" : "mono";
+  const juce::String summary = "This will export the current static blend as a " + channelsStr +
+                               " WAV at " + juce::String(info.sampleRate / 1000.0, 1) +
+                               " kHz.\n\nBlend: " + juce::String(blendPercent) + "% (A " +
+                               juce::String(100 - blendPercent) + "% / B " +
+                               juce::String(blendPercent) + "%).\n\nDynamic Mode is not captured.";
+
+  juce::AlertWindow::showAsync(juce::MessageBoxOptions()
+                                   .withIconType(juce::MessageBoxIconType::QuestionIcon)
+                                   .withTitle("Export IR")
+                                   .withMessage(summary)
+                                   .withButton("OK")
+                                   .withButton("Cancel")
+                                   .withAssociatedComponent(this),
+                               [this](int result)
+                               {
+                                 if (result == 1)
+                                   launchExportFileChooser();
+                               });
+}
+
+void OctobIREditor::launchExportFileChooser()
+{
+  const juce::String ir1Path = audioProcessor.getCurrentIR1Path();
+  const juce::String ir2Path = audioProcessor.getCurrentIR2Path();
 
   const float blendValue = audioProcessor.getAPVTS().getRawParameterValue("blend")->load();
   const int blendPercent = static_cast<int>(std::round((blendValue + 1.0f) * 50.0f));
 
-  juce::String stem1 = ir1Path.isNotEmpty() ? juce::File(ir1Path).getFileNameWithoutExtension()
-                                            : juce::String();
-  juce::String stem2 = ir2Path.isNotEmpty() ? juce::File(ir2Path).getFileNameWithoutExtension()
-                                            : juce::String();
-
-  juce::String suggestedName;
-  if (stem1.isNotEmpty() && stem2.isNotEmpty())
-    suggestedName = stem1 + "_blend" + juce::String(blendPercent) + "_" + stem2 + ".wav";
-  else if (stem1.isNotEmpty())
-    suggestedName = stem1 + "_export.wav";
-  else
-    suggestedName = stem2 + "_export.wav";
+  const juce::String stem1 = juce::File(ir1Path).getFileNameWithoutExtension();
+  const juce::String stem2 = juce::File(ir2Path).getFileNameWithoutExtension();
+  const juce::String suggestedName =
+      stem1 + "_blend" + juce::String(blendPercent) + "_" + stem2 + ".wav";
 
   juce::File suggestedFile = getLastBrowsedDirectory().getChildFile(suggestedName);
 
-  auto chooser = std::make_shared<juce::FileChooser>("Export blended IR as WAV", suggestedFile,
-                                                     "*.wav");
+  auto chooser =
+      std::make_shared<juce::FileChooser>("Export blended IR as WAV", suggestedFile, "*.wav");
 
   auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles |
                juce::FileBrowserComponent::warnAboutOverwriting;
@@ -830,11 +875,14 @@ void OctobIREditor::exportClicked()
           lastBrowsedDirectory_ = parentDir;
 
         juce::String error;
-        if (audioProcessor.exportBlendedIR(file, error))
+        float normalizationScale = 1.0f;
+        if (audioProcessor.exportBlendedIR(file, error, &normalizationScale))
         {
+          juce::String message = "Saved blended IR to:\n" + file.getFullPathName();
+          if (normalizationScale < 1.0f)
+            message += "\n\nThe IR was scaled down to prevent clipping (overload protection).";
           juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Export Complete",
-                                                 "Saved blended IR to:\n" + file.getFullPathName(),
-                                                 "OK");
+                                                 message, "OK");
         }
         else
         {

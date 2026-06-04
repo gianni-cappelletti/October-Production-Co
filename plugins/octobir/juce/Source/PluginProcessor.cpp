@@ -2,6 +2,8 @@
 
 #include <juce_audio_formats/juce_audio_formats.h>
 
+#include <cmath>
+
 #include "PluginEditor.h"
 
 OctobIRProcessor::OctobIRProcessor()
@@ -477,17 +479,95 @@ void OctobIRProcessor::swapImpulseResponses()
     param->setValueNotifyingHost(param->convertTo0to1(trimA));
 }
 
-bool OctobIRProcessor::exportBlendedIR(const juce::File& destinationFile,
-                                       juce::String& errorMessage)
+IRExportInfo OctobIRProcessor::getBlendedIRExportInfo() const
 {
+  IRExportInfo info;
+  info.blendNormalized = (apvts_.getRawParameterValue("blend")->load() + 1.0f) * 0.5f;
+
+  // Use the IRProcessor's processing rate (set in prepareToPlay) rather than
+  // AudioProcessor::getSampleRate(), which is only populated by the host wrapper.
+  // This is also the rate baked into the exported WAV.
+  const double sr = irProcessor_.getSampleRate();
+  info.sampleRate = sr;
+  if (sr <= 0.0)
+  {
+    info.viability = IRExportViability::NotPrepared;
+    return info;
+  }
+
+  const bool loadedA = currentIR1Path_.isNotEmpty();
+  const bool loadedB = currentIR2Path_.isNotEmpty();
+  if (!loadedA || !loadedB)
+  {
+    info.viability = IRExportViability::NeedsTwoIRs;
+    return info;
+  }
+
+  const bool enabledA = apvts_.getRawParameterValue("irAEnable")->load() > 0.5f;
+  const bool enabledB = apvts_.getRawParameterValue("irBEnable")->load() > 0.5f;
+  if (!enabledA || !enabledB)
+  {
+    info.viability = IRExportViability::SlotDisabled;
+    return info;
+  }
+
+  if (apvts_.getRawParameterValue("dynamicMode")->load() > 0.5f)
+  {
+    info.viability = IRExportViability::DynamicModeActive;
+    return info;
+  }
+
+  const int chA = irProcessor_.getNumIR1Channels();
+  const int chB = irProcessor_.getNumIR2Channels();
+  info.numChannels = (chA >= 2 || chB >= 2) ? 2 : 1;
+  info.viability = IRExportViability::Ok;
+  return info;
+}
+
+bool OctobIRProcessor::exportBlendedIR(const juce::File& destinationFile,
+                                       juce::String& errorMessage, float* normalizationScaleOut)
+{
+  const IRExportInfo info = getBlendedIRExportInfo();
+  if (info.viability != IRExportViability::Ok)
+  {
+    switch (info.viability)
+    {
+      case IRExportViability::NotPrepared:
+        errorMessage = "The plugin is not prepared yet";
+        break;
+      case IRExportViability::NeedsTwoIRs:
+        errorMessage = "Export requires two IRs loaded into both slots";
+        break;
+      case IRExportViability::SlotDisabled:
+        errorMessage = "Export requires both IR slots enabled";
+        break;
+      case IRExportViability::DynamicModeActive:
+        errorMessage = "Export captures a static blend - turn off Dynamic Mode";
+        break;
+      case IRExportViability::Ok:
+        break;
+    }
+    DBG("Export blended IR blocked: " + errorMessage);
+    return false;
+  }
+
+  const float blend = apvts_.getRawParameterValue("blend")->load();
+  const float trimADb = apvts_.getRawParameterValue("irATrimGain")->load();
+  const float trimBDb = apvts_.getRawParameterValue("irBTrimGain")->load();
+  const float trimALinear = std::pow(10.0f, trimADb / 20.0f);
+  const float trimBLinear = std::pow(10.0f, trimBDb / 20.0f);
+
   octob::BlendedIRExport exportData;
   std::string err;
-  if (!irProcessor_.getStaticBlendedIR(exportData, err))
+  if (!irProcessor_.getStaticBlendedIR(blend, trimALinear, trimBLinear, exportData, err))
   {
     errorMessage = juce::String(err);
     DBG("Export blended IR failed: " + errorMessage);
     return false;
   }
+
+  if (normalizationScaleOut != nullptr)
+    *normalizationScaleOut = exportData.normalizationScale;
 
   const int numChannels = static_cast<int>(exportData.channels.size());
   const int numSamples = numChannels > 0 ? static_cast<int>(exportData.channels[0].size()) : 0;
@@ -537,6 +617,9 @@ bool OctobIRProcessor::exportBlendedIR(const juce::File& destinationFile,
   DBG("Exported blended IR: " + destinationFile.getFullPathName() + " (" +
       juce::String(numSamples) + " samples, " + juce::String(numChannels) + " ch, " +
       juce::String(exportData.sampleRate, 0) + " Hz)");
+  if (exportData.normalizationScale < 1.0f)
+    DBG("Overload protection scaled the exported IR by " +
+        juce::String(exportData.normalizationScale, 4) + " to prevent clipping");
   errorMessage.clear();
   return true;
 }
