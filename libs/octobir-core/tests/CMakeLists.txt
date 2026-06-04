@@ -53,4 +53,7 @@ target_include_directories(octobir-core-tests
 )
 
 include(GoogleTest)
-gtest_discover_tests(octobir-core-tests)
+gtest_discover_tests(octobir-core-tests
+    DISCOVERY_MODE PRE_TEST
+    DISCOVERY_TIMEOUT 30
+)

@@ -42,4 +42,7 @@ target_include_directories(octobass-core-tests
 )
 
 include(GoogleTest)
-gtest_discover_tests(octobass-core-tests)
+gtest_discover_tests(octobass-core-tests
+    DISCOVERY_MODE PRE_TEST
+    DISCOVERY_TIMEOUT 30
+)

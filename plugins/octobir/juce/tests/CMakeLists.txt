@@ -51,4 +51,7 @@ target_link_libraries(octobir-plugin-tests
 )
 
 include(GoogleTest)
-gtest_discover_tests(octobir-plugin-tests)
+gtest_discover_tests(octobir-plugin-tests
+    DISCOVERY_MODE PRE_TEST
+    DISCOVERY_TIMEOUT 30
+)
