@@ -40,6 +40,8 @@ class GraphicEQDisplay : public juce::Component
     spectrumDisplay_.setBandLevels(levelsDb, count);
   }
 
+  void setSpectrumDbRange(float minDb, float maxDb) { spectrumDisplay_.setDbRange(minDb, maxDb); }
+
   void setCrossoverNormPosition(float normPos)
   {
     spectrumDisplay_.setCrossoverNormPosition(normPos);

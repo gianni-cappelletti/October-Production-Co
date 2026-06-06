@@ -85,6 +85,7 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   crossoverParam_ = paramHandle("crossoverFrequency");
 
   addAndMakeVisible(graphicEQDisplay_);
+  graphicEQDisplay_.setSpectrumDbRange(SpectrumAnalyzer::kMinDb, SpectrumAnalyzer::kMaxDb);
   graphicEQDisplay_.onNodeChanged = [this](int slot, bool active, float freqHz, float gainDb)
   {
     if (slot < 0 || slot >= octob::kGraphicEQNumNodes)

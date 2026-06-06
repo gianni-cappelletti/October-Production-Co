@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <array>
 #include <cmath>
+#include <iterator>
 #include <octobass-core/GraphicEQ.hpp>
 #include <octobass-core/Types.hpp>
 #include <string>
@@ -636,6 +639,199 @@ TEST(SpectrumAnalyzerBands, BandEdgesAlignWithLogAxis)
     EXPECT_FLOAT_EQ(SpectrumAnalyzer::kBandRanges[static_cast<size_t>(i)].lowHz,
                     SpectrumAnalyzer::kBandRanges[static_cast<size_t>(i - 1)].highHz)
         << "Bands must be contiguous at index " << i;
+}
+
+// Feeds a steady sine through the analyzer the same way the editor does
+// (FIFO chunks) and returns the settled band levels
+static std::array<float, SpectrumAnalyzer::kNumBands> analyzeTone(double sampleRate, float freqHz,
+                                                                  float amplitude,
+                                                                  double seconds = 2.0)
+{
+  SpectrumAnalyzer analyzer;
+  analyzer.setSampleRate(sampleRate);
+
+  constexpr int kFifoSize = 4096;
+  constexpr int kChunkSize = 512;
+  juce::AbstractFifo fifo(kFifoSize);
+  std::array<float, kFifoSize> fifoBuffer{};
+
+  const int totalSamples = static_cast<int>(sampleRate * seconds);
+  const double phaseInc = juce::MathConstants<double>::twoPi * freqHz / sampleRate;
+  double phase = 0.0;
+
+  int written = 0;
+  while (written < totalSamples)
+  {
+    int chunk = std::min(kChunkSize, totalSamples - written);
+    {
+      const auto scope = fifo.write(chunk);
+      for (int i = 0; i < scope.blockSize1; ++i, phase += phaseInc)
+        fifoBuffer[static_cast<size_t>(scope.startIndex1 + i)] =
+            amplitude * static_cast<float>(std::sin(phase));
+      for (int i = 0; i < scope.blockSize2; ++i, phase += phaseInc)
+        fifoBuffer[static_cast<size_t>(scope.startIndex2 + i)] =
+            amplitude * static_cast<float>(std::sin(phase));
+    }
+    written += chunk;
+    analyzer.processFromFifo(fifo, fifoBuffer.data());
+  }
+  return analyzer.getBandLevels();
+}
+
+static float bandCenterHz(int band)
+{
+  const auto& range = SpectrumAnalyzer::kBandRanges[static_cast<size_t>(band)];
+  return std::sqrt(range.lowHz * range.highHz);
+}
+
+TEST(SpectrumAnalyzerMultiRes, DecimatedRateNearTarget)
+{
+  SpectrumAnalyzer analyzer;
+  EXPECT_DOUBLE_EQ(analyzer.getLFSampleRate(), 44100.0 / 8.0);
+
+  analyzer.setSampleRate(48000.0);
+  EXPECT_DOUBLE_EQ(analyzer.getLFSampleRate(), 6000.0);
+
+  analyzer.setSampleRate(96000.0);
+  EXPECT_DOUBLE_EQ(analyzer.getLFSampleRate(), 6000.0);
+
+  analyzer.setSampleRate(192000.0);
+  EXPECT_DOUBLE_EQ(analyzer.getLFSampleRate(), 6000.0);
+}
+
+TEST(SpectrumAnalyzerMultiRes, LowBandsResolveIndependently)
+{
+  // Regression for the tandem-bar bug: at high sample rates the lowest bands
+  // shared one FFT bin and moved identically. Each low band must now respond
+  // to a tone at its own center far more than its neighbours do.
+  for (double rate : {44100.0, 48000.0, 88200.0, 96000.0, 192000.0})
+  {
+    for (int band : {0, 1, 2, 3})
+    {
+      auto levels = analyzeTone(rate, bandCenterHz(band), 1.0f);
+      for (int neighbour : {band - 1, band + 1})
+      {
+        if (neighbour < 0)
+          continue;
+        EXPECT_GT(levels[static_cast<size_t>(band)], levels[static_cast<size_t>(neighbour)] + 6.0f)
+            << "Band " << band << " not resolved from band " << neighbour << " at " << rate
+            << " Hz";
+      }
+    }
+  }
+}
+
+TEST(SpectrumAnalyzerMultiRes, SeamLevelContinuity)
+{
+  // Equal-amplitude tones on either side of the 200 Hz path split must read at
+  // similar levels; a big step would betray a calibration mismatch between the
+  // decimated and full-rate paths
+  constexpr int lfBand = SpectrumAnalyzer::kNumLFBands - 1;
+  constexpr int hfBand = SpectrumAnalyzer::kNumLFBands;
+
+  for (double rate : {44100.0, 96000.0})
+  {
+    auto lfLevels = analyzeTone(rate, bandCenterHz(lfBand), 0.5f);
+    auto hfLevels = analyzeTone(rate, bandCenterHz(hfBand), 0.5f);
+
+    int lfPeak = static_cast<int>(
+        std::distance(lfLevels.begin(), std::max_element(lfLevels.begin(), lfLevels.end())));
+    int hfPeak = static_cast<int>(
+        std::distance(hfLevels.begin(), std::max_element(hfLevels.begin(), hfLevels.end())));
+    EXPECT_EQ(lfPeak, lfBand) << "LF tone must peak in its own band at " << rate << " Hz";
+    EXPECT_EQ(hfPeak, hfBand) << "HF tone must peak in its own band at " << rate << " Hz";
+
+    EXPECT_NEAR(lfLevels[static_cast<size_t>(lfBand)], hfLevels[static_cast<size_t>(hfBand)], 2.5f)
+        << "Level step across the 200 Hz seam at " << rate << " Hz";
+  }
+}
+
+TEST(SpectrumAnalyzerMultiRes, CalibrationStableAcrossRates)
+{
+  constexpr size_t kToneBand = 13;  // 1 kHz sits in 843 - 1125 Hz
+  auto at44 = analyzeTone(44100.0, 1000.0f, 1.0f);
+  auto at96 = analyzeTone(96000.0, 1000.0f, 1.0f);
+
+  EXPECT_GT(at44[kToneBand], -40.0f) << "Full-scale tone should read well above the floor";
+  EXPECT_NEAR(at44[kToneBand], at96[kToneBand], 1.5f)
+      << "Band level must not depend on the host sample rate";
+}
+
+TEST(SpectrumAnalyzerMultiRes, LFPathRejectsAliases)
+{
+  // A full-scale tone just below the decimated rate would alias into the low
+  // bands without sufficient anti-alias filtering
+  SpectrumAnalyzer probe;
+  probe.setSampleRate(96000.0);
+  float aliasToneHz = static_cast<float>(probe.getLFSampleRate()) - 100.0f;
+
+  auto levels = analyzeTone(96000.0, aliasToneHz, 1.0f);
+  for (int b = 0; b < SpectrumAnalyzer::kNumLFBands; ++b)
+    EXPECT_LT(levels[static_cast<size_t>(b)], -80.0f)
+        << "Alias leakage into LF band " << b << " from a " << aliasToneHz << " Hz tone";
+
+  int peak = static_cast<int>(
+      std::distance(levels.begin(), std::max_element(levels.begin(), levels.end())));
+  EXPECT_GE(peak, SpectrumAnalyzer::kNumLFBands)
+      << "The tone itself must register on the full-rate path";
+}
+
+TEST(SpectrumAnalyzerMultiRes, SampleRateChangesAreSafe)
+{
+  SpectrumAnalyzer analyzer;
+  juce::AbstractFifo fifo(4096);
+  std::array<float, 4096> fifoBuffer{};
+
+  for (double rate : {44100.0, 192000.0, 44100.0, 96000.0})
+  {
+    analyzer.setSampleRate(rate);
+    {
+      const auto scope = fifo.write(512);
+      for (int i = 0; i < scope.blockSize1; ++i)
+        fifoBuffer[static_cast<size_t>(scope.startIndex1 + i)] = 0.5f;
+      for (int i = 0; i < scope.blockSize2; ++i)
+        fifoBuffer[static_cast<size_t>(scope.startIndex2 + i)] = 0.5f;
+    }
+    analyzer.processFromFifo(fifo, fifoBuffer.data());
+
+    for (float level : analyzer.getBandLevels())
+    {
+      EXPECT_TRUE(std::isfinite(level));
+      EXPECT_GE(level, SpectrumAnalyzer::kMinDb);
+      EXPECT_LE(level, SpectrumAnalyzer::kMaxDb);
+    }
+  }
+}
+
+TEST(LCDSpectrumDisplayRange, DefaultsAndDynamicRange)
+{
+  LCDSpectrumDisplay display;
+  EXPECT_FLOAT_EQ(display.getMinDb(), LCDSpectrumDisplay::kDefaultMinDb);
+  EXPECT_FLOAT_EQ(display.getMaxDb(), LCDSpectrumDisplay::kDefaultMaxDb);
+
+  display.setDbRange(-100.0f, 0.0f);
+  EXPECT_FLOAT_EQ(display.getMinDb(), -100.0f);
+  EXPECT_FLOAT_EQ(display.getMaxDb(), 0.0f);
+
+  display.setDbRange(0.0f, -60.0f);
+  EXPECT_FLOAT_EQ(display.getMinDb(), -100.0f) << "An inverted range must be rejected";
+  EXPECT_FLOAT_EQ(display.getMaxDb(), 0.0f);
+
+  display.setDbRange(-40.0f, -40.0f);
+  EXPECT_FLOAT_EQ(display.getMinDb(), -100.0f) << "An empty range must be rejected";
+}
+
+TEST(LCDSpectrumDisplayRange, AnalyzerRangeDrivesDisplay)
+{
+  // The editor passes the analyzer's range to the display; the analyzer floor
+  // must extend down to -100 dB so OctoBASS shows low-level content
+  EXPECT_FLOAT_EQ(SpectrumAnalyzer::kMinDb, -100.0f);
+  EXPECT_FLOAT_EQ(SpectrumAnalyzer::kMaxDb, 0.0f);
+
+  LCDSpectrumDisplay display;
+  display.setDbRange(SpectrumAnalyzer::kMinDb, SpectrumAnalyzer::kMaxDb);
+  EXPECT_FLOAT_EQ(display.getMinDb(), SpectrumAnalyzer::kMinDb);
+  EXPECT_FLOAT_EQ(display.getMaxDb(), SpectrumAnalyzer::kMaxDb);
 }
 
 TEST_F(OctoBassProcessorTest, StateRoundTripWithIRPath)
