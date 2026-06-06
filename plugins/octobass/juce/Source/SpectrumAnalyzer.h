@@ -175,8 +175,7 @@ class SpectrumAnalyzer
           kHalfbandTransitionWidth, -kAliasAttenuationDb);
       decimatorTaps_.assign(coeffs->getRawCoefficients(),
                             coeffs->getRawCoefficients() + coeffs->getFilterOrder() + 1);
-      DBG("Spectrum analyzer halfband decimator: " + juce::String(decimatorTaps_.size()) +
-          " taps");
+      DBG("Spectrum analyzer halfband decimator: " + juce::String(decimatorTaps_.size()) + " taps");
     }
 
     decimatorStages_.resize(static_cast<size_t>(numStages));
