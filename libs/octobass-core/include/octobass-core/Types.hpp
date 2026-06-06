@@ -58,7 +58,8 @@ constexpr float DefaultGraphicEQFreqHz = 1000.0f;
 constexpr float MinGraphicEQFreqHz = 20.0f;
 constexpr float MaxGraphicEQFreqHz = 20000.0f;
 
-// Band count of the legacy fixed-band EQ, retained for state migration
-constexpr int kGraphicEQNumBands = 24;
+// Gain magnitude below which a node is treated as bypassed, shared between
+// the DSP and any display so they agree on what counts as active
+constexpr float GraphicEQBypassGainDb = 0.01f;
 
 }  // namespace octob

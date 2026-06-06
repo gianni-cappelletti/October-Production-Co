@@ -36,23 +36,19 @@ class LCDSpectrumDisplay : public juce::Component
     repaint();
   }
 
-  // Maps a frequency to a normalized 0-1 position across the bar area.
-  // Band 0 (<50Hz) maps to the left, bands 1-22 (50Hz-6.3kHz) log-spaced, band 23 (>6.3kHz) right.
+  // Frequency axis range; must match the analyzer's log-spaced band edges and
+  // the EQ node mapping so the spectrum, labels, and EQ curve all read true
+  static constexpr float kMinFreqHz = 20.0f;
+  static constexpr float kMaxFreqHz = 20000.0f;
+
+  // Maps a frequency to its normalized 0-1 position on the log axis
   static float freqToNormX(float freqHz)
   {
-    float displayBandPos;
-    if (freqHz <= 50.0f)
-      displayBandPos = 0.0f;
-    else if (freqHz >= 6300.0f)
-      displayBandPos = static_cast<float>(kNumBands - 1);
-    else
-    {
-      constexpr float kLog50 = 5.643856f;     // log2(50)
-      constexpr float kLog6300 = 12.621488f;  // log2(6300)
-      float t = (std::log2(freqHz) - kLog50) / (kLog6300 - kLog50);
-      displayBandPos = 1.0f + t * 21.0f;
-    }
-    return (displayBandPos + 0.5f) / static_cast<float>(kNumBands);
+    float logMin = std::log2(kMinFreqHz);
+    float logMax = std::log2(kMaxFreqHz);
+    float t =
+        (std::log2(juce::jlimit(kMinFreqHz, kMaxFreqHz, freqHz)) - logMin) / (logMax - logMin);
+    return juce::jlimit(0.0f, 1.0f, t);
   }
 
   void paint(juce::Graphics& g) override
@@ -115,13 +111,12 @@ class LCDSpectrumDisplay : public juce::Component
         g.fillRect(barX, barY, barWidth, barH);
     }
 
-    // X-axis frequency labels
+    // X-axis frequency labels, positioned on the log axis so they read true
     g.setFont(labelFont);
     g.setColour(juce::Colour(0xff1c1c30));
     for (const auto& label : kXAxisLabels)
     {
-      float centerX =
-          barAreaLeft + static_cast<float>(label.bandIndex) * barSlotWidth + barWidth / 2.0f;
+      float centerX = barAreaLeft + freqToNormX(label.freqHz) * barAreaWidth;
       auto labelRect = juce::Rectangle<float>(centerX - 15.0f, static_cast<float>(xAxisArea.getY()),
                                               30.0f, static_cast<float>(xAxisArea.getHeight()));
       g.drawText(label.text, labelRect.toNearestInt(), juce::Justification::centred, false);
@@ -149,7 +144,7 @@ class LCDSpectrumDisplay : public juce::Component
 
   struct XAxisLabel
   {
-    int bandIndex;
+    float freqHz;
     const char* text;
   };
 
@@ -164,9 +159,10 @@ class LCDSpectrumDisplay : public juce::Component
  private:
   static constexpr std::array<int, 5> kYAxisDbValues = {{0, -20, -40, -60, -80}};
 
-  static constexpr std::array<XAxisLabel, 7> kXAxisLabels = {
-      {XAxisLabel{1, "50"}, XAxisLabel{4, "100"}, XAxisLabel{8, "250"}, XAxisLabel{11, "500"},
-       XAxisLabel{14, "1k"}, XAxisLabel{17, "2k"}, XAxisLabel{21, "5k"}}};
+  static constexpr std::array<XAxisLabel, 8> kXAxisLabels = {
+      {XAxisLabel{50.0f, "50"}, XAxisLabel{100.0f, "100"}, XAxisLabel{250.0f, "250"},
+       XAxisLabel{500.0f, "500"}, XAxisLabel{1000.0f, "1k"}, XAxisLabel{2000.0f, "2k"},
+       XAxisLabel{5000.0f, "5k"}, XAxisLabel{10000.0f, "10k"}}};
 
   std::array<float, kNumBands> bandLevelsDb_{};
   float crossoverNormPos_ = 0.0f;

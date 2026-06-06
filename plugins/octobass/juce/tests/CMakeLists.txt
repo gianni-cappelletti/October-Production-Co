@@ -15,6 +15,7 @@ enable_testing()
 add_executable(octobass-plugin-tests
     TestMain.cpp
     PluginProcessorTests.cpp
+    ../Source/GraphicEQDisplay.cpp
     ../Source/PluginProcessor.cpp
     ../Source/PluginEditor.cpp
 )

@@ -12,6 +12,7 @@
 #include <atomic>
 #include <cstddef>
 #include <filesystem>
+#include <mutex>
 #include <stdexcept>
 #include <vector>
 
@@ -63,7 +64,11 @@ struct NamProcessor::Impl
   std::vector<NAM_SAMPLE> outputBuffer;
 
   // Thread-safe model swap: message thread stages a fully-prepared model here,
-  // audio thread picks it up at the start of the next process() call.
+  // audio thread picks it up at the start of the next process() call. The
+  // mutex guards the unique_ptr handoff itself (pendingModel, the paths, and
+  // the move into model); the atomics let the audio thread skip the lock
+  // entirely when nothing is staged.
+  std::mutex swapMutex;
   std::unique_ptr<nam::DSP> pendingModel;
   std::string pendingModelPath;
   std::atomic<bool> hasPendingModel{false};
@@ -87,6 +92,16 @@ struct NamProcessor::Impl
 
   void consumePending()
   {
+    if (!pendingClear.load(std::memory_order_acquire) &&
+        !hasPendingModel.load(std::memory_order_acquire))
+      return;
+
+    // try_lock keeps the audio thread non-blocking: if the message thread is
+    // mid-stage, the swap is simply picked up on the next block
+    std::unique_lock<std::mutex> lock(swapMutex, std::try_to_lock);
+    if (!lock.owns_lock())
+      return;
+
     if (pendingClear.load(std::memory_order_acquire))
     {
       model.reset();
@@ -118,7 +133,9 @@ bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMess
     auto newModel = nam::get_dsp(std::filesystem::path(filepath));
     if (!newModel)
     {
-      errorMessage = "Failed to create NAM model from file: " + filepath;
+      // Filename only: the full path may end up in user-facing dialogs
+      errorMessage = "Failed to create NAM model from file: " +
+                     std::filesystem::path(filepath).filename().string();
       return false;
     }
 
@@ -129,9 +146,12 @@ bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMess
       newModel->ResetAndPrewarm(impl_->sampleRate, impl_->maxBlockSize);
     }
 
-    impl_->pendingModel = std::move(newModel);
-    impl_->pendingModelPath = filepath;
-    impl_->hasPendingModel.store(true, std::memory_order_release);
+    {
+      const std::lock_guard<std::mutex> lock(impl_->swapMutex);
+      impl_->pendingModel = std::move(newModel);
+      impl_->pendingModelPath = filepath;
+      impl_->hasPendingModel.store(true, std::memory_order_release);
+    }
 
     return true;
   }
@@ -144,6 +164,7 @@ bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMess
 
 void NamProcessor::clearModel()
 {
+  const std::lock_guard<std::mutex> lock(impl_->swapMutex);
   impl_->hasPendingModel.store(false, std::memory_order_release);
   impl_->pendingModel.reset();
   impl_->pendingModelPath.clear();
@@ -152,6 +173,7 @@ void NamProcessor::clearModel()
 
 bool NamProcessor::isModelLoaded() const
 {
+  const std::lock_guard<std::mutex> lock(impl_->swapMutex);
   if (impl_->pendingClear.load(std::memory_order_acquire))
     return false;
   if (impl_->hasPendingModel.load(std::memory_order_acquire))
@@ -161,6 +183,7 @@ bool NamProcessor::isModelLoaded() const
 
 std::string NamProcessor::getCurrentModelPath() const
 {
+  const std::lock_guard<std::mutex> lock(impl_->swapMutex);
   if (impl_->pendingClear.load(std::memory_order_acquire))
     return {};
   if (impl_->hasPendingModel.load(std::memory_order_acquire))
@@ -178,7 +201,9 @@ void NamProcessor::setQuality(double quality)
   impl_->quality = quality;
 
   // Apply to the staged model if one is waiting, otherwise the active one.
+  // The lock pins both unique_ptrs against a concurrent audio-thread swap;
   // SetSlimmableSize is internally synchronized against concurrent process().
+  const std::lock_guard<std::mutex> lock(impl_->swapMutex);
   if (impl_->hasPendingModel.load(std::memory_order_acquire))
     impl_->applyQuality(impl_->pendingModel.get());
   else
@@ -251,6 +276,7 @@ int NamProcessor::getLatencySamples() const
 
 double NamProcessor::getExpectedSampleRate() const
 {
+  const std::lock_guard<std::mutex> lock(impl_->swapMutex);
   if (impl_->hasPendingModel.load(std::memory_order_acquire) && impl_->pendingModel)
     return impl_->pendingModel->GetExpectedSampleRate();
   if (impl_->model)

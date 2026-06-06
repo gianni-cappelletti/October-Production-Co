@@ -10,6 +10,19 @@
 namespace octob
 {
 
+struct GraphicEQNode
+{
+  bool active = false;
+  float freqHz = DefaultGraphicEQFreqHz;
+  float gainDb = DefaultGraphicEQGainDb;
+};
+
+struct GraphicEQCut
+{
+  bool active = false;
+  float freqHz = DefaultGraphicEQFreqHz;
+};
+
 class GraphicEQ
 {
  public:
@@ -44,39 +57,9 @@ class GraphicEQ
   // Compute the combined magnitude response in dB at a given frequency.
   // This evaluates the actual biquad transfer function for all active nodes
   // and the low/high cut filters.
-  static float computeMagnitudeResponseDb(const bool* active, const float* freqsHz,
-                                          const float* gainsDb, int numNodes, bool lowCutActive,
-                                          float lowCutFreqHz, bool highCutActive,
-                                          float highCutFreqHz, float freqHz, SampleRate sampleRate);
-
-  // Center frequencies of the legacy 24 fixed bands (sqrt(lowHz * highHz) of the
-  // SpectrumAnalyzer ranges), retained for migrating old saved state into nodes.
-  static constexpr std::array<float, kGraphicEQNumBands> kLegacyCenterFreqs = {{
-      28.23f,    // Band 0:  <50 Hz combined
-      50.10f,    // Band 1:  50 Hz
-      63.13f,    // Band 2:  63 Hz
-      79.69f,    // Band 3:  80 Hz
-      100.00f,   // Band 4:  100 Hz
-      125.74f,   // Band 5:  125 Hz
-      159.05f,   // Band 6:  160 Hz
-      199.96f,   // Band 7:  200 Hz
-      250.49f,   // Band 8:  250 Hz
-      315.63f,   // Band 9:  315 Hz
-      398.43f,   // Band 10: 400 Hz
-      500.95f,   // Band 11: 500 Hz
-      631.26f,   // Band 12: 630 Hz
-      796.90f,   // Band 13: 800 Hz
-      1000.00f,  // Band 14: 1 kHz
-      1257.43f,  // Band 15: 1.25 kHz
-      1590.37f,  // Band 16: 1.6 kHz
-      2000.00f,  // Band 17: 2 kHz
-      2504.97f,  // Band 18: 2.5 kHz
-      3156.26f,  // Band 19: 3.15 kHz
-      3984.33f,  // Band 20: 4 kHz
-      5009.88f,  // Band 21: 5 kHz
-      6312.51f,  // Band 22: 6.3 kHz
-      12624.69f  // Band 23: >6.3 kHz combined
-  }};
+  static float computeMagnitudeResponseDb(const GraphicEQNode* nodes, int numNodes,
+                                          const GraphicEQCut& lowCut, const GraphicEQCut& highCut,
+                                          float freqHz, SampleRate sampleRate);
 
   // Proportional-Q constants (API 550A-style)
   static constexpr float kQMin = 0.8f;
@@ -107,8 +90,8 @@ class GraphicEQ
   static bool isValidSlot(int slot);
 
   void updateCoefficients(int slot);
-  void updateLowCutCoefficients();
-  void updateHighCutCoefficients();
+  void updateCutCoefficients(bool active, float freqHz, bool isHighpass,
+                             std::array<BiquadCoeffs, kNumCutStages>& coeffs);
 
   static Sample tick(const BiquadCoeffs& c, BiquadState& s, Sample input);
 

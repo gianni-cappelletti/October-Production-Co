@@ -8,7 +8,9 @@
 #include <vector>
 
 #include "GraphicEQDisplay.h"
+#include "LegacyEQBands.h"
 #include "PluginProcessor.h"
+#include "SpectrumAnalyzer.h"
 
 static const std::string kIrPath = std::string(TEST_DATA_DIR) + "/INPUT_ir_a.wav";
 
@@ -334,13 +336,11 @@ TEST_F(OctoBassProcessorTest, OldStateMigration)
 
   // Slots assigned in ascending band order: slot 0 = band 5, slot 1 = band 14
   EXPECT_GE(apvts.getRawParameterValue("eqNodeActive0")->load(), 0.5f);
-  EXPECT_NEAR(apvts.getRawParameterValue("eqNodeFreq0")->load(),
-              octob::GraphicEQ::kLegacyCenterFreqs[5], 1.0f);
+  EXPECT_NEAR(apvts.getRawParameterValue("eqNodeFreq0")->load(), legacyeq::kCenterFreqs[5], 1.0f);
   EXPECT_NEAR(apvts.getRawParameterValue("eqNodeGain0")->load(), 6.0f, 0.2f);
 
   EXPECT_GE(apvts.getRawParameterValue("eqNodeActive1")->load(), 0.5f);
-  EXPECT_NEAR(apvts.getRawParameterValue("eqNodeFreq1")->load(),
-              octob::GraphicEQ::kLegacyCenterFreqs[14], 5.0f);
+  EXPECT_NEAR(apvts.getRawParameterValue("eqNodeFreq1")->load(), legacyeq::kCenterFreqs[14], 5.0f);
   EXPECT_NEAR(apvts.getRawParameterValue("eqNodeGain1")->load(), -3.0f, 0.2f);
 
   for (int i = 2; i < octob::kGraphicEQNumNodes; ++i)
@@ -369,9 +369,8 @@ TEST_F(OctoBassProcessorTest, OldStateMigration_MoreThanNodeLimit)
         << "Slot " << slot << " should be active";
 
     // Slots follow ascending band order, so slot index == legacy band index here
-    float expectedFreq =
-        juce::jlimit(octob::MinGraphicEQFreqHz, octob::MaxGraphicEQFreqHz,
-                     octob::GraphicEQ::kLegacyCenterFreqs[static_cast<size_t>(slot)]);
+    float expectedFreq = juce::jlimit(octob::MinGraphicEQFreqHz, octob::MaxGraphicEQFreqHz,
+                                      legacyeq::kCenterFreqs[static_cast<size_t>(slot)]);
     float expectedGain =
         (12.0f - 0.5f * static_cast<float>(slot)) * ((slot % 2 == 0) ? 1.0f : -1.0f);
 
@@ -379,6 +378,19 @@ TEST_F(OctoBassProcessorTest, OldStateMigration_MoreThanNodeLimit)
                 expectedFreq * 0.01f + 0.5f);
     EXPECT_NEAR(apvts.getRawParameterValue("eqNodeGain" + slotStr)->load(), expectedGain, 0.2f);
   }
+}
+
+TEST_F(OctoBassProcessorTest, OldStateMigration_AllZeroGains)
+{
+  // Every legacy gain is below the 0.05 dB migration threshold, so the
+  // early-exit path must leave all node slots untouched
+  auto stateData = buildLegacyState({{3, 0.0f}, {10, 0.02f}, {20, -0.04f}});
+  processor.setStateInformation(stateData.getData(), static_cast<int>(stateData.getSize()));
+
+  auto& apvts = processor.getAPVTS();
+  for (int i = 0; i < octob::kGraphicEQNumNodes; ++i)
+    EXPECT_LT(apvts.getRawParameterValue("eqNodeActive" + juce::String(i))->load(), 0.5f)
+        << "Slot " << i << " must stay inactive when no legacy band is audible";
 }
 
 TEST_F(OctoBassProcessorTest, CutParametersExist)
@@ -450,6 +462,90 @@ TEST_F(OctoBassProcessorTest, NewStateNotMigrated)
   EXPECT_LT(apvts2.getRawParameterValue("eqNodeActive0")->load(), 0.5f);
 }
 
+namespace
+{
+
+// RMS level change of a sine pushed through processBlock, in dB, measured
+// after a warmup period so crossover/EQ transients settle
+double measureProcessBlockGainDb(OctoBassProcessor& proc, float toneHz)
+{
+  const double sampleRate = 44100.0;
+  const int blockSize = 512;
+  const int numBlocks = 16;
+  const int skipBlocks = 4;
+
+  proc.prepareToPlay(sampleRate, blockSize);
+
+  juce::AudioBuffer<float> buffer(1, blockSize);
+  juce::MidiBuffer midi;
+  double inputSumSq = 0.0;
+  double outputSumSq = 0.0;
+
+  for (int b = 0; b < numBlocks; ++b)
+  {
+    for (int i = 0; i < blockSize; ++i)
+    {
+      int n = b * blockSize + i;
+      float v = 0.5f * std::sin(2.0f * juce::MathConstants<float>::pi * toneHz *
+                                static_cast<float>(n) / static_cast<float>(sampleRate));
+      buffer.setSample(0, i, v);
+      if (b >= skipBlocks)
+        inputSumSq += static_cast<double>(v) * v;
+    }
+
+    proc.processBlock(buffer, midi);
+
+    if (b >= skipBlocks)
+    {
+      for (int i = 0; i < blockSize; ++i)
+      {
+        float v = buffer.getSample(0, i);
+        outputSumSq += static_cast<double>(v) * v;
+      }
+    }
+  }
+
+  proc.releaseResources();
+  return 10.0 * std::log10(outputSumSq / inputSumSq);
+}
+
+}  // namespace
+
+TEST_F(OctoBassProcessorTest, ProcessBlockAppliesActiveEQNode)
+{
+  // Wiring check: an active node set through the APVTS must reach the DSP
+  double baselineDb = measureProcessBlockGainDb(processor, 1000.0f);
+
+  OctoBassProcessor boosted;
+  auto& apvts = boosted.getAPVTS();
+  apvts.getParameter("eqNodeActive0")->setValueNotifyingHost(1.0f);
+  auto* freq = apvts.getParameter("eqNodeFreq0");
+  freq->setValueNotifyingHost(freq->convertTo0to1(1000.0f));
+  auto* gain = apvts.getParameter("eqNodeGain0");
+  gain->setValueNotifyingHost(gain->convertTo0to1(6.0f));
+
+  double boostedDb = measureProcessBlockGainDb(boosted, 1000.0f);
+
+  EXPECT_NEAR(boostedDb - baselineDb, 6.0, 1.5)
+      << "A +6dB node at 1kHz must boost a 1kHz tone through processBlock";
+}
+
+TEST_F(OctoBassProcessorTest, ProcessBlockAppliesLowCut)
+{
+  double baselineDb = measureProcessBlockGainDb(processor, 500.0f);
+
+  OctoBassProcessor cutProc;
+  auto& apvts = cutProc.getAPVTS();
+  apvts.getParameter("eqLowCutActive")->setValueNotifyingHost(1.0f);
+  auto* freq = apvts.getParameter("eqLowCutFreq");
+  freq->setValueNotifyingHost(freq->convertTo0to1(2000.0f));
+
+  double cutDb = measureProcessBlockGainDb(cutProc, 500.0f);
+
+  EXPECT_LT(cutDb - baselineDb, -20.0)
+      << "A 2kHz low cut must strongly attenuate a 500Hz tone through processBlock";
+}
+
 TEST(GraphicEQDisplayMapping, FreqNormXRoundTrip)
 {
   EXPECT_NEAR(GraphicEQDisplay::freqToNormX(GraphicEQDisplay::kMinFreqHz), 0.0f, 1e-5f);
@@ -509,6 +605,37 @@ TEST(GraphicEQDisplayMapping, CutZones)
 
   EXPECT_FALSE(GraphicEQDisplay::isInLowCutZone(0.5f) || GraphicEQDisplay::isInHighCutZone(0.5f))
       << "The center of the display must create peak nodes, not cuts";
+}
+
+TEST(GraphicEQDisplayMapping, SpectrumAxisMatchesEQAxis)
+{
+  // The spectrum display and the EQ node mapping must share one log axis so
+  // bars, labels, and EQ nodes read true against each other
+  for (float freq : {20.0f, 50.0f, 100.0f, 250.0f, 1000.0f, 5000.0f, 10000.0f, 20000.0f})
+    EXPECT_NEAR(LCDSpectrumDisplay::freqToNormX(freq), GraphicEQDisplay::freqToNormX(freq), 1e-5f)
+        << "Spectrum axis and EQ axis disagree at " << freq << " Hz";
+}
+
+TEST(SpectrumAnalyzerBands, BandEdgesAlignWithLogAxis)
+{
+  constexpr int kNumBands = SpectrumAnalyzer::kNumBands;
+
+  for (int i = 0; i < kNumBands; ++i)
+  {
+    const auto& range = SpectrumAnalyzer::kBandRanges[static_cast<size_t>(i)];
+    EXPECT_NEAR(LCDSpectrumDisplay::freqToNormX(range.lowHz),
+                static_cast<float>(i) / static_cast<float>(kNumBands), 0.002f)
+        << "Band " << i << " low edge must sit at its bar's left boundary";
+  }
+
+  EXPECT_NEAR(LCDSpectrumDisplay::freqToNormX(SpectrumAnalyzer::kBandRanges[kNumBands - 1].highHz),
+              1.0f, 1e-5f)
+      << "The last band must end at the right edge of the axis";
+
+  for (int i = 1; i < kNumBands; ++i)
+    EXPECT_FLOAT_EQ(SpectrumAnalyzer::kBandRanges[static_cast<size_t>(i)].lowHz,
+                    SpectrumAnalyzer::kBandRanges[static_cast<size_t>(i - 1)].highHz)
+        << "Bands must be contiguous at index " << i;
 }
 
 TEST_F(OctoBassProcessorTest, StateRoundTripWithIRPath)

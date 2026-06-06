@@ -70,34 +70,56 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   }
 
   // Spectrum analyzer + EQ display
+  for (int i = 0; i < octob::kGraphicEQNumNodes; ++i)
+  {
+    auto idx = static_cast<size_t>(i);
+    auto slotStr = juce::String(i);
+    eqNodeParams_[idx].active = paramHandle("eqNodeActive" + slotStr);
+    eqNodeParams_[idx].freq = paramHandle("eqNodeFreq" + slotStr);
+    eqNodeParams_[idx].gain = paramHandle("eqNodeGain" + slotStr);
+  }
+  eqLowCutActiveParam_ = paramHandle("eqLowCutActive");
+  eqLowCutFreqParam_ = paramHandle("eqLowCutFreq");
+  eqHighCutActiveParam_ = paramHandle("eqHighCutActive");
+  eqHighCutFreqParam_ = paramHandle("eqHighCutFreq");
+  crossoverParam_ = paramHandle("crossoverFrequency");
+
   addAndMakeVisible(graphicEQDisplay_);
   graphicEQDisplay_.onNodeChanged = [this](int slot, bool active, float freqHz, float gainDb)
   {
-    auto& apvts = audioProcessor.getAPVTS();
-    auto slotStr = juce::String(slot);
-    if (auto* activeParam = apvts.getParameter("eqNodeActive" + slotStr))
-      activeParam->setValueNotifyingHost(active ? 1.0f : 0.0f);
-    if (auto* freqParam = apvts.getParameter("eqNodeFreq" + slotStr))
-      freqParam->setValueNotifyingHost(freqParam->convertTo0to1(freqHz));
-    if (auto* gainParam = apvts.getParameter("eqNodeGain" + slotStr))
-      gainParam->setValueNotifyingHost(gainParam->convertTo0to1(gainDb));
+    if (slot < 0 || slot >= octob::kGraphicEQNumNodes)
+      return;
+    const auto& node = eqNodeParams_[static_cast<size_t>(slot)];
+    if (node.active.param != nullptr)
+      node.active.param->setValueNotifyingHost(active ? 1.0f : 0.0f);
+    if (node.freq.param != nullptr)
+      node.freq.param->setValueNotifyingHost(node.freq.param->convertTo0to1(freqHz));
+    if (node.gain.param != nullptr)
+      node.gain.param->setValueNotifyingHost(node.gain.param->convertTo0to1(gainDb));
   };
   graphicEQDisplay_.onLowCutChanged = [this](bool active, float freqHz)
   {
-    auto& apvts = audioProcessor.getAPVTS();
-    if (auto* activeParam = apvts.getParameter("eqLowCutActive"))
-      activeParam->setValueNotifyingHost(active ? 1.0f : 0.0f);
-    if (auto* freqParam = apvts.getParameter("eqLowCutFreq"))
-      freqParam->setValueNotifyingHost(freqParam->convertTo0to1(freqHz));
+    if (eqLowCutActiveParam_.param != nullptr)
+      eqLowCutActiveParam_.param->setValueNotifyingHost(active ? 1.0f : 0.0f);
+    if (eqLowCutFreqParam_.param != nullptr)
+      eqLowCutFreqParam_.param->setValueNotifyingHost(
+          eqLowCutFreqParam_.param->convertTo0to1(freqHz));
   };
   graphicEQDisplay_.onHighCutChanged = [this](bool active, float freqHz)
   {
-    auto& apvts = audioProcessor.getAPVTS();
-    if (auto* activeParam = apvts.getParameter("eqHighCutActive"))
-      activeParam->setValueNotifyingHost(active ? 1.0f : 0.0f);
-    if (auto* freqParam = apvts.getParameter("eqHighCutFreq"))
-      freqParam->setValueNotifyingHost(freqParam->convertTo0to1(freqHz));
+    if (eqHighCutActiveParam_.param != nullptr)
+      eqHighCutActiveParam_.param->setValueNotifyingHost(active ? 1.0f : 0.0f);
+    if (eqHighCutFreqParam_.param != nullptr)
+      eqHighCutFreqParam_.param->setValueNotifyingHost(
+          eqHighCutFreqParam_.param->convertTo0to1(freqHz));
   };
+
+  // Bracket drags so hosts record EQ moves as automation gestures
+  graphicEQDisplay_.onDragStart = [this](int handle)
+  { forEachHandleParam(handle, &juce::RangedAudioParameter::beginChangeGesture); };
+  graphicEQDisplay_.onDragEnd = [this](int handle)
+  { forEachHandleParam(handle, &juce::RangedAudioParameter::endChangeGesture); };
+
   spectrumAnalyzer_.setSampleRate(audioProcessor.getSampleRate());
   lastSampleRate_ = audioProcessor.getSampleRate();
   startTimerHz(30);
@@ -245,9 +267,15 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   namQualityAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
       audioProcessor.getAPVTS(), "namQuality", namQualitySlider_);
   // Override after the attachment: it installs the parameter's plain "75%"
-  // formatter, and the drag popup is the only place the name can live
-  namQualitySlider_.textFromValueFunction = [](double value)
-  { return "QUALITY " + juce::String(static_cast<int>(value * 100.0)) + "%"; };
+  // formatter, and the drag popup is the only place the name can live. Reuse
+  // the parameter's own formatter so the two never drift apart.
+  namQualitySlider_.textFromValueFunction =
+      [param = audioProcessor.getAPVTS().getParameter("namQuality")](double value) -> juce::String
+  {
+    if (param == nullptr)
+      return "QUALITY";
+    return "QUALITY " + param->getText(param->convertTo0to1(static_cast<float>(value)), 0);
+  };
 
   addAndMakeVisible(namLCDDisplay_);
   namLCDDisplay_.setTextColour(juce::Colour(0xff1c1c30));
@@ -321,23 +349,57 @@ void OctoBassEditor::timerCallback()
   graphicEQDisplay_.setBandLevels(spectrumAnalyzer_.getBandLevels().data(),
                                   SpectrumAnalyzer::kNumBands);
 
-  float crossoverHz = *audioProcessor.getAPVTS().getRawParameterValue("crossoverFrequency");
-  graphicEQDisplay_.setCrossoverNormPosition(LCDSpectrumDisplay::freqToNormX(crossoverHz));
+  graphicEQDisplay_.setCrossoverNormPosition(
+      LCDSpectrumDisplay::freqToNormX(crossoverParam_.value->load()));
 
-  auto& apvts = audioProcessor.getAPVTS();
   for (int i = 0; i < octob::kGraphicEQNumNodes; ++i)
   {
-    auto slotStr = juce::String(i);
-    bool active = *apvts.getRawParameterValue("eqNodeActive" + slotStr) >= 0.5f;
-    float freqHz = *apvts.getRawParameterValue("eqNodeFreq" + slotStr);
-    float gainDb = *apvts.getRawParameterValue("eqNodeGain" + slotStr);
-    graphicEQDisplay_.setNode(i, active, freqHz, gainDb);
+    const auto& node = eqNodeParams_[static_cast<size_t>(i)];
+    graphicEQDisplay_.setNode(i, node.active.value->load() >= 0.5f, node.freq.value->load(),
+                              node.gain.value->load());
   }
 
-  graphicEQDisplay_.setLowCut(*apvts.getRawParameterValue("eqLowCutActive") >= 0.5f,
-                              *apvts.getRawParameterValue("eqLowCutFreq"));
-  graphicEQDisplay_.setHighCut(*apvts.getRawParameterValue("eqHighCutActive") >= 0.5f,
-                               *apvts.getRawParameterValue("eqHighCutFreq"));
+  graphicEQDisplay_.setLowCut(eqLowCutActiveParam_.value->load() >= 0.5f,
+                              eqLowCutFreqParam_.value->load());
+  graphicEQDisplay_.setHighCut(eqHighCutActiveParam_.value->load() >= 0.5f,
+                               eqHighCutFreqParam_.value->load());
+}
+
+OctoBassEditor::ParamHandle OctoBassEditor::paramHandle(const juce::String& paramID) const
+{
+  auto& apvts = audioProcessor.getAPVTS();
+  return {apvts.getParameter(paramID), apvts.getRawParameterValue(paramID)};
+}
+
+void OctoBassEditor::forEachHandleParam(int handle, void (juce::RangedAudioParameter::*action)())
+{
+  auto apply = [action](const ParamHandle& handleParam)
+  {
+    if (handleParam.param != nullptr)
+      (handleParam.param->*action)();
+  };
+
+  if (handle >= 0 && handle < octob::kGraphicEQNumNodes)
+  {
+    const auto& node = eqNodeParams_[static_cast<size_t>(handle)];
+    apply(node.active);
+    apply(node.freq);
+    apply(node.gain);
+  }
+  else if (handle == GraphicEQDisplay::kLowCutHandle)
+  {
+    apply(eqLowCutActiveParam_);
+    apply(eqLowCutFreqParam_);
+  }
+  else if (handle == GraphicEQDisplay::kHighCutHandle)
+  {
+    apply(eqHighCutActiveParam_);
+    apply(eqHighCutFreqParam_);
+  }
+  else
+  {
+    DBG("Unknown EQ handle " + juce::String(handle) + " in gesture callback");
+  }
 }
 
 void OctoBassEditor::paint(juce::Graphics& g)
@@ -587,28 +649,16 @@ void OctoBassEditor::namLoadClicked()
 
   auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
-  chooser->launchAsync(
-      flags,
-      [this, chooser](const juce::FileChooser& fc)
-      {
-        auto file = fc.getResult();
-        if (file.existsAsFile())
-        {
-          updateLastBrowsedDirectory(file);
-          juce::String error;
-          bool success = audioProcessor.loadNamModel(file.getFullPathName(), error);
-          if (success)
-          {
-            namLCDDisplay_.setText(file.getFileName());
-          }
-          else
-          {
-            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
-                                                   "Failed to Load NAM Model", error, "OK");
-            namLCDDisplay_.setText("Failed to load NAM");
-          }
-        }
-      });
+  chooser->launchAsync(flags,
+                       [this, chooser](const juce::FileChooser& fc)
+                       {
+                         auto file = fc.getResult();
+                         if (file.existsAsFile())
+                         {
+                           updateLastBrowsedDirectory(file);
+                           loadNamFile(file);
+                         }
+                       });
 }
 
 void OctoBassEditor::namClearClicked()
@@ -627,46 +677,47 @@ void OctoBassEditor::namNextClicked()
   cycleNamFile(1);
 }
 
-void OctoBassEditor::cycleNamFile(int direction)
+// Neighbouring file (wrapping) of the same type in the directory of currentPath,
+// or an invalid File when there is nothing to cycle to
+static juce::File adjacentFile(const juce::String& currentPath, const juce::String& wildcard,
+                               int direction)
 {
-  juce::String currentPath = audioProcessor.getCurrentNamModelPath();
   if (currentPath.isEmpty())
-    return;
+    return {};
 
   juce::File currentFile(currentPath);
   if (!currentFile.existsAsFile())
-    return;
-
-  juce::File directory = currentFile.getParentDirectory();
-  juce::Array<juce::File> namFiles;
-
-  for (const auto& entry : juce::RangedDirectoryIterator(
-           directory, false, "*.nam", juce::File::findFiles | juce::File::ignoreHiddenFiles))
   {
-    namFiles.add(entry.getFile());
+    DBG("Cannot cycle: current file no longer exists: " + currentPath);
+    return {};
   }
 
-  if (namFiles.isEmpty())
-    return;
-
-  namFiles.sort();
-
-  int currentIndex = namFiles.indexOf(currentFile);
-  if (currentIndex < 0)
-    return;
-
-  int newIndex = currentIndex + direction;
-  if (newIndex < 0)
-    newIndex = namFiles.size() - 1;
-  else if (newIndex >= namFiles.size())
-    newIndex = 0;
-
-  juce::File newFile = namFiles[newIndex];
-  juce::String error;
-  bool success = audioProcessor.loadNamModel(newFile.getFullPathName(), error);
-  if (success)
+  juce::Array<juce::File> files;
+  for (const auto& entry :
+       juce::RangedDirectoryIterator(currentFile.getParentDirectory(), false, wildcard,
+                                     juce::File::findFiles | juce::File::ignoreHiddenFiles))
   {
-    namLCDDisplay_.setText(newFile.getFileName());
+    files.add(entry.getFile());
+  }
+
+  if (files.isEmpty())
+    return {};
+
+  files.sort();
+
+  int currentIndex = files.indexOf(currentFile);
+  if (currentIndex < 0)
+    return {};
+
+  return files[(currentIndex + direction + files.size()) % files.size()];
+}
+
+void OctoBassEditor::loadNamFile(const juce::File& file)
+{
+  juce::String error;
+  if (audioProcessor.loadNamModel(file.getFullPathName(), error))
+  {
+    namLCDDisplay_.setText(file.getFileName());
   }
   else
   {
@@ -674,6 +725,13 @@ void OctoBassEditor::cycleNamFile(int direction)
                                            "Failed to Load NAM Model", error, "OK");
     namLCDDisplay_.setText("Failed to load NAM");
   }
+}
+
+void OctoBassEditor::cycleNamFile(int direction)
+{
+  auto next = adjacentFile(audioProcessor.getCurrentNamModelPath(), "*.nam", direction);
+  if (next != juce::File())
+    loadNamFile(next);
 }
 
 // --- IR file loader handlers ---
@@ -692,19 +750,7 @@ void OctoBassEditor::irLoadClicked()
                          if (file.existsAsFile())
                          {
                            updateLastBrowsedDirectory(file);
-                           juce::String error;
-                           bool success =
-                               audioProcessor.loadImpulseResponse(file.getFullPathName(), error);
-                           if (success)
-                           {
-                             irLCDDisplay_.setText(file.getFileName());
-                           }
-                           else
-                           {
-                             juce::AlertWindow::showMessageBoxAsync(
-                                 juce::AlertWindow::WarningIcon, "Failed to Load IR", error, "OK");
-                             irLCDDisplay_.setText("Failed to load IR");
-                           }
+                           loadIRFile(file);
                          }
                        });
 }
@@ -725,46 +771,12 @@ void OctoBassEditor::irNextClicked()
   cycleIRFile(1);
 }
 
-void OctoBassEditor::cycleIRFile(int direction)
+void OctoBassEditor::loadIRFile(const juce::File& file)
 {
-  juce::String currentPath = audioProcessor.getCurrentIRPath();
-  if (currentPath.isEmpty())
-    return;
-
-  juce::File currentFile(currentPath);
-  if (!currentFile.existsAsFile())
-    return;
-
-  juce::File directory = currentFile.getParentDirectory();
-  juce::Array<juce::File> wavFiles;
-
-  for (const auto& entry : juce::RangedDirectoryIterator(
-           directory, false, "*.wav", juce::File::findFiles | juce::File::ignoreHiddenFiles))
-  {
-    wavFiles.add(entry.getFile());
-  }
-
-  if (wavFiles.isEmpty())
-    return;
-
-  wavFiles.sort();
-
-  int currentIndex = wavFiles.indexOf(currentFile);
-  if (currentIndex < 0)
-    return;
-
-  int newIndex = currentIndex + direction;
-  if (newIndex < 0)
-    newIndex = wavFiles.size() - 1;
-  else if (newIndex >= wavFiles.size())
-    newIndex = 0;
-
-  juce::File newFile = wavFiles[newIndex];
   juce::String error;
-  bool success = audioProcessor.loadImpulseResponse(newFile.getFullPathName(), error);
-  if (success)
+  if (audioProcessor.loadImpulseResponse(file.getFullPathName(), error))
   {
-    irLCDDisplay_.setText(newFile.getFileName());
+    irLCDDisplay_.setText(file.getFileName());
   }
   else
   {
@@ -772,6 +784,13 @@ void OctoBassEditor::cycleIRFile(int direction)
                                            error, "OK");
     irLCDDisplay_.setText("Failed to load IR");
   }
+}
+
+void OctoBassEditor::cycleIRFile(int direction)
+{
+  auto next = adjacentFile(audioProcessor.getCurrentIRPath(), "*.wav", direction);
+  if (next != juce::File())
+    loadIRFile(next);
 }
 
 // --- Directory helpers ---

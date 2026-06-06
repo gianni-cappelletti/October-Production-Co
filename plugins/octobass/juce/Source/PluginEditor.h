@@ -2,6 +2,8 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <array>
+
 #include "GraphicEQDisplay.h"
 #include "LCDDisplay.h"
 #include "OctoberLookAndFeel.h"
@@ -98,10 +100,35 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
   void irClearClicked();
   void irPrevClicked();
   void irNextClicked();
+  void loadNamFile(const juce::File& file);
+  void loadIRFile(const juce::File& file);
   void cycleNamFile(int direction);
   void cycleIRFile(int direction);
   juce::File getLastBrowsedDirectory() const;
   void updateLastBrowsedDirectory(const juce::File& file);
+
+  // Cached parameter handles so the 30 Hz timer and the EQ display callbacks
+  // avoid per-tick string lookups
+  struct ParamHandle
+  {
+    juce::RangedAudioParameter* param = nullptr;
+    std::atomic<float>* value = nullptr;
+  };
+  struct EQNodeParamHandles
+  {
+    ParamHandle active;
+    ParamHandle freq;
+    ParamHandle gain;
+  };
+  ParamHandle paramHandle(const juce::String& paramID) const;
+  void forEachHandleParam(int handle, void (juce::RangedAudioParameter::*action)());
+
+  std::array<EQNodeParamHandles, octob::kGraphicEQNumNodes> eqNodeParams_{};
+  ParamHandle eqLowCutActiveParam_;
+  ParamHandle eqLowCutFreqParam_;
+  ParamHandle eqHighCutActiveParam_;
+  ParamHandle eqHighCutFreqParam_;
+  ParamHandle crossoverParam_;
 
   juce::File lastBrowsedDirectory_;
   juce::Image logoImage_;

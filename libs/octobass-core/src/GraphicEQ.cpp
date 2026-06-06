@@ -9,7 +9,7 @@ namespace octob
 namespace
 {
 
-struct PeakingCoeffsD
+struct BiquadCoeffsD
 {
   double b0;
   double b1;
@@ -18,6 +18,18 @@ struct PeakingCoeffsD
   double a2;
 };
 
+// Assign double-precision design coefficients into a float coefficient struct
+// (templated so the private nested GraphicEQ::BiquadCoeffs type can be named)
+template <typename CoeffsT>
+void assignCoeffs(CoeffsT& dst, const BiquadCoeffsD& src)
+{
+  dst.b0 = static_cast<float>(src.b0);
+  dst.b1 = static_cast<float>(src.b1);
+  dst.b2 = static_cast<float>(src.b2);
+  dst.a1 = static_cast<float>(src.a1);
+  dst.a2 = static_cast<float>(src.a2);
+}
+
 // The frequency range tops out at 20 kHz, which can exceed Nyquist at lower
 // sample rates; clamp so the biquad coefficients stay stable
 double clampBelowNyquist(double freqHz, SampleRate sampleRate)
@@ -25,8 +37,8 @@ double clampBelowNyquist(double freqHz, SampleRate sampleRate)
   return std::min(freqHz, 0.49 * sampleRate);
 }
 
-PeakingCoeffsD computePeakingCoeffs(double gainDb, double centerFreqHz, double q,
-                                    SampleRate sampleRate)
+BiquadCoeffsD computePeakingCoeffs(double gainDb, double centerFreqHz, double q,
+                                   SampleRate sampleRate)
 {
   // RBJ Audio EQ Cookbook -- peaking EQ
   const double pi = 3.14159265358979323846;
@@ -41,7 +53,7 @@ PeakingCoeffsD computePeakingCoeffs(double gainDb, double centerFreqHz, double q
           (-2.0 * cosw0) * invA0, (1.0 - alpha / A) * invA0};
 }
 
-PeakingCoeffsD computeHighpassCoeffs(double cutoffFreqHz, double q, SampleRate sampleRate)
+BiquadCoeffsD computeHighpassCoeffs(double cutoffFreqHz, double q, SampleRate sampleRate)
 {
   // RBJ Audio EQ Cookbook -- highpass
   const double pi = 3.14159265358979323846;
@@ -54,7 +66,7 @@ PeakingCoeffsD computeHighpassCoeffs(double cutoffFreqHz, double q, SampleRate s
   return {b0, -(1.0 + cosw0) * invA0, b0, (-2.0 * cosw0) * invA0, (1.0 - alpha) * invA0};
 }
 
-PeakingCoeffsD computeLowpassCoeffs(double cutoffFreqHz, double q, SampleRate sampleRate)
+BiquadCoeffsD computeLowpassCoeffs(double cutoffFreqHz, double q, SampleRate sampleRate)
 {
   // RBJ Audio EQ Cookbook -- lowpass
   const double pi = 3.14159265358979323846;
@@ -71,7 +83,7 @@ PeakingCoeffsD computeLowpassCoeffs(double cutoffFreqHz, double q, SampleRate sa
 // evaluated with complex arithmetic:
 //   N = b0 + b1*e^(-jw) + b2*e^(-2jw)
 //   D = 1  + a1*e^(-jw) + a2*e^(-2jw)
-void accumulateMagnitudeSq(const PeakingCoeffsD& c, double cosw, double sinw, double cos2w,
+void accumulateMagnitudeSq(const BiquadCoeffsD& c, double cosw, double sinw, double cos2w,
                            double sin2w, double& totalMagSq)
 {
   double numRe = c.b0 + c.b1 * cosw + c.b2 * cos2w;
@@ -101,8 +113,8 @@ void GraphicEQ::setSampleRate(SampleRate sampleRate)
     sampleRate_ = sampleRate;
     for (int i = 0; i < kGraphicEQNumNodes; ++i)
       updateCoefficients(i);
-    updateLowCutCoefficients();
-    updateHighCutCoefficients();
+    updateCutCoefficients(lowCutActive_, lowCutFreqHz_, true, lowCutCoeffs_);
+    updateCutCoefficients(highCutActive_, highCutFreqHz_, false, highCutCoeffs_);
   }
 }
 
@@ -202,7 +214,7 @@ void GraphicEQ::setLowCut(bool active, float freqHz)
 
   lowCutActive_ = active;
   lowCutFreqHz_ = freqHz;
-  updateLowCutCoefficients();
+  updateCutCoefficients(lowCutActive_, lowCutFreqHz_, true, lowCutCoeffs_);
 }
 
 bool GraphicEQ::getLowCutActive() const
@@ -224,7 +236,7 @@ void GraphicEQ::setHighCut(bool active, float freqHz)
 
   highCutActive_ = active;
   highCutFreqHz_ = freqHz;
-  updateHighCutCoefficients();
+  updateCutCoefficients(highCutActive_, highCutFreqHz_, false, highCutCoeffs_);
 }
 
 bool GraphicEQ::getHighCutActive() const
@@ -310,8 +322,11 @@ void GraphicEQ::updateCoefficients(int slot)
   auto idx = static_cast<size_t>(slot);
   float gainDb = gainsDb_[idx];
 
-  if (!active_[idx] || std::fabs(gainDb) < 0.01f)
+  if (!active_[idx] || std::fabs(gainDb) < GraphicEQBypassGainDb)
   {
+    if (!(activeNodeMask_ & (1u << slot)))
+      return;
+
     // Pass-through: unity gain biquad
     coeffs_[idx] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     activeNodeMask_ &= ~(1u << slot);
@@ -321,57 +336,32 @@ void GraphicEQ::updateCoefficients(int slot)
   activeNodeMask_ |= (1u << slot);
 
   double q = static_cast<double>(computeQ(std::fabs(gainDb)));
-  PeakingCoeffsD c = computePeakingCoeffs(static_cast<double>(gainDb),
-                                          static_cast<double>(freqsHz_[idx]), q, sampleRate_);
+  BiquadCoeffsD c = computePeakingCoeffs(static_cast<double>(gainDb),
+                                         static_cast<double>(freqsHz_[idx]), q, sampleRate_);
 
   // Filter state (z1/z2) is intentionally left intact across coefficient
   // changes so live frequency/gain drags do not click or reset the filter.
-  coeffs_[idx].b0 = static_cast<float>(c.b0);
-  coeffs_[idx].b1 = static_cast<float>(c.b1);
-  coeffs_[idx].b2 = static_cast<float>(c.b2);
-  coeffs_[idx].a1 = static_cast<float>(c.a1);
-  coeffs_[idx].a2 = static_cast<float>(c.a2);
+  assignCoeffs(coeffs_[idx], c);
 }
 
-void GraphicEQ::updateLowCutCoefficients()
+void GraphicEQ::updateCutCoefficients(bool active, float freqHz, bool isHighpass,
+                                      std::array<BiquadCoeffs, kNumCutStages>& coeffs)
 {
   for (int stage = 0; stage < kNumCutStages; ++stage)
   {
     auto idx = static_cast<size_t>(stage);
-    if (!lowCutActive_)
+    if (!active)
     {
-      lowCutCoeffs_[idx] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+      coeffs[idx] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
       continue;
     }
 
-    PeakingCoeffsD c = computeHighpassCoeffs(static_cast<double>(lowCutFreqHz_),
-                                             static_cast<double>(kCutStageQ[idx]), sampleRate_);
-    lowCutCoeffs_[idx].b0 = static_cast<float>(c.b0);
-    lowCutCoeffs_[idx].b1 = static_cast<float>(c.b1);
-    lowCutCoeffs_[idx].b2 = static_cast<float>(c.b2);
-    lowCutCoeffs_[idx].a1 = static_cast<float>(c.a1);
-    lowCutCoeffs_[idx].a2 = static_cast<float>(c.a2);
-  }
-}
-
-void GraphicEQ::updateHighCutCoefficients()
-{
-  for (int stage = 0; stage < kNumCutStages; ++stage)
-  {
-    auto idx = static_cast<size_t>(stage);
-    if (!highCutActive_)
-    {
-      highCutCoeffs_[idx] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-      continue;
-    }
-
-    PeakingCoeffsD c = computeLowpassCoeffs(static_cast<double>(highCutFreqHz_),
-                                            static_cast<double>(kCutStageQ[idx]), sampleRate_);
-    highCutCoeffs_[idx].b0 = static_cast<float>(c.b0);
-    highCutCoeffs_[idx].b1 = static_cast<float>(c.b1);
-    highCutCoeffs_[idx].b2 = static_cast<float>(c.b2);
-    highCutCoeffs_[idx].a1 = static_cast<float>(c.a1);
-    highCutCoeffs_[idx].a2 = static_cast<float>(c.a2);
+    BiquadCoeffsD c = isHighpass
+                          ? computeHighpassCoeffs(static_cast<double>(freqHz),
+                                                  static_cast<double>(kCutStageQ[idx]), sampleRate_)
+                          : computeLowpassCoeffs(static_cast<double>(freqHz),
+                                                 static_cast<double>(kCutStageQ[idx]), sampleRate_);
+    assignCoeffs(coeffs[idx], c);
   }
 }
 
@@ -393,11 +383,9 @@ float GraphicEQ::computeQ(float absGainDb)
   return kQMin * std::pow(kQMax / kQMin, normalized);
 }
 
-float GraphicEQ::computeMagnitudeResponseDb(const bool* active, const float* freqsHz,
-                                            const float* gainsDb, int numNodes, bool lowCutActive,
-                                            float lowCutFreqHz, bool highCutActive,
-                                            float highCutFreqHz, float freqHz,
-                                            SampleRate sampleRate)
+float GraphicEQ::computeMagnitudeResponseDb(const GraphicEQNode* nodes, int numNodes,
+                                            const GraphicEQCut& lowCut, const GraphicEQCut& highCut,
+                                            float freqHz, SampleRate sampleRate)
 {
   // Use double precision and complex evaluation to avoid catastrophic
   // float cancellation at low frequencies where cos(w) ~ 1.
@@ -412,28 +400,29 @@ float GraphicEQ::computeMagnitudeResponseDb(const bool* active, const float* fre
 
   for (int i = 0; i < numNodes; ++i)
   {
-    double gainDb = static_cast<double>(gainsDb[i]);
-    if (!active[i] || std::fabs(gainDb) < 0.01)
+    double gainDb = static_cast<double>(nodes[i].gainDb);
+    if (!nodes[i].active || std::fabs(gainDb) < static_cast<double>(GraphicEQBypassGainDb))
       continue;
 
     double q = static_cast<double>(computeQ(static_cast<float>(std::fabs(gainDb))));
-    PeakingCoeffsD c = computePeakingCoeffs(gainDb, static_cast<double>(freqsHz[i]), q, sampleRate);
+    BiquadCoeffsD c =
+        computePeakingCoeffs(gainDb, static_cast<double>(nodes[i].freqHz), q, sampleRate);
     accumulateMagnitudeSq(c, cosw, sinw, cos2w, sin2w, totalMagSq);
   }
 
   for (int stage = 0; stage < kNumCutStages; ++stage)
   {
     auto idx = static_cast<size_t>(stage);
-    if (lowCutActive)
+    if (lowCut.active)
     {
-      PeakingCoeffsD c = computeHighpassCoeffs(static_cast<double>(lowCutFreqHz),
-                                               static_cast<double>(kCutStageQ[idx]), sampleRate);
+      BiquadCoeffsD c = computeHighpassCoeffs(static_cast<double>(lowCut.freqHz),
+                                              static_cast<double>(kCutStageQ[idx]), sampleRate);
       accumulateMagnitudeSq(c, cosw, sinw, cos2w, sin2w, totalMagSq);
     }
-    if (highCutActive)
+    if (highCut.active)
     {
-      PeakingCoeffsD c = computeLowpassCoeffs(static_cast<double>(highCutFreqHz),
-                                              static_cast<double>(kCutStageQ[idx]), sampleRate);
+      BiquadCoeffsD c = computeLowpassCoeffs(static_cast<double>(highCut.freqHz),
+                                             static_cast<double>(kCutStageQ[idx]), sampleRate);
       accumulateMagnitudeSq(c, cosw, sinw, cos2w, sin2w, totalMagSq);
     }
   }

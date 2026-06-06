@@ -74,6 +74,16 @@ class OctoBassProcessor : public juce::AudioProcessor,
   bool prevLowSolo_ = false;
   bool prevHighSolo_ = false;
 
+  // Which solo button the message thread must switch off to keep the pair
+  // mutually exclusive (setValueNotifyingHost is not real-time safe)
+  enum class SoloCorrection : int
+  {
+    None,
+    ClearLow,
+    ClearHigh
+  };
+  std::atomic<SoloCorrection> pendingSoloCorrection_{SoloCorrection::None};
+
   juce::String currentIRPath_;
   juce::String currentNamModelPath_;
 
@@ -87,13 +97,30 @@ class OctoBassProcessor : public juce::AudioProcessor,
   std::atomic<bool> namQualityDirty_{false};
   std::atomic<float>* namQualityParam_ = nullptr;
 
-  std::array<std::atomic<float>*, octob::kGraphicEQNumNodes> eqNodeActiveParams_{};
-  std::array<std::atomic<float>*, octob::kGraphicEQNumNodes> eqNodeFreqParams_{};
-  std::array<std::atomic<float>*, octob::kGraphicEQNumNodes> eqNodeGainParams_{};
+  struct EQNodeParams
+  {
+    std::atomic<float>* active = nullptr;
+    std::atomic<float>* freq = nullptr;
+    std::atomic<float>* gain = nullptr;
+  };
+  std::array<EQNodeParams, octob::kGraphicEQNumNodes> eqNodeParams_{};
   std::atomic<float>* eqLowCutActiveParam_ = nullptr;
   std::atomic<float>* eqLowCutFreqParam_ = nullptr;
   std::atomic<float>* eqHighCutActiveParam_ = nullptr;
   std::atomic<float>* eqHighCutFreqParam_ = nullptr;
+
+  std::atomic<float>* crossoverParam_ = nullptr;
+  std::atomic<float>* squashParam_ = nullptr;
+  std::atomic<float>* compressionModeParam_ = nullptr;
+  std::atomic<float>* lowBandLevelParam_ = nullptr;
+  std::atomic<float>* highInputGainParam_ = nullptr;
+  std::atomic<float>* highOutputGainParam_ = nullptr;
+  std::atomic<float>* outputGainParam_ = nullptr;
+  std::atomic<float>* dryWetMixParam_ = nullptr;
+  std::atomic<float>* gateThresholdParam_ = nullptr;
+  std::atomic<float>* highBandMixParam_ = nullptr;
+  std::atomic<float>* lowBandSoloParam_ = nullptr;
+  std::atomic<float>* highBandSoloParam_ = nullptr;
 
   juce::AbstractFifo spectrumFifo_{kSpectrumFifoSize};
   std::array<float, kSpectrumFifoSize> spectrumFifoBuffer_{};

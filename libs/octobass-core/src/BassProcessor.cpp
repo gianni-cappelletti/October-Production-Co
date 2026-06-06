@@ -367,8 +367,9 @@ void BassProcessor::readFromDelayBuffer(const std::vector<Sample>& buffer, size_
                                         Sample* output, FrameCount numFrames, int delaySamples)
 {
   const size_t bufferSize = buffer.size();
-  size_t readPos =
-      (writePos + bufferSize - numFrames - static_cast<size_t>(delaySamples)) % bufferSize;
+  // Guard the unsigned cast: a negative latency would otherwise wrap to a huge offset
+  const size_t delay = static_cast<size_t>(std::max(0, delaySamples));
+  size_t readPos = (writePos + bufferSize - numFrames - delay) % bufferSize;
   for (FrameCount i = 0; i < numFrames; ++i)
   {
     output[i] = buffer[readPos];

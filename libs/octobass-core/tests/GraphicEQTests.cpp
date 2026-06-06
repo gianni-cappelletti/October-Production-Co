@@ -33,20 +33,15 @@ double computeRMS(const std::vector<float>& buf, size_t start = 0, size_t len = 
 
 struct NodeArrays
 {
-  bool active[kGraphicEQNumNodes] = {};
-  float freqsHz[kGraphicEQNumNodes] = {};
-  float gainsDb[kGraphicEQNumNodes] = {};
-  bool lowCutActive = false;
-  float lowCutFreqHz = MinGraphicEQFreqHz;
-  bool highCutActive = false;
-  float highCutFreqHz = MaxGraphicEQFreqHz;
+  GraphicEQNode nodes[kGraphicEQNumNodes] = {};
+  GraphicEQCut lowCut;
+  GraphicEQCut highCut;
 };
 
-float magnitudeDb(const NodeArrays& nodes, float freqHz, SampleRate sampleRate = 44100.0)
+float magnitudeDb(const NodeArrays& config, float freqHz, SampleRate sampleRate = 44100.0)
 {
-  return GraphicEQ::computeMagnitudeResponseDb(
-      nodes.active, nodes.freqsHz, nodes.gainsDb, kGraphicEQNumNodes, nodes.lowCutActive,
-      nodes.lowCutFreqHz, nodes.highCutActive, nodes.highCutFreqHz, freqHz, sampleRate);
+  return GraphicEQ::computeMagnitudeResponseDb(config.nodes, kGraphicEQNumNodes, config.lowCut,
+                                               config.highCut, freqHz, sampleRate);
 }
 
 }  // namespace
@@ -384,9 +379,9 @@ TEST_F(GraphicEQTest, MagnitudeResponse_LowFreqCut_StableAtDC)
   // A cut on a low-frequency node should not affect DC response significantly.
   // This catches catastrophic float cancellation in the magnitude formula.
   NodeArrays nodes;
-  nodes.active[0] = true;
-  nodes.freqsHz[0] = 80.0f;
-  nodes.gainsDb[0] = -12.0f;
+  nodes.nodes[0].active = true;
+  nodes.nodes[0].freqHz = 80.0f;
+  nodes.nodes[0].gainDb = -12.0f;
 
   float dcResponse = magnitudeDb(nodes, 1.0f);
   EXPECT_NEAR(dcResponse, 0.0, 2.0)
@@ -401,9 +396,9 @@ TEST_F(GraphicEQTest, MagnitudeResponse_LowFreqCut_SmoothCurve)
   // so the notch at 20 Hz is only ~2.5 Hz wide; 0.1 Hz steps keep each
   // legitimate step well under the jump threshold.
   NodeArrays nodes;
-  nodes.active[0] = true;
-  nodes.freqsHz[0] = MinGraphicEQFreqHz;
-  nodes.gainsDb[0] = -12.0f;
+  nodes.nodes[0].active = true;
+  nodes.nodes[0].freqHz = MinGraphicEQFreqHz;
+  nodes.nodes[0].gainDb = -12.0f;
 
   float prevDb = magnitudeDb(nodes, 10.0f);
   int largeJumps = 0;
@@ -425,9 +420,9 @@ TEST_F(GraphicEQTest, MagnitudeResponse_BoostAtArbitraryCenter)
 {
   // Magnitude at the node center should closely match the gain setting
   NodeArrays nodes;
-  nodes.active[0] = true;
-  nodes.freqsHz[0] = 440.0f;
-  nodes.gainsDb[0] = 12.0f;
+  nodes.nodes[0].active = true;
+  nodes.nodes[0].freqHz = 440.0f;
+  nodes.nodes[0].gainDb = 12.0f;
 
   float response = magnitudeDb(nodes, 440.0f);
   EXPECT_NEAR(response, 12.0, 1.0) << "Response at 440Hz center should be ~12dB, got " << response;
@@ -436,9 +431,9 @@ TEST_F(GraphicEQTest, MagnitudeResponse_BoostAtArbitraryCenter)
 TEST_F(GraphicEQTest, MagnitudeResponse_InactiveNodeIgnored)
 {
   NodeArrays nodes;
-  nodes.active[0] = false;
-  nodes.freqsHz[0] = 1000.0f;
-  nodes.gainsDb[0] = 12.0f;
+  nodes.nodes[0].active = false;
+  nodes.nodes[0].freqHz = 1000.0f;
+  nodes.nodes[0].gainDb = 12.0f;
 
   float response = magnitudeDb(nodes, 1000.0f);
   EXPECT_NEAR(response, 0.0, 0.001) << "Inactive node must not contribute to the response";
@@ -447,9 +442,9 @@ TEST_F(GraphicEQTest, MagnitudeResponse_InactiveNodeIgnored)
 TEST_F(GraphicEQTest, MagnitudeResponse_AwayFromNode_NearUnity)
 {
   NodeArrays nodes;
-  nodes.active[0] = true;
-  nodes.freqsHz[0] = 80.0f;
-  nodes.gainsDb[0] = -12.0f;
+  nodes.nodes[0].active = true;
+  nodes.nodes[0].freqHz = 80.0f;
+  nodes.nodes[0].gainDb = -12.0f;
 
   float response5k = magnitudeDb(nodes, 5000.0f);
   EXPECT_NEAR(response5k, 0.0, 1.0) << "5kHz should be unaffected by 80Hz cut, got " << response5k;
@@ -469,9 +464,9 @@ TEST_F(GraphicEQTest, MagnitudeResponseMatchesProcessing)
   double measuredDb = 20.0 * std::log10(computeRMS(output, kSkip) / computeRMS(input, kSkip));
 
   NodeArrays nodes;
-  nodes.active[0] = true;
-  nodes.freqsHz[0] = 1000.0f;
-  nodes.gainsDb[0] = 8.0f;
+  nodes.nodes[0].active = true;
+  nodes.nodes[0].freqHz = 1000.0f;
+  nodes.nodes[0].gainDb = 8.0f;
   float predictedDb = magnitudeDb(nodes, 1000.0f);
 
   EXPECT_NEAR(measuredDb, static_cast<double>(predictedDb), 0.5)
@@ -481,8 +476,8 @@ TEST_F(GraphicEQTest, MagnitudeResponseMatchesProcessing)
 TEST_F(GraphicEQTest, LowCutMinus3dBAtCutoff)
 {
   NodeArrays nodes;
-  nodes.lowCutActive = true;
-  nodes.lowCutFreqHz = 1000.0f;
+  nodes.lowCut.active = true;
+  nodes.lowCut.freqHz = 1000.0f;
 
   float response = magnitudeDb(nodes, 1000.0f);
   EXPECT_NEAR(response, -3.0, 0.5)
@@ -492,8 +487,8 @@ TEST_F(GraphicEQTest, LowCutMinus3dBAtCutoff)
 TEST_F(GraphicEQTest, LowCutSlope24dBPerOctave)
 {
   NodeArrays nodes;
-  nodes.lowCutActive = true;
-  nodes.lowCutFreqHz = 1000.0f;
+  nodes.lowCut.active = true;
+  nodes.lowCut.freqHz = 1000.0f;
 
   float atHalf = magnitudeDb(nodes, 500.0f);
   float atQuarter = magnitudeDb(nodes, 250.0f);
@@ -505,8 +500,8 @@ TEST_F(GraphicEQTest, LowCutSlope24dBPerOctave)
 TEST_F(GraphicEQTest, HighCutSlope24dBPerOctave)
 {
   NodeArrays nodes;
-  nodes.highCutActive = true;
-  nodes.highCutFreqHz = 1000.0f;
+  nodes.highCut.active = true;
+  nodes.highCut.freqHz = 1000.0f;
 
   float atDouble = magnitudeDb(nodes, 2000.0f);
   float atQuadruple = magnitudeDb(nodes, 4000.0f);
@@ -638,6 +633,85 @@ TEST_F(GraphicEQTest, DeactivatingCutRestoresUnity)
   EXPECT_NEAR(ratioDb, 0.0, 0.01) << "Deactivated low cut must stop affecting the signal";
 }
 
+TEST_F(GraphicEQTest, HighCutMinus3dBAtCutoff)
+{
+  NodeArrays nodes;
+  nodes.highCut.active = true;
+  nodes.highCut.freqHz = 1000.0f;
+
+  float response = magnitudeDb(nodes, 1000.0f);
+  EXPECT_NEAR(response, -3.0, 0.5)
+      << "Butterworth high cut should be -3dB at cutoff, got " << response;
+}
+
+TEST_F(GraphicEQTest, ResetClearsStateWithCuts)
+{
+  constexpr size_t kNumSamples = 512;
+  auto input = generateSine(1000.0f, 44100.0f, kNumSamples);
+  std::vector<float> output(kNumSamples);
+
+  eq.setLowCut(true, 500.0f);
+  eq.setHighCut(true, 2000.0f);
+  eq.process(input.data(), output.data(), kNumSamples);
+
+  eq.reset();
+
+  std::vector<float> silence(kNumSamples, 0.0f);
+  eq.process(silence.data(), output.data(), kNumSamples);
+
+  for (size_t i = 0; i < kNumSamples; ++i)
+    EXPECT_FLOAT_EQ(output[i], 0.0f)
+        << "Cut filter state not cleared at sample " << i << " after reset";
+}
+
+TEST_F(GraphicEQTest, DeactivatingNodeWhileRunningRestoresUnity)
+{
+  constexpr size_t kNumSamples = 8192;
+  constexpr size_t kSkip = 1024;
+
+  eq.setNode(0, true, 1000.0f, 12.0f);
+
+  auto warmup = generateSine(1000.0f, 44100.0f, kNumSamples);
+  std::vector<float> output(kNumSamples);
+  eq.process(warmup.data(), output.data(), kNumSamples);
+
+  // Deactivate mid-stream without resetting, as a UI toggle would
+  eq.setNodeActive(0, false);
+
+  auto input = generateSine(1000.0f, 44100.0f, kNumSamples);
+  eq.process(input.data(), output.data(), kNumSamples);
+
+  double ratioDb = 20.0 * std::log10(computeRMS(output, kSkip) / computeRMS(input, kSkip));
+  EXPECT_NEAR(ratioDb, 0.0, 0.01)
+      << "Node deactivated during processing must stop affecting the signal";
+}
+
+TEST_F(GraphicEQTest, MagnitudeResponseMatchesProcessing_NodeAndCut)
+{
+  constexpr size_t kNumSamples = 16384;
+  constexpr size_t kSkip = 4096;
+
+  eq.setNode(0, true, 1000.0f, 6.0f);
+  eq.setLowCut(true, 200.0f);
+
+  auto input = generateSine(1000.0f, 44100.0f, kNumSamples);
+  std::vector<float> output(kNumSamples);
+  eq.process(input.data(), output.data(), kNumSamples);
+
+  double measuredDb = 20.0 * std::log10(computeRMS(output, kSkip) / computeRMS(input, kSkip));
+
+  NodeArrays nodes;
+  nodes.nodes[0].active = true;
+  nodes.nodes[0].freqHz = 1000.0f;
+  nodes.nodes[0].gainDb = 6.0f;
+  nodes.lowCut.active = true;
+  nodes.lowCut.freqHz = 200.0f;
+  float predictedDb = magnitudeDb(nodes, 1000.0f);
+
+  EXPECT_NEAR(measuredDb, static_cast<double>(predictedDb), 0.5)
+      << "Combined node and cut response should match actual processing";
+}
+
 TEST_F(GraphicEQTest, MagnitudeResponseMatchesProcessing_WithCuts)
 {
   constexpr size_t kNumSamples = 16384;
@@ -653,10 +727,10 @@ TEST_F(GraphicEQTest, MagnitudeResponseMatchesProcessing_WithCuts)
   double measuredDb = 20.0 * std::log10(computeRMS(output, kSkip) / computeRMS(input, kSkip));
 
   NodeArrays nodes;
-  nodes.lowCutActive = true;
-  nodes.lowCutFreqHz = 200.0f;
-  nodes.highCutActive = true;
-  nodes.highCutFreqHz = 4000.0f;
+  nodes.lowCut.active = true;
+  nodes.lowCut.freqHz = 200.0f;
+  nodes.highCut.active = true;
+  nodes.highCut.freqHz = 4000.0f;
   float predictedDb = magnitudeDb(nodes, 300.0f);
 
   EXPECT_NEAR(measuredDb, static_cast<double>(predictedDb), 0.5)

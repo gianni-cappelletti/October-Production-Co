@@ -15,8 +15,10 @@ class SpectrumAnalyzer
   static constexpr float kMinDb = -80.0f;
   static constexpr float kMaxDb = 0.0f;
 
-  // Display bands: <50Hz combined, 22 individual 1/3-octave 50Hz-6.3kHz, >6.3kHz combined.
-  // Edge frequencies computed via geometric mean between adjacent ISO centers for contiguity.
+  // Display bands: 24 log-spaced bands covering 20 Hz - 20 kHz (3 decades, so
+  // 8 bands per decade; edge i = 20 * 10^(i/8)). Bar boundaries line up exactly
+  // with the EQ display's log frequency axis so the spectrum reads true under
+  // the EQ curve.
   struct BandRange
   {
     float lowHz;
@@ -24,30 +26,30 @@ class SpectrumAnalyzer
   };
 
   static constexpr std::array<BandRange, kNumBands> kBandRanges = {{
-      {17.82f, 44.72f},      // <50 Hz (combined: 20, 25, 31.5, 40 Hz)
-      {44.72f, 56.12f},      // 50 Hz
-      {56.12f, 71.00f},      // 63 Hz
-      {71.00f, 89.44f},      // 80 Hz
-      {89.44f, 111.80f},     // 100 Hz
-      {111.80f, 141.42f},    // 125 Hz
-      {141.42f, 178.89f},    // 160 Hz
-      {178.89f, 223.61f},    // 200 Hz
-      {223.61f, 280.62f},    // 250 Hz
-      {280.62f, 354.96f},    // 315 Hz
-      {354.96f, 447.21f},    // 400 Hz
-      {447.21f, 561.25f},    // 500 Hz
-      {561.25f, 710.00f},    // 630 Hz
-      {710.00f, 894.43f},    // 800 Hz
-      {894.43f, 1118.03f},   // 1 kHz
-      {1118.03f, 1414.21f},  // 1.25 kHz
-      {1414.21f, 1788.85f},  // 1.6 kHz
-      {1788.85f, 2236.07f},  // 2 kHz
-      {2236.07f, 2806.24f},  // 2.5 kHz
-      {2806.24f, 3549.65f},  // 3.15 kHz
-      {3549.65f, 4472.14f},  // 4 kHz
-      {4472.14f, 5612.49f},  // 5 kHz
-      {5612.49f, 7099.30f},  // 6.3 kHz
-      {7099.30f, 22449.0f},  // >6.3 kHz (combined: 8k, 10k, 12.5k, 16k, 20k)
+      {20.00f, 26.67f},        // 23 Hz center
+      {26.67f, 35.57f},        // 31 Hz
+      {35.57f, 47.43f},        // 41 Hz
+      {47.43f, 63.25f},        // 55 Hz
+      {63.25f, 84.34f},        // 73 Hz
+      {84.34f, 112.47f},       // 97 Hz
+      {112.47f, 149.98f},      // 130 Hz
+      {149.98f, 200.00f},      // 173 Hz
+      {200.00f, 266.70f},      // 231 Hz
+      {266.70f, 355.66f},      // 308 Hz
+      {355.66f, 474.27f},      // 411 Hz
+      {474.27f, 632.46f},      // 548 Hz
+      {632.46f, 843.39f},      // 730 Hz
+      {843.39f, 1124.68f},     // 974 Hz
+      {1124.68f, 1499.79f},    // 1.3 kHz
+      {1499.79f, 2000.00f},    // 1.73 kHz
+      {2000.00f, 2667.04f},    // 2.31 kHz
+      {2667.04f, 3556.56f},    // 3.08 kHz
+      {3556.56f, 4742.75f},    // 4.11 kHz
+      {4742.75f, 6324.56f},    // 5.48 kHz
+      {6324.56f, 8433.93f},    // 7.3 kHz
+      {8433.93f, 11246.83f},   // 9.74 kHz
+      {11246.83f, 14997.88f},  // 12.99 kHz
+      {14997.88f, 20000.00f},  // 17.32 kHz
   }};
 
   SpectrumAnalyzer()
