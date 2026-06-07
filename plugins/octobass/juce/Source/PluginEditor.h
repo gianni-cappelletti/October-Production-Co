@@ -8,6 +8,7 @@
 #include "LCDDisplay.h"
 #include "OctoberLookAndFeel.h"
 #include "PluginProcessor.h"
+#include "PopupToggleButton.h"
 #include "SpectrumAnalyzer.h"
 
 class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -81,8 +82,7 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
   juce::TextButton namPrevButton_;
   juce::TextButton namNextButton_;
   LCDDisplay namLCDDisplay_;
-  juce::Label namQualityLabel_;
-  juce::ToggleButton namQualityToggle_;
+  PopupToggleButton namQualityToggle_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> namQualityAttachment_;
   int lastNamQualityLevels_ = -1;
   void updateNamQualityToggle();
@@ -135,7 +135,6 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
 
   juce::File lastBrowsedDirectory_;
   juce::Image logoImage_;
-  juce::TooltipWindow tooltipWindow_{this};
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OctoBassEditor)
 };

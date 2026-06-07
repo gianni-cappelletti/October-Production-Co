@@ -262,13 +262,15 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   namNextButton_.setTitle("Next NAM Model");
   namNextButton_.onClick = [this] { namNextClicked(); };
 
-  addAndMakeVisible(namQualityLabel_);
-  namQualityLabel_.setText("QUALITY", juce::dontSendNotification);
-  namQualityLabel_.setJustificationType(juce::Justification::centredRight);
-
   addAndMakeVisible(namQualityToggle_);
-  namQualityToggle_.setComponentID("slideSwitch");
+  namQualityToggle_.setComponentID("metalToggle");
   namQualityToggle_.setTitle("NAM Quality");
+  namQualityToggle_.popupTextProvider = [this]() -> juce::String
+  {
+    if (lastNamQualityLevels_ <= 1)
+      return "No quality options available";
+    return namQualityToggle_.getToggleState() ? "Full" : "Lite";
+  };
   // ButtonAttachment maps the continuous namQuality parameter to the switch
   // with a 0.5 threshold, matching the submodel selection threshold in
   // nam::ContainerModel::SetSlimmableSize
@@ -375,12 +377,7 @@ void OctoBassEditor::updateNamQualityToggle()
     return;
   lastNamQualityLevels_ = levels;
 
-  const bool hasQualityOptions = levels > 1;
-  namQualityToggle_.setEnabled(hasQualityOptions);
-  namQualityLabel_.setEnabled(hasQualityOptions);
-  namQualityToggle_.setTooltip(hasQualityOptions
-                                   ? "Full quality on, or reduced quality (lower CPU) off"
-                                   : "No quality options available");
+  namQualityToggle_.setEnabled(levels > 1);
 }
 
 OctoBassEditor::ParamHandle OctoBassEditor::paramHandle(const juce::String& paramID) const
@@ -630,8 +627,7 @@ void OctoBassEditor::resized()
     namClearButton_.setBounds(namButtonRow.removeFromLeft(48).reduced(2));
     namPrevButton_.setBounds(namButtonRow.removeFromLeft(28).reduced(2));
     namNextButton_.setBounds(namButtonRow.removeFromLeft(28).reduced(2));
-    namQualityToggle_.setBounds(namButtonRow.removeFromRight(48).withSizeKeepingCentre(44, 20));
-    namQualityLabel_.setBounds(namButtonRow.removeFromRight(70).withTrimmedRight(4));
+    namQualityToggle_.setBounds(namButtonRow.removeFromRight(48).withSizeKeepingCentre(44, 28));
     namSection.removeFromTop(innerGap);
     namLCDDisplay_.setBounds(namSection.reduced(2, 0));
   }
