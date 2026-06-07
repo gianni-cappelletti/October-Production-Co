@@ -147,8 +147,11 @@ TEST_F(GraphicEQTest, ProportionalQ_NarrowAtHighGain)
   double octaveBoost =
       20.0 * std::log10(computeRMS(outputOctave, kSkip) / computeRMS(inputOctave, kSkip));
 
-  EXPECT_GT(centerBoost - octaveBoost, 6.0)
-      << "At +12dB (narrow Q), 1 octave away should be >6dB less than center. "
+  // Threshold sits between the correct proportional Q (Q=8 at +12dB: ~11.9dB
+  // separation) and a broken constant Q=0.8 (~7.0dB), so a constant-Q
+  // regression fails this test
+  EXPECT_GT(centerBoost - octaveBoost, 9.0)
+      << "At +12dB (narrow Q), 1 octave away should be >9dB less than center. "
       << "Center=" << centerBoost << "dB, Octave=" << octaveBoost << "dB";
 }
 
@@ -173,8 +176,11 @@ TEST_F(GraphicEQTest, ProportionalQ_WideAtLowGain)
   double octaveBoost =
       20.0 * std::log10(computeRMS(outputOctave, kSkip) / computeRMS(inputOctave, kSkip));
 
-  EXPECT_LT(centerBoost - octaveBoost, 2.5)
-      << "At +2dB (wide Q), 1 octave away should be within 2.5dB of center. "
+  // Threshold sits between the correct proportional Q (Q~1.17 at +2dB: ~1.5dB
+  // separation) and a broken constant Q=8.0 (~2.0dB), so a constant-Q
+  // regression fails this test
+  EXPECT_LT(centerBoost - octaveBoost, 1.7)
+      << "At +2dB (wide Q), 1 octave away should be within 1.7dB of center. "
       << "Center=" << centerBoost << "dB, Octave=" << octaveBoost << "dB";
 }
 

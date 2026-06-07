@@ -26,11 +26,6 @@ float peakLevel(const std::vector<float>& buf)
   return peak;
 }
 
-float dbToLinear(float db)
-{
-  return std::pow(10.0f, db / 20.0f);
-}
-
 }  // namespace
 
 TEST(NoiseGateTest, DisabledByDefault)

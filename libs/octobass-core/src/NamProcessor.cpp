@@ -138,6 +138,13 @@ struct NamProcessor::Impl
   std::atomic<bool> hasPendingModel{false};
   std::atomic<bool> pendingClear{false};
 
+  // The audio thread parks the displaced model here instead of destroying it
+  // (destruction allocates/frees, which is not real-time safe); the next
+  // message-thread call that takes swapMutex releases it. The message thread
+  // always empties this slot before staging new work, so the audio thread
+  // never overwrites a still-parked model.
+  std::unique_ptr<nam::DSP> retiredModel;
+
   double quality = 1.0;
   // Message-thread only, like the load/clear calls that update it
   int numQualityLevels = 0;
@@ -170,14 +177,19 @@ struct NamProcessor::Impl
 
     if (pendingClear.load(std::memory_order_acquire))
     {
-      model.reset();
+      if (model)
+        retiredModel = std::move(model);
       modelPath.clear();
       pendingClear.store(false, std::memory_order_release);
     }
     if (hasPendingModel.load(std::memory_order_acquire))
     {
+      if (model)
+        retiredModel = std::move(model);
       model = std::move(pendingModel);
-      modelPath = std::move(pendingModelPath);
+      // swap, not move: the old path's heap allocation is then freed by the
+      // message thread when pendingModelPath is next reassigned
+      modelPath.swap(pendingModelPath);
       hasPendingModel.store(false, std::memory_order_release);
     }
   }
@@ -194,14 +206,35 @@ bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMess
 {
   forceNamArchitectureLinkage();
 
+  const std::string filename = std::filesystem::path(filepath).filename().string();
+
+  // nam::get_dsp indexes the top-level keys with json::operator[], which
+  // asserts in debug builds and is undefined on missing keys in release, so
+  // the file is validated before it reaches the NAM parser
+  {
+    std::ifstream stream(filepath);
+    if (!stream)
+    {
+      errorMessage = "Cannot open NAM model file: " + filename;
+      return false;
+    }
+
+    const auto json = nlohmann::json::parse(stream, nullptr, /*allow_exceptions=*/false);
+    if (json.is_discarded() || !json.is_object() || !json.contains("version") ||
+        !json["version"].is_string() || !json.contains("architecture") || !json.contains("config"))
+    {
+      errorMessage = "Invalid NAM model file (not a parseable .nam): " + filename;
+      return false;
+    }
+  }
+
   try
   {
     auto newModel = nam::get_dsp(std::filesystem::path(filepath));
     if (!newModel)
     {
       // Filename only: the full path may end up in user-facing dialogs
-      errorMessage = "Failed to create NAM model from file: " +
-                     std::filesystem::path(filepath).filename().string();
+      errorMessage = "Failed to create NAM model from file: " + filename;
       return false;
     }
 
@@ -217,6 +250,7 @@ bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMess
 
     {
       const std::lock_guard<std::mutex> lock(impl_->swapMutex);
+      impl_->retiredModel.reset();
       impl_->pendingModel = std::move(newModel);
       impl_->pendingModelPath = filepath;
       impl_->hasPendingModel.store(true, std::memory_order_release);
@@ -226,7 +260,15 @@ bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMess
   }
   catch (const std::exception& e)
   {
-    errorMessage = std::string("NAM model load error: ") + e.what();
+    // e.what() can embed the full filesystem path (e.g. filesystem_error) and
+    // this message surfaces in user-facing dialogs; reduce any occurrence to
+    // the filename while keeping the rest of the diagnostic
+    std::string detail = e.what();
+    for (size_t pos = detail.find(filepath); pos != std::string::npos;
+         pos = detail.find(filepath, pos + filename.length()))
+      detail.replace(pos, filepath.length(), filename);
+
+    errorMessage = "NAM model load error: " + detail;
     return false;
   }
 }
@@ -234,6 +276,7 @@ bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMess
 void NamProcessor::clearModel()
 {
   const std::lock_guard<std::mutex> lock(impl_->swapMutex);
+  impl_->retiredModel.reset();
   impl_->hasPendingModel.store(false, std::memory_order_release);
   impl_->pendingModel.reset();
   impl_->pendingModelPath.clear();
@@ -263,17 +306,20 @@ std::string NamProcessor::getCurrentModelPath() const
 
 void NamProcessor::setQuality(double quality)
 {
-  quality = std::max(0.0, std::min(1.0, quality));
+  quality = std::clamp(quality, 0.0, 1.0);
 
+  // Apply to the staged model if one is waiting, otherwise the active one.
+  // The lock pins both unique_ptrs against a concurrent audio-thread swap and
+  // covers the quality compare/write so a violation of the message-thread-only
+  // contract cannot race it; SetSlimmableSize is internally synchronized
+  // against concurrent process().
+  const std::lock_guard<std::mutex> lock(impl_->swapMutex);
   if (impl_->quality == quality)
     return;
 
   impl_->quality = quality;
+  impl_->retiredModel.reset();
 
-  // Apply to the staged model if one is waiting, otherwise the active one.
-  // The lock pins both unique_ptrs against a concurrent audio-thread swap;
-  // SetSlimmableSize is internally synchronized against concurrent process().
-  const std::lock_guard<std::mutex> lock(impl_->swapMutex);
   if (impl_->hasPendingModel.load(std::memory_order_acquire))
     impl_->applyQuality(impl_->pendingModel.get());
   else

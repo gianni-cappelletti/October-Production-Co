@@ -60,7 +60,19 @@ void BassProcessor::setMaxBlockSize(FrameCount maxBlockSize)
   delayedLowBuffer_.resize(maxBlockSize, 0.0f);
   namProcessor_.setMaxBlockSize(maxBlockSize);
   irProcessor_.setMaxBlockSize(maxBlockSize);
-  updateDelayBuffer();
+
+  // Prepare-time call with no concurrent audio: size the delay line directly
+  // and drop any staged buffer, which was sized for the old block size
+  const std::lock_guard<std::mutex> lock(delayBufferSwapMutex_);
+  hasPendingDelayBuffer_.store(false, std::memory_order_release);
+  pendingDelayBuffer_ = std::vector<Sample>();
+  retiredDelayBuffer_ = std::vector<Sample>();
+  const int irLatency = irProcessor_.getLatencySamples();
+  if (irLatency > 0)
+  {
+    lowBandDelayBuffer_.assign(static_cast<size_t>(irLatency) + maxBlockSize, 0.0f);
+    lowBandDelayWritePos_ = 0;
+  }
 }
 
 bool BassProcessor::loadImpulseResponse(const std::string& filepath, std::string& errorMessage)
@@ -68,6 +80,7 @@ bool BassProcessor::loadImpulseResponse(const std::string& filepath, std::string
   if (irProcessor_.loadImpulseResponse1(filepath, errorMessage))
   {
     currentIRPath_ = filepath;
+    stageDelayBuffer(irProcessor_.getLatencySamples());
     return true;
   }
   return false;
@@ -77,9 +90,14 @@ void BassProcessor::clearImpulseResponse()
 {
   irProcessor_.clearImpulseResponse1();
   currentIRPath_.clear();
-  currentIRLatency_ = 0;
-  lowBandDelayBuffer_.clear();
-  lowBandDelayWritePos_ = 0;
+
+  // The audio thread sees the IR latency drop to zero and skips the delay
+  // path on its own; the delay buffer must not be freed here while that
+  // thread may still be reading it. It is replaced on the next IR load.
+  const std::lock_guard<std::mutex> lock(delayBufferSwapMutex_);
+  hasPendingDelayBuffer_.store(false, std::memory_order_release);
+  pendingDelayBuffer_ = std::vector<Sample>();
+  retiredDelayBuffer_ = std::vector<Sample>();
 }
 
 bool BassProcessor::isIRLoaded() const
@@ -160,31 +178,43 @@ void BassProcessor::setCompressionMode(int mode)
 
 void BassProcessor::setLowBandLevel(float levelDb)
 {
-  lowBandLevelDb_ = clamp(levelDb, MinBandLevelDb, MaxBandLevelDb);
-  lowBandLevelLinear_ = dbToLinear(lowBandLevelDb_);
+  levelDb = std::clamp(levelDb, MinBandLevelDb, MaxBandLevelDb);
+  if (lowBandLevelDb_ == levelDb)
+    return;
+  lowBandLevelDb_ = levelDb;
+  lowBandLevelLinear_ = dbToLinear(levelDb);
 }
 
 void BassProcessor::setHighInputGain(float gainDb)
 {
-  highInputGainDb_ = clamp(gainDb, MinHighInputGainDb, MaxHighInputGainDb);
-  highInputGainLinear_ = dbToLinear(highInputGainDb_);
+  gainDb = std::clamp(gainDb, MinHighInputGainDb, MaxHighInputGainDb);
+  if (highInputGainDb_ == gainDb)
+    return;
+  highInputGainDb_ = gainDb;
+  highInputGainLinear_ = dbToLinear(gainDb);
 }
 
 void BassProcessor::setHighOutputGain(float gainDb)
 {
-  highOutputGainDb_ = clamp(gainDb, MinHighOutputGainDb, MaxHighOutputGainDb);
-  highOutputGainLinear_ = dbToLinear(highOutputGainDb_);
+  gainDb = std::clamp(gainDb, MinHighOutputGainDb, MaxHighOutputGainDb);
+  if (highOutputGainDb_ == gainDb)
+    return;
+  highOutputGainDb_ = gainDb;
+  highOutputGainLinear_ = dbToLinear(gainDb);
 }
 
 void BassProcessor::setOutputGain(float gainDb)
 {
-  outputGainDb_ = clamp(gainDb, MinOutputGainDb, MaxOutputGainDb);
-  outputGainLinear_ = dbToLinear(outputGainDb_);
+  gainDb = std::clamp(gainDb, MinOutputGainDb, MaxOutputGainDb);
+  if (outputGainDb_ == gainDb)
+    return;
+  outputGainDb_ = gainDb;
+  outputGainLinear_ = dbToLinear(gainDb);
 }
 
 void BassProcessor::setDryWetMix(float mix)
 {
-  dryWetMix_ = clamp(mix, 0.0f, 1.0f);
+  dryWetMix_ = std::clamp(mix, 0.0f, 1.0f);
 }
 
 void BassProcessor::setGateThreshold(float thresholdDb)
@@ -194,7 +224,7 @@ void BassProcessor::setGateThreshold(float thresholdDb)
 
 void BassProcessor::setHighBandMix(float mix)
 {
-  highBandMix_ = clamp(mix, 0.0f, 1.0f);
+  highBandMix_ = std::clamp(mix, 0.0f, 1.0f);
 }
 
 void BassProcessor::setLowBandSolo(bool solo)
@@ -251,16 +281,26 @@ void BassProcessor::processMono(const Sample* input, Sample* output, FrameCount 
       highBandBuffer_[i] = dryHighBandBuffer_[i] * dry + highBandBuffer_[i] * wet;
   }
 
-  // Update latency compensation if IR latency changed
-  int irLatency = irProcessor_.getLatencySamples();
-  if (irLatency != currentIRLatency_)
+  // Pick up a delay buffer staged by an IR load on the message thread.
+  // try_lock keeps this non-blocking: a missed swap is retried next block.
+  if (hasPendingDelayBuffer_.load(std::memory_order_acquire))
   {
-    currentIRLatency_ = irLatency;
-    updateDelayBuffer();
+    std::unique_lock<std::mutex> lock(delayBufferSwapMutex_, std::try_to_lock);
+    if (lock.owns_lock())
+    {
+      retiredDelayBuffer_ = std::move(lowBandDelayBuffer_);
+      lowBandDelayBuffer_ = std::move(pendingDelayBuffer_);
+      lowBandDelayWritePos_ = 0;
+      hasPendingDelayBuffer_.store(false, std::memory_order_release);
+    }
   }
 
-  // Apply delay compensation to low band
-  if (currentIRLatency_ > 0 && !lowBandDelayBuffer_.empty())
+  currentIRLatency_ = irProcessor_.getLatencySamples();
+
+  // Apply delay compensation to low band. The size check skips the path until
+  // a staged buffer large enough for the current latency has been swapped in.
+  if (currentIRLatency_ > 0 &&
+      lowBandDelayBuffer_.size() >= static_cast<size_t>(currentIRLatency_) + numFrames)
   {
     Sample* delayedLow = delayedLowBuffer_.data();
     writeToDelayBuffer(lowBandDelayBuffer_, lowBandDelayWritePos_, lowBandBuffer_.data(),
@@ -330,31 +370,22 @@ int BassProcessor::getLatencySamples() const
   return irProcessor_.getLatencySamples();
 }
 
-void BassProcessor::updateDelayBuffer()
+void BassProcessor::stageDelayBuffer(int latencySamples)
 {
-  if (currentIRLatency_ > 0)
-  {
-    size_t bufferSize = static_cast<size_t>(currentIRLatency_) + lowBandBuffer_.size();
-    if (lowBandDelayBuffer_.size() < bufferSize)
-    {
-      lowBandDelayBuffer_.resize(bufferSize, 0.0f);
-    }
-  }
-  else
-  {
-    lowBandDelayBuffer_.clear();
-    lowBandDelayWritePos_ = 0;
-  }
-}
+  const std::lock_guard<std::mutex> lock(delayBufferSwapMutex_);
+  retiredDelayBuffer_ = std::vector<Sample>();
 
-float BassProcessor::clamp(float value, float minVal, float maxVal)
-{
-  return std::max(minVal, std::min(maxVal, value));
-}
+  if (latencySamples <= 0)
+  {
+    hasPendingDelayBuffer_.store(false, std::memory_order_release);
+    pendingDelayBuffer_ = std::vector<Sample>();
+    return;
+  }
 
-float BassProcessor::dbToLinear(float db)
-{
-  return std::exp2(db * 0.16609640474f);
+  // lowBandBuffer_ is only resized at prepare time, so its size is stable
+  // while audio is running
+  pendingDelayBuffer_.assign(static_cast<size_t>(latencySamples) + lowBandBuffer_.size(), 0.0f);
+  hasPendingDelayBuffer_.store(true, std::memory_order_release);
 }
 
 void BassProcessor::writeToDelayBuffer(std::vector<Sample>& buffer, size_t& writePos,

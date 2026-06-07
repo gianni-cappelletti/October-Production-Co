@@ -2,6 +2,8 @@
 
 GraphicEQDisplay::GraphicEQDisplay()
 {
+  setTitle("Graphic EQ");
+  setWantsKeyboardFocus(true);
   addAndMakeVisible(spectrumDisplay_);
   spectrumDisplay_.setInterceptsMouseClicks(false, false);
 }
@@ -60,7 +62,7 @@ void GraphicEQDisplay::paintOverChildren(juce::Graphics& g)
 
   // Center line at 0dB gain
   float centerY = gainToY(0.0f, areaTop, areaH);
-  g.setColour(juce::Colour(0xff1c1c30).withAlpha(0.3f));
+  g.setColour(kLCDInkColour.withAlpha(0.3f));
   g.drawHorizontalLine(static_cast<int>(centerY), areaLeft, areaLeft + areaW);
 
   bool anyActive = anyFilterActive();
@@ -88,14 +90,14 @@ void GraphicEQDisplay::paintOverChildren(juce::Graphics& g)
       eqPath.lineTo(x, y);
   }
 
-  g.setColour(juce::Colour(0xff1c1c30));
+  g.setColour(kLCDInkColour);
   g.strokePath(eqPath, juce::PathStrokeType(2.0f));
 
   // Ghost dot: hover hint on the curve where a node would be created
   if (ghostVisible_ && dragHandle_ == kNoHandle && hoverHandle_ == kNoHandle)
   {
     constexpr float kGhostRadius = 4.0f;
-    g.setColour(juce::Colour(0xff1c1c30).withAlpha(0.35f));
+    g.setColour(kLCDInkColour.withAlpha(0.35f));
     g.fillEllipse(ghostPos_.x - kGhostRadius, ghostPos_.y - kGhostRadius, kGhostRadius * 2.0f,
                   kGhostRadius * 2.0f);
   }
@@ -108,8 +110,17 @@ void GraphicEQDisplay::paintOverChildren(juce::Graphics& g)
 
     auto pt = handlePixel(handle, barArea);
     float radius = (handle == dragHandle_ || handle == hoverHandle_) ? 5.0f : 4.0f;
-    g.setColour(juce::Colour(0xff1c1c30));
+    g.setColour(kLCDInkColour);
     g.fillEllipse(pt.x - radius, pt.y - radius, radius * 2.0f, radius * 2.0f);
+
+    // Visible focus indicator for keyboard interaction (WCAG 2.4.7)
+    if (handle == focusedHandle_ && focusRingVisible_ && hasKeyboardFocus(true))
+    {
+      constexpr float kFocusRingGap = 3.0f;
+      float ringRadius = radius + kFocusRingGap;
+      g.drawEllipse(pt.x - ringRadius, pt.y - ringRadius, ringRadius * 2.0f, ringRadius * 2.0f,
+                    1.5f);
+    }
   }
 
   // Tooltip for the hovered or dragged handle
@@ -157,10 +168,10 @@ void GraphicEQDisplay::paintOverChildren(juce::Graphics& g)
       boxY = pt.y + 6.0f;
 
     auto boxRect = juce::Rectangle<float>(boxX, boxY, boxW, boxH);
-    g.setColour(juce::Colour(0xff1c1c30));
+    g.setColour(kLCDInkColour);
     g.fillRoundedRectangle(boxRect, kTooltipCorner);
 
-    g.setColour(juce::Colour(0xffF08830));
+    g.setColour(kLCDBacklightColour);
     g.drawText(text, boxRect.toNearestInt(), juce::Justification::centred, false);
   }
 }
@@ -188,7 +199,7 @@ void GraphicEQDisplay::mouseMove(const juce::MouseEvent& e)
   else if (hoverHandle_ == kLowCutHandle || hoverHandle_ == kHighCutHandle)
     setMouseCursor(juce::MouseCursor::LeftRightResizeCursor);
   else
-    setMouseCursor(juce::MouseCursor::UpDownResizeCursor);
+    setMouseCursor(juce::MouseCursor::UpDownLeftRightResizeCursor);
 
   if (changed)
     repaint();
@@ -199,6 +210,10 @@ void GraphicEQDisplay::mouseDown(const juce::MouseEvent& e)
   auto barArea = getBarArea();
   if (barArea.getWidth() <= 0 || barArea.getHeight() <= 0)
     return;
+
+  // Mouse interaction hides the focus ring; the cursor and the enlarged dot
+  // already mark the target, and the next key press brings the ring back
+  focusRingVisible_ = false;
 
   // Only the first click of a multi-click sequence resets the creation marker,
   // so mouseDoubleClick can tell a just-created handle from a pre-existing one
@@ -227,8 +242,9 @@ void GraphicEQDisplay::mouseDown(const juce::MouseEvent& e)
       lowCut_.freqHz = freqHz;
       dragHandle_ = kLowCutHandle;
       justCreatedHandle_ = kLowCutHandle;
+      dragScope_ = GestureScope::All;
       if (onDragStart)
-        onDragStart(kLowCutHandle);
+        onDragStart(kLowCutHandle, dragScope_);
       if (onLowCutChanged)
         onLowCutChanged(true, freqHz);
       repaint();
@@ -239,8 +255,9 @@ void GraphicEQDisplay::mouseDown(const juce::MouseEvent& e)
       highCut_.freqHz = freqHz;
       dragHandle_ = kHighCutHandle;
       justCreatedHandle_ = kHighCutHandle;
+      dragScope_ = GestureScope::All;
       if (onDragStart)
-        onDragStart(kHighCutHandle);
+        onDragStart(kHighCutHandle, dragScope_);
       if (onHighCutChanged)
         onHighCutChanged(true, freqHz);
       repaint();
@@ -263,9 +280,10 @@ void GraphicEQDisplay::mouseDown(const juce::MouseEvent& e)
       node.gainDb = gainDb;
       dragHandle_ = slot;
       justCreatedHandle_ = slot;
+      dragScope_ = GestureScope::All;
 
       if (onDragStart)
-        onDragStart(slot);
+        onDragStart(slot, dragScope_);
       if (onNodeChanged)
         onNodeChanged(slot, true, freqHz, gainDb);
       repaint();
@@ -273,10 +291,13 @@ void GraphicEQDisplay::mouseDown(const juce::MouseEvent& e)
   }
   else
   {
+    // Dragging an existing handle never touches its 'active' parameter
+    dragScope_ = GestureScope::Move;
     if (onDragStart)
-      onDragStart(dragHandle_);
+      onDragStart(dragHandle_, dragScope_);
   }
 
+  focusedHandle_ = dragHandle_;
   dragStartPos_ = e.position;
   if (dragHandle_ >= 0 && dragHandle_ < kNumNodes)
     dragStartGainDb_ = nodes_[static_cast<size_t>(dragHandle_)].gainDb;
@@ -344,6 +365,12 @@ void GraphicEQDisplay::mouseDoubleClick(const juce::MouseEvent& e)
     return;
   }
 
+  // Close the move-scope gesture the second click's mouseDown opened, then
+  // bracket the deactivation in its own gesture that includes 'active'
+  endDrag();
+  if (onDragStart)
+    onDragStart(handle, GestureScope::All);
+
   if (handle == kLowCutHandle)
   {
     lowCut_.active = false;
@@ -365,8 +392,12 @@ void GraphicEQDisplay::mouseDoubleClick(const juce::MouseEvent& e)
       onNodeChanged(handle, false, node.freqHz, node.gainDb);
   }
 
-  endDrag();
+  if (onDragEnd)
+    onDragEnd(handle, GestureScope::All);
+
   hoverHandle_ = kNoHandle;
+  if (focusedHandle_ == handle)
+    focusedHandle_ = kNoHandle;
   repaint();
 }
 
@@ -510,6 +541,187 @@ void GraphicEQDisplay::endDrag()
     return;
 
   if (onDragEnd)
-    onDragEnd(dragHandle_);
+    onDragEnd(dragHandle_, dragScope_);
   dragHandle_ = kNoHandle;
+}
+
+// --- Keyboard interaction ---
+
+namespace
+{
+// One musical semitone per arrow press: fine enough for placement, coarse
+// enough that traversing the full 20 Hz - 20 kHz range stays manageable
+constexpr float kFreqNudgeRatio = 1.059463094f;  // 2^(1/12)
+constexpr float kGainNudgeDb = 0.5f;
+}  // namespace
+
+bool GraphicEQDisplay::keyPressed(const juce::KeyPress& key)
+{
+  if (key.isKeyCode(juce::KeyPress::tabKey))
+  {
+    focusRingVisible_ = true;
+    cycleFocusedHandle(key.getModifiers().isShiftDown() ? -1 : 1);
+    repaint();
+    return true;
+  }
+
+  if (!handleActive(focusedHandle_))
+  {
+    DBG("Key press with no focused EQ handle, ignoring");
+    return false;
+  }
+
+  if (key.isKeyCode(juce::KeyPress::leftKey) || key.isKeyCode(juce::KeyPress::rightKey))
+  {
+    focusRingVisible_ = true;
+    nudgeFocusedFrequency(key.isKeyCode(juce::KeyPress::rightKey) ? 1 : -1);
+    return true;
+  }
+
+  if (key.isKeyCode(juce::KeyPress::upKey) || key.isKeyCode(juce::KeyPress::downKey))
+  {
+    focusRingVisible_ = true;
+    nudgeFocusedGain(key.isKeyCode(juce::KeyPress::upKey) ? 1 : -1);
+    return true;
+  }
+
+  if (key.isKeyCode(juce::KeyPress::deleteKey) || key.isKeyCode(juce::KeyPress::backspaceKey))
+  {
+    focusRingVisible_ = true;
+    removeFocusedHandle();
+    return true;
+  }
+
+  return false;
+}
+
+void GraphicEQDisplay::focusGained(FocusChangeType cause)
+{
+  // Only keyboard-driven focus shows the ring immediately; a mouse click
+  // reaches here too, but the pointer is its own indicator
+  focusRingVisible_ = cause == FocusChangeType::focusChangedByTabKey;
+  if (!handleActive(focusedHandle_))
+    cycleFocusedHandle(1);
+  repaint();
+}
+
+void GraphicEQDisplay::focusLost(FocusChangeType /*cause*/)
+{
+  repaint();
+}
+
+void GraphicEQDisplay::cycleFocusedHandle(int direction)
+{
+  constexpr int kNumHandles = kNumNodes + 2;
+  int start = (focusedHandle_ == kNoHandle) ? (direction > 0 ? -1 : kNumHandles) : focusedHandle_;
+
+  for (int step = 1; step <= kNumHandles; ++step)
+  {
+    int candidate = (start + direction * step + kNumHandles * step) % kNumHandles;
+    if (handleActive(candidate))
+    {
+      focusedHandle_ = candidate;
+      repaint();
+      return;
+    }
+  }
+
+  DBG("No active EQ handle to focus");
+  focusedHandle_ = kNoHandle;
+}
+
+// Reports the focused handle's current values through the change callbacks,
+// bracketed in a move-scope gesture so hosts record the nudge as automation
+void GraphicEQDisplay::notifyHandleChanged(int handle)
+{
+  if (handle == kLowCutHandle)
+  {
+    if (onLowCutChanged)
+      onLowCutChanged(lowCut_.active, lowCut_.freqHz);
+  }
+  else if (handle == kHighCutHandle)
+  {
+    if (onHighCutChanged)
+      onHighCutChanged(highCut_.active, highCut_.freqHz);
+  }
+  else if (onNodeChanged)
+  {
+    const auto& node = nodes_[static_cast<size_t>(handle)];
+    onNodeChanged(handle, node.active, node.freqHz, node.gainDb);
+  }
+}
+
+void GraphicEQDisplay::nudgeFocusedFrequency(int direction)
+{
+  float ratio = direction > 0 ? kFreqNudgeRatio : 1.0f / kFreqNudgeRatio;
+  float* freq = nullptr;
+  if (focusedHandle_ == kLowCutHandle)
+    freq = &lowCut_.freqHz;
+  else if (focusedHandle_ == kHighCutHandle)
+    freq = &highCut_.freqHz;
+  else
+    freq = &nodes_[static_cast<size_t>(focusedHandle_)].freqHz;
+
+  *freq = juce::jlimit(kMinFreqHz, kMaxFreqHz, *freq * ratio);
+
+  if (onDragStart)
+    onDragStart(focusedHandle_, GestureScope::Move);
+  notifyHandleChanged(focusedHandle_);
+  if (onDragEnd)
+    onDragEnd(focusedHandle_, GestureScope::Move);
+  repaint();
+}
+
+void GraphicEQDisplay::nudgeFocusedGain(int direction)
+{
+  if (focusedHandle_ == kLowCutHandle || focusedHandle_ == kHighCutHandle)
+  {
+    DBG("Cut handles have no gain to nudge");
+    return;
+  }
+
+  auto& node = nodes_[static_cast<size_t>(focusedHandle_)];
+  node.gainDb = juce::jlimit(kMinGainDb, kMaxGainDb,
+                             node.gainDb + kGainNudgeDb * static_cast<float>(direction));
+
+  if (onDragStart)
+    onDragStart(focusedHandle_, GestureScope::Move);
+  notifyHandleChanged(focusedHandle_);
+  if (onDragEnd)
+    onDragEnd(focusedHandle_, GestureScope::Move);
+  repaint();
+}
+
+void GraphicEQDisplay::removeFocusedHandle()
+{
+  int handle = focusedHandle_;
+  if (onDragStart)
+    onDragStart(handle, GestureScope::All);
+
+  if (handle == kLowCutHandle)
+  {
+    lowCut_.active = false;
+    if (onLowCutChanged)
+      onLowCutChanged(false, lowCut_.freqHz);
+  }
+  else if (handle == kHighCutHandle)
+  {
+    highCut_.active = false;
+    if (onHighCutChanged)
+      onHighCutChanged(false, highCut_.freqHz);
+  }
+  else
+  {
+    auto& node = nodes_[static_cast<size_t>(handle)];
+    node.active = false;
+    if (onNodeChanged)
+      onNodeChanged(handle, false, node.freqHz, node.gainDb);
+  }
+
+  if (onDragEnd)
+    onDragEnd(handle, GestureScope::All);
+
+  focusedHandle_ = kNoHandle;
+  cycleFocusedHandle(1);
+  repaint();
 }

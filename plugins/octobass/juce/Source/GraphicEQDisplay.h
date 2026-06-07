@@ -15,7 +15,9 @@ class GraphicEQDisplay : public juce::Component
   static constexpr float kMaxGainDb = octob::MaxGraphicEQGainDb;
   static constexpr float kMinFreqHz = octob::MinGraphicEQFreqHz;
   static constexpr float kMaxFreqHz = octob::MaxGraphicEQFreqHz;
-  static constexpr float kHitRadiusPx = 8.0f;
+  // 24px-diameter hit target (WCAG 2.2 SC 2.5.8 minimum); the drawn dot stays
+  // smaller, the hit zone is what counts
+  static constexpr float kHitRadiusPx = 12.0f;
   static constexpr float kGhostShowRadiusPx = 12.0f;
 
   // Drag/hover handles: peak nodes are 0..kNumNodes-1, cuts use the slots above
@@ -81,29 +83,29 @@ class GraphicEQDisplay : public juce::Component
   std::function<void(bool active, float freqHz)> onLowCutChanged;
   std::function<void(bool active, float freqHz)> onHighCutChanged;
 
-  // Mouse gesture bracketing so the editor can begin/end host automation
-  // gestures around drags; fired before the first and after the last
-  // parameter-changing callback of a gesture
-  std::function<void(int handle)> onDragStart;
-  std::function<void(int handle)> onDragEnd;
+  // Which of a handle's parameters a gesture may modify, so the editor only
+  // opens host automation gestures for parameters that can actually change
+  enum class GestureScope
+  {
+    Move,  // frequency (and gain for peak nodes); 'active' untouched
+    All    // creation/deletion gestures that also flip 'active'
+  };
+
+  // Gesture bracketing so the editor can begin/end host automation gestures
+  // around drags and keyboard nudges; fired before the first and after the
+  // last parameter-changing callback of a gesture
+  std::function<void(int handle, GestureScope scope)> onDragStart;
+  std::function<void(int handle, GestureScope scope)> onDragEnd;
 
   // Log-spaced mapping between [kMinFreqHz, kMaxFreqHz] and normalized [0, 1].
-  // Static and pure so coordinate logic is unit-testable without a Component.
-  static float freqToNormX(float freqHz)
-  {
-    float logMin = std::log2(kMinFreqHz);
-    float logMax = std::log2(kMaxFreqHz);
-    float t =
-        (std::log2(juce::jlimit(kMinFreqHz, kMaxFreqHz, freqHz)) - logMin) / (logMax - logMin);
-    return juce::jlimit(0.0f, 1.0f, t);
-  }
+  // Delegates to the spectrum display's mapping so the EQ overlay and the
+  // spectrum bars can never use divergent axes.
+  static_assert(juce::exactlyEqual(kMinFreqHz, LCDSpectrumDisplay::kMinFreqHz) &&
+                    juce::exactlyEqual(kMaxFreqHz, LCDSpectrumDisplay::kMaxFreqHz),
+                "EQ node frequency range must match the spectrum display axis");
 
-  static float normXToFreq(float normX)
-  {
-    float logMin = std::log2(kMinFreqHz);
-    float logMax = std::log2(kMaxFreqHz);
-    return std::pow(2.0f, logMin + juce::jlimit(0.0f, 1.0f, normX) * (logMax - logMin));
-  }
+  static float freqToNormX(float freqHz) { return LCDSpectrumDisplay::freqToNormX(freqHz); }
+  static float normXToFreq(float normX) { return LCDSpectrumDisplay::normXToFreq(normX); }
 
   static bool isInLowCutZone(float normX) { return normX <= kCutZoneNormWidth; }
   static bool isInHighCutZone(float normX) { return normX >= 1.0f - kCutZoneNormWidth; }
@@ -143,6 +145,17 @@ class GraphicEQDisplay : public juce::Component
   void mouseDoubleClick(const juce::MouseEvent& e) override;
   void mouseExit(const juce::MouseEvent& e) override;
 
+  // Keyboard interaction: Tab/Shift+Tab cycles the focused handle, arrow keys
+  // nudge frequency/gain, Delete or Backspace removes the focused handle
+  bool keyPressed(const juce::KeyPress& key) override;
+  void focusGained(FocusChangeType cause) override;
+  void focusLost(FocusChangeType cause) override;
+
+  std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override
+  {
+    return std::make_unique<juce::AccessibilityHandler>(*this, juce::AccessibilityRole::group);
+  }
+
   LCDSpectrumDisplay& getSpectrumDisplay() { return spectrumDisplay_; }
 
  private:
@@ -156,6 +169,12 @@ class GraphicEQDisplay : public juce::Component
   int dragHandle_ = kNoHandle;
   int hoverHandle_ = kNoHandle;
   int justCreatedHandle_ = kNoHandle;
+  int focusedHandle_ = kNoHandle;
+  // Focus-visible semantics: the ring only shows for keyboard-driven focus.
+  // Mouse interaction still updates focusedHandle_ (so arrow keys pick up the
+  // last-clicked handle) but hides the ring; any handled key press reveals it.
+  bool focusRingVisible_ = false;
+  GestureScope dragScope_ = GestureScope::Move;
   juce::Point<float> dragStartPos_;
   float dragStartGainDb_ = 0.0f;
   bool ghostVisible_ = false;
@@ -173,6 +192,11 @@ class GraphicEQDisplay : public juce::Component
   void updateGhost(juce::Point<float> p);
   int firstFreeSlot() const;
   void endDrag();
+  void cycleFocusedHandle(int direction);
+  void nudgeFocusedFrequency(int direction);
+  void nudgeFocusedGain(int direction);
+  void removeFocusedHandle();
+  void notifyHandleChanged(int handle);
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GraphicEQDisplay)
 };

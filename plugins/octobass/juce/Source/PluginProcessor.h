@@ -7,8 +7,10 @@
 #include <octobass-core/BassProcessor.hpp>
 #include <octobass-core/Types.hpp>
 
+// AsyncUpdater is public so tests can flush deferred work deterministically
+// with handleUpdateNowIfNeeded() instead of pumping the message loop
 class OctoBassProcessor : public juce::AudioProcessor,
-                          private juce::AsyncUpdater,
+                          public juce::AsyncUpdater,
                           private juce::AudioProcessorValueTreeState::Listener
 {
  public:
@@ -87,9 +89,6 @@ class OctoBassProcessor : public juce::AudioProcessor,
     ClearHigh
   };
   std::atomic<SoloCorrection> pendingSoloCorrection_{SoloCorrection::None};
-
-  juce::String currentIRPath_;
-  juce::String currentNamModelPath_;
 
   juce::SpinLock pendingStateLock_;
   juce::ValueTree pendingState_;

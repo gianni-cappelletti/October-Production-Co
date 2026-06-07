@@ -2,12 +2,30 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <numbers>
 
 namespace octob
 {
 
 namespace
 {
+
+// Proportional-Q constants (API 550A-style)
+constexpr float kQMin = 0.8f;
+constexpr float kQMax = 8.0f;
+
+// Stage Q values for a 4th-order Butterworth cascade: 1/(2*cos(pi/8)), 1/(2*cos(3*pi/8))
+constexpr std::array<float, 2> kCutStageQ = {{0.54119610f, 1.30656296f}};
+
+// Proportional Q: wider bandwidth at low gain, narrower at high gain.
+// Modeled after the API 550A characteristic.
+float computeQ(float absGainDb)
+{
+  float normalized = absGainDb / MaxGraphicEQGainDb;
+  normalized = std::clamp(normalized, 0.0f, 1.0f);
+  return kQMin * std::pow(kQMax / kQMin, normalized);
+}
 
 struct BiquadCoeffsD
 {
@@ -41,9 +59,8 @@ BiquadCoeffsD computePeakingCoeffs(double gainDb, double centerFreqHz, double q,
                                    SampleRate sampleRate)
 {
   // RBJ Audio EQ Cookbook -- peaking EQ
-  const double pi = 3.14159265358979323846;
   double A = std::pow(10.0, gainDb / 40.0);
-  double w0 = 2.0 * pi * clampBelowNyquist(centerFreqHz, sampleRate) / sampleRate;
+  double w0 = 2.0 * std::numbers::pi * clampBelowNyquist(centerFreqHz, sampleRate) / sampleRate;
   double alpha = std::sin(w0) / (2.0 * q);
   double cosw0 = std::cos(w0);
 
@@ -56,8 +73,7 @@ BiquadCoeffsD computePeakingCoeffs(double gainDb, double centerFreqHz, double q,
 BiquadCoeffsD computeHighpassCoeffs(double cutoffFreqHz, double q, SampleRate sampleRate)
 {
   // RBJ Audio EQ Cookbook -- highpass
-  const double pi = 3.14159265358979323846;
-  double w0 = 2.0 * pi * clampBelowNyquist(cutoffFreqHz, sampleRate) / sampleRate;
+  double w0 = 2.0 * std::numbers::pi * clampBelowNyquist(cutoffFreqHz, sampleRate) / sampleRate;
   double alpha = std::sin(w0) / (2.0 * q);
   double cosw0 = std::cos(w0);
 
@@ -69,8 +85,7 @@ BiquadCoeffsD computeHighpassCoeffs(double cutoffFreqHz, double q, SampleRate sa
 BiquadCoeffsD computeLowpassCoeffs(double cutoffFreqHz, double q, SampleRate sampleRate)
 {
   // RBJ Audio EQ Cookbook -- lowpass
-  const double pi = 3.14159265358979323846;
-  double w0 = 2.0 * pi * clampBelowNyquist(cutoffFreqHz, sampleRate) / sampleRate;
+  double w0 = 2.0 * std::numbers::pi * clampBelowNyquist(cutoffFreqHz, sampleRate) / sampleRate;
   double alpha = std::sin(w0) / (2.0 * q);
   double cosw0 = std::cos(w0);
 
@@ -347,6 +362,7 @@ void GraphicEQ::updateCoefficients(int slot)
 void GraphicEQ::updateCutCoefficients(bool active, float freqHz, bool isHighpass,
                                       std::array<BiquadCoeffs, kNumCutStages>& coeffs)
 {
+  static_assert(kCutStageQ.size() == static_cast<size_t>(kNumCutStages));
   for (int stage = 0; stage < kNumCutStages; ++stage)
   {
     auto idx = static_cast<size_t>(stage);
@@ -374,23 +390,13 @@ Sample GraphicEQ::tick(const BiquadCoeffs& c, BiquadState& s, Sample input)
   return output;
 }
 
-float GraphicEQ::computeQ(float absGainDb)
-{
-  // Proportional Q: wider bandwidth at low gain, narrower at high gain.
-  // Modeled after the API 550A characteristic.
-  float normalized = absGainDb / MaxGraphicEQGainDb;
-  normalized = std::max(0.0f, std::min(1.0f, normalized));
-  return kQMin * std::pow(kQMax / kQMin, normalized);
-}
-
 float GraphicEQ::computeMagnitudeResponseDb(const GraphicEQNode* nodes, int numNodes,
                                             const GraphicEQCut& lowCut, const GraphicEQCut& highCut,
                                             float freqHz, SampleRate sampleRate)
 {
   // Use double precision and complex evaluation to avoid catastrophic
   // float cancellation at low frequencies where cos(w) ~ 1.
-  const double pi = 3.14159265358979323846;
-  double w = 2.0 * pi * static_cast<double>(freqHz) / sampleRate;
+  double w = 2.0 * std::numbers::pi * static_cast<double>(freqHz) / sampleRate;
   double sinw = std::sin(w);
   double cosw = std::cos(w);
   double sin2w = std::sin(2.0 * w);

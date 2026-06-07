@@ -116,10 +116,10 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   };
 
   // Bracket drags so hosts record EQ moves as automation gestures
-  graphicEQDisplay_.onDragStart = [this](int handle)
-  { forEachHandleParam(handle, &juce::RangedAudioParameter::beginChangeGesture); };
-  graphicEQDisplay_.onDragEnd = [this](int handle)
-  { forEachHandleParam(handle, &juce::RangedAudioParameter::endChangeGesture); };
+  graphicEQDisplay_.onDragStart = [this](int handle, GraphicEQDisplay::GestureScope scope)
+  { forEachHandleParam(handle, scope, &juce::RangedAudioParameter::beginChangeGesture); };
+  graphicEQDisplay_.onDragEnd = [this](int handle, GraphicEQDisplay::GestureScope scope)
+  { forEachHandleParam(handle, scope, &juce::RangedAudioParameter::endChangeGesture); };
 
   spectrumAnalyzer_.setSampleRate(audioProcessor.getSampleRate());
   lastSampleRate_ = audioProcessor.getSampleRate();
@@ -279,7 +279,7 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   updateNamQualityToggle();
 
   addAndMakeVisible(namLCDDisplay_);
-  namLCDDisplay_.setTextColour(juce::Colour(0xff1c1c30));
+  namLCDDisplay_.setTextColour(kLCDInkColour);
   namLCDDisplay_.setOnClick([this] { namLoadClicked(); });
   namLCDDisplay_.setText(audioProcessor.getCurrentNamModelPath().isEmpty()
                              ? "No NAM loaded"
@@ -311,7 +311,7 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   irNextButton_.onClick = [this] { irNextClicked(); };
 
   addAndMakeVisible(irLCDDisplay_);
-  irLCDDisplay_.setTextColour(juce::Colour(0xff1c1c30));
+  irLCDDisplay_.setTextColour(kLCDInkColour);
   irLCDDisplay_.setOnClick([this] { irLoadClicked(); });
   irLCDDisplay_.setText(audioProcessor.getCurrentIRPath().isEmpty()
                             ? "No IR loaded"
@@ -386,7 +386,8 @@ OctoBassEditor::ParamHandle OctoBassEditor::paramHandle(const juce::String& para
   return {apvts.getParameter(paramID), apvts.getRawParameterValue(paramID)};
 }
 
-void OctoBassEditor::forEachHandleParam(int handle, void (juce::RangedAudioParameter::*action)())
+void OctoBassEditor::forEachHandleParam(int handle, GraphicEQDisplay::GestureScope scope,
+                                        void (juce::RangedAudioParameter::*action)())
 {
   auto apply = [action](const ParamHandle& handleParam)
   {
@@ -394,21 +395,28 @@ void OctoBassEditor::forEachHandleParam(int handle, void (juce::RangedAudioParam
       (handleParam.param->*action)();
   };
 
+  // 'active' only participates in creation/deletion gestures so hosts do not
+  // record automation on a parameter a plain move never changes
+  const bool includeActive = scope == GraphicEQDisplay::GestureScope::All;
+
   if (handle >= 0 && handle < octob::kGraphicEQNumNodes)
   {
     const auto& node = eqNodeParams_[static_cast<size_t>(handle)];
-    apply(node.active);
+    if (includeActive)
+      apply(node.active);
     apply(node.freq);
     apply(node.gain);
   }
   else if (handle == GraphicEQDisplay::kLowCutHandle)
   {
-    apply(eqLowCutActiveParam_);
+    if (includeActive)
+      apply(eqLowCutActiveParam_);
     apply(eqLowCutFreqParam_);
   }
   else if (handle == GraphicEQDisplay::kHighCutHandle)
   {
-    apply(eqHighCutActiveParam_);
+    if (includeActive)
+      apply(eqHighCutActiveParam_);
     apply(eqHighCutFreqParam_);
   }
   else
@@ -663,16 +671,23 @@ void OctoBassEditor::namLoadClicked()
 
   auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
-  chooser->launchAsync(flags,
-                       [this, chooser](const juce::FileChooser& fc)
-                       {
-                         auto file = fc.getResult();
-                         if (file.existsAsFile())
-                         {
-                           updateLastBrowsedDirectory(file);
-                           loadNamFile(file);
-                         }
-                       });
+  // SafePointer: some hosts destroy the editor while the OS dialog is open
+  chooser->launchAsync(
+      flags,
+      [safeThis = juce::Component::SafePointer(this), chooser](const juce::FileChooser& fc)
+      {
+        if (safeThis == nullptr)
+        {
+          DBG("Editor destroyed while NAM chooser was open, dropping result");
+          return;
+        }
+        auto file = fc.getResult();
+        if (file.existsAsFile())
+        {
+          safeThis->updateLastBrowsedDirectory(file);
+          safeThis->loadNamFile(file);
+        }
+      });
 }
 
 void OctoBassEditor::namClearClicked()
@@ -757,16 +772,23 @@ void OctoBassEditor::irLoadClicked()
 
   auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
-  chooser->launchAsync(flags,
-                       [this, chooser](const juce::FileChooser& fc)
-                       {
-                         auto file = fc.getResult();
-                         if (file.existsAsFile())
-                         {
-                           updateLastBrowsedDirectory(file);
-                           loadIRFile(file);
-                         }
-                       });
+  // SafePointer: some hosts destroy the editor while the OS dialog is open
+  chooser->launchAsync(
+      flags,
+      [safeThis = juce::Component::SafePointer(this), chooser](const juce::FileChooser& fc)
+      {
+        if (safeThis == nullptr)
+        {
+          DBG("Editor destroyed while IR chooser was open, dropping result");
+          return;
+        }
+        auto file = fc.getResult();
+        if (file.existsAsFile())
+        {
+          safeThis->updateLastBrowsedDirectory(file);
+          safeThis->loadIRFile(file);
+        }
+      });
 }
 
 void OctoBassEditor::irClearClicked()

@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -90,6 +93,34 @@ TEST_F(NamProcessorTest, LoadFailsCleanlyOnMissingFile)
   EXPECT_FALSE(proc.loadModel("/nonexistent/path/missing.nam", err));
   EXPECT_FALSE(err.empty());
   EXPECT_FALSE(proc.isModelLoaded());
+}
+
+TEST_F(NamProcessorTest, LoadFailsCleanlyOnInvalidModelContent)
+{
+  const auto writeTempModel = [](const char* name, const char* content)
+  {
+    const auto path = (std::filesystem::temp_directory_path() / name).string();
+    std::ofstream out(path);
+    out << content;
+    return path;
+  };
+
+  const std::string notJsonPath =
+      writeTempModel("octobass_not_json.nam", "this is not json at all");
+  std::string err;
+  EXPECT_FALSE(proc.loadModel(notJsonPath, err)) << "Non-JSON content must be rejected";
+  EXPECT_FALSE(err.empty());
+  EXPECT_FALSE(proc.isModelLoaded());
+
+  const std::string badArchPath = writeTempModel(
+      "octobass_bad_arch.nam", R"({"architecture": "NotARealArchitecture", "config": {}})");
+  err.clear();
+  EXPECT_FALSE(proc.loadModel(badArchPath, err)) << "Unknown architectures must be rejected";
+  EXPECT_FALSE(err.empty());
+  EXPECT_FALSE(proc.isModelLoaded());
+
+  std::filesystem::remove(notJsonPath);
+  std::filesystem::remove(badArchPath);
 }
 
 TEST_F(NamProcessorTest, ProcessingLoadedModelProducesNonSilentOutput)

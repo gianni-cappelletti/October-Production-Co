@@ -1,5 +1,7 @@
 #include "octobass-core/Compressor.hpp"
 
+#include <algorithm>
+
 namespace octob
 {
 
@@ -22,14 +24,13 @@ void Compressor::setSampleRate(SampleRate sampleRate)
 
 void Compressor::setSquash(float amount)
 {
-  squash_ = clamp(amount, MinSquashAmount, MaxSquashAmount);
+  squash_ = std::clamp(amount, MinSquashAmount, MaxSquashAmount);
   activeMode_->setAmount(squash_);
 }
 
 void Compressor::setMode(int mode)
 {
-  int clamped = static_cast<int>(
-      clamp(static_cast<float>(mode), 0.0f, static_cast<float>(NumCompressionModes - 1)));
+  int clamped = std::clamp(mode, 0, NumCompressionModes - 1);
 
   if (clamped == mode_)
     return;
@@ -80,11 +81,6 @@ float Compressor::getGainReductionDb() const
 float Compressor::getStaticMakeupDb() const
 {
   return activeMode_->getStaticMakeupDb();
-}
-
-float Compressor::clamp(float value, float minVal, float maxVal)
-{
-  return std::max(minVal, std::min(maxVal, value));
 }
 
 }  // namespace octob

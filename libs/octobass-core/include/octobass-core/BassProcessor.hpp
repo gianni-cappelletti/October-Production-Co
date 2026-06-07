@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+#include <mutex>
 #include <octobir-core/IRProcessor.hpp>
 #include <string>
 #include <vector>
@@ -107,8 +109,17 @@ class BassProcessor
   std::vector<Sample> dryHighBandBuffer_;
   std::vector<Sample> delayedLowBuffer_;
 
-  // Delay compensation for low band path
+  // Delay compensation for the low band path. The audio thread owns
+  // lowBandDelayBuffer_; the message thread stages a replacement in
+  // pendingDelayBuffer_ on IR load and the audio thread swaps it in via
+  // try_lock, so neither thread ever allocates or frees on the audio path.
+  // The displaced buffer parks in retiredDelayBuffer_ until the next
+  // message-thread call releases it.
   std::vector<Sample> lowBandDelayBuffer_;
+  std::vector<Sample> pendingDelayBuffer_;
+  std::vector<Sample> retiredDelayBuffer_;
+  std::mutex delayBufferSwapMutex_;
+  std::atomic<bool> hasPendingDelayBuffer_{false};
   size_t lowBandDelayWritePos_;
   int currentIRLatency_;
 
@@ -133,10 +144,7 @@ class BassProcessor
   std::string currentIRPath_;
   std::string currentNamModelPath_;
 
-  void updateDelayBuffer();
-
-  static float clamp(float value, float minVal, float maxVal);
-  static float dbToLinear(float db);
+  void stageDelayBuffer(int latencySamples);
 
   static void writeToDelayBuffer(std::vector<Sample>& buffer, size_t& writePos, const Sample* input,
                                  FrameCount numFrames);

@@ -23,7 +23,7 @@ class SpectrumAnalyzer
   static constexpr int kNumBands = 24;
   static constexpr int kNumLFBands = 8;  // bands below kLFCrossoverHz use the decimated path
   static constexpr float kLFCrossoverHz = 200.0f;
-  static constexpr float kMinDb = -100.0f;
+  static constexpr float kMinDb = -120.0f;
   static constexpr float kMaxDb = 0.0f;
 
   // Display bands: 24 log-spaced bands covering 20 Hz - 20 kHz (3 decades, so

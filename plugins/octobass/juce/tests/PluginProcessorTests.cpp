@@ -568,6 +568,96 @@ TEST_F(OctoBassProcessorTest, ProcessBlockAppliesLowCut)
       << "A 2kHz low cut must strongly attenuate a 500Hz tone through processBlock";
 }
 
+TEST_F(OctoBassProcessorTest, ProcessBlockAppliesHighCut)
+{
+  double baselineDb = measureProcessBlockGainDb(processor, 2000.0f);
+
+  OctoBassProcessor cutProc;
+  auto& apvts = cutProc.getAPVTS();
+  apvts.getParameter("eqHighCutActive")->setValueNotifyingHost(1.0f);
+  auto* freq = apvts.getParameter("eqHighCutFreq");
+  freq->setValueNotifyingHost(freq->convertTo0to1(500.0f));
+
+  double cutDb = measureProcessBlockGainDb(cutProc, 2000.0f);
+
+  EXPECT_LT(cutDb - baselineDb, -20.0)
+      << "A 500Hz high cut must strongly attenuate a 2kHz tone through processBlock";
+}
+
+TEST_F(OctoBassProcessorTest, NamQualityChangePropagatesToDsp)
+{
+  const juce::String a2Path =
+      juce::String(TEST_DATA_DIR) + "/INPUT_HM2-W OctoBASS distortion 2_a2.nam";
+
+  juce::String err;
+  ASSERT_TRUE(processor.loadNamModel(a2Path, err)) << err;
+
+  // 1kHz sits above the default crossover, so the tone runs through the NAM
+  // model; prepareToPlay resets the model so each render is deterministic
+  auto renderTone = [this]()
+  {
+    const double sampleRate = 44100.0;
+    const int blockSize = 512;
+    const int numBlocks = 8;
+
+    processor.prepareToPlay(sampleRate, blockSize);
+    juce::AudioBuffer<float> buffer(1, blockSize);
+    juce::MidiBuffer midi;
+    std::vector<float> output;
+    output.reserve(static_cast<size_t>(numBlocks * blockSize));
+
+    for (int b = 0; b < numBlocks; ++b)
+    {
+      for (int i = 0; i < blockSize; ++i)
+      {
+        int n = b * blockSize + i;
+        buffer.setSample(0, i,
+                         0.3f * std::sin(2.0f * juce::MathConstants<float>::pi * 1000.0f *
+                                         static_cast<float>(n) / static_cast<float>(sampleRate)));
+      }
+      processor.processBlock(buffer, midi);
+      for (int i = 0; i < blockSize; ++i)
+        output.push_back(buffer.getSample(0, i));
+    }
+
+    processor.releaseResources();
+    return output;
+  };
+
+  auto fullQuality = renderTone();
+
+  auto* param = processor.getAPVTS().getParameter("namQuality");
+  ASSERT_NE(param, nullptr);
+  param->setValueNotifyingHost(0.0f);
+
+  // parameterChanged defers the quality change through an async update; flush
+  // it synchronously so handleAsyncUpdate runs before the next render
+  processor.handleUpdateNowIfNeeded();
+
+  auto liteQuality = renderTone();
+  ASSERT_EQ(fullQuality.size(), liteQuality.size());
+
+  float maxDiff = 0.0f;
+  for (size_t i = 0; i < fullQuality.size(); ++i)
+    maxDiff = std::max(maxDiff, std::abs(fullQuality[i] - liteQuality[i]));
+
+  EXPECT_GT(maxDiff, 1e-4f)
+      << "A namQuality parameter change must reach the NAM model through the async chain";
+}
+
+TEST_F(OctoBassProcessorTest, SetStateInformationIgnoresGarbage)
+{
+  const char garbage[] = "definitely not a juce state blob";
+  processor.setStateInformation(garbage, static_cast<int>(sizeof(garbage)));
+  processor.setStateInformation(garbage, 0);
+
+  EXPECT_FLOAT_EQ(processor.getAPVTS().getRawParameterValue("crossoverFrequency")->load(),
+                  octob::DefaultCrossoverFrequency)
+      << "Garbage state must leave parameters at their defaults";
+  EXPECT_NEAR(processor.getAPVTS().getRawParameterValue("namQuality")->load(),
+              octob::DefaultNamQuality, 0.001f);
+}
+
 TEST(GraphicEQDisplayMapping, FreqNormXRoundTrip)
 {
   EXPECT_NEAR(GraphicEQDisplay::freqToNormX(GraphicEQDisplay::kMinFreqHz), 0.0f, 1e-5f);
@@ -843,8 +933,8 @@ TEST(LCDSpectrumDisplayRange, DefaultsAndDynamicRange)
 TEST(LCDSpectrumDisplayRange, AnalyzerRangeDrivesDisplay)
 {
   // The editor passes the analyzer's range to the display; the analyzer floor
-  // must extend down to -100 dB so OctoBASS shows low-level content
-  EXPECT_FLOAT_EQ(SpectrumAnalyzer::kMinDb, -100.0f);
+  // must extend down to -120 dB so OctoBASS shows low-level content
+  EXPECT_FLOAT_EQ(SpectrumAnalyzer::kMinDb, -120.0f);
   EXPECT_FLOAT_EQ(SpectrumAnalyzer::kMaxDb, 0.0f);
 
   LCDSpectrumDisplay display;
@@ -870,4 +960,24 @@ TEST_F(OctoBassProcessorTest, StateRoundTripWithIRPath)
   ASSERT_NE(xml, nullptr);
   EXPECT_TRUE(xml->hasAttribute("irPath"));
   EXPECT_EQ(xml->getStringAttribute("irPath"), juce::String(kIrPath));
+}
+
+TEST_F(OctoBassProcessorTest, StateRoundTripWithNamModelPath)
+{
+  const juce::String namPath = juce::String(TEST_DATA_DIR) + "/INPUT_octobass_hm2_a1.nam";
+
+  processor.prepareToPlay(44100.0, 512);
+
+  juce::String err;
+  ASSERT_TRUE(processor.loadNamModel(namPath, err)) << err;
+
+  juce::MemoryBlock stateData;
+  processor.getStateInformation(stateData);
+  EXPECT_GT(stateData.getSize(), 0u);
+
+  std::unique_ptr<juce::XmlElement> xml(
+      processor.getXmlFromBinary(stateData.getData(), static_cast<int>(stateData.getSize())));
+  ASSERT_NE(xml, nullptr);
+  EXPECT_TRUE(xml->hasAttribute("namModelPath"));
+  EXPECT_EQ(xml->getStringAttribute("namModelPath"), namPath);
 }

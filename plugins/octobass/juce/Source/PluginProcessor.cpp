@@ -404,7 +404,6 @@ bool OctoBassProcessor::loadNamModel(const juce::String& filepath, juce::String&
   std::string err;
   if (bassProcessor_.loadNamModel(filepath.toStdString(), err))
   {
-    currentNamModelPath_ = filepath;
     DBG("Loaded NAM model: " + filepath);
     errorMessage.clear();
     return true;
@@ -417,7 +416,6 @@ bool OctoBassProcessor::loadNamModel(const juce::String& filepath, juce::String&
 void OctoBassProcessor::clearNamModel()
 {
   bassProcessor_.clearNamModel();
-  currentNamModelPath_.clear();
 }
 
 bool OctoBassProcessor::isNamModelLoaded() const
@@ -427,7 +425,7 @@ bool OctoBassProcessor::isNamModelLoaded() const
 
 juce::String OctoBassProcessor::getCurrentNamModelPath() const
 {
-  return currentNamModelPath_;
+  return juce::String(bassProcessor_.getCurrentNamModelPath());
 }
 
 int OctoBassProcessor::getNamQualityLevels() const
@@ -441,7 +439,6 @@ bool OctoBassProcessor::loadImpulseResponse(const juce::String& filepath,
   std::string err;
   if (bassProcessor_.loadImpulseResponse(filepath.toStdString(), err))
   {
-    currentIRPath_ = filepath;
     DBG("Loaded IR: " + filepath +
         " (Latency: " + juce::String(bassProcessor_.getLatencySamples()) + " samples)");
     triggerAsyncUpdate();
@@ -456,7 +453,6 @@ bool OctoBassProcessor::loadImpulseResponse(const juce::String& filepath,
 void OctoBassProcessor::clearImpulseResponse()
 {
   bassProcessor_.clearImpulseResponse();
-  currentIRPath_.clear();
   triggerAsyncUpdate();
 }
 
@@ -467,7 +463,7 @@ bool OctoBassProcessor::isIRLoaded() const
 
 juce::String OctoBassProcessor::getCurrentIRPath() const
 {
-  return currentIRPath_;
+  return juce::String(bassProcessor_.getCurrentIRPath());
 }
 
 int OctoBassProcessor::getLatencySamples() const
@@ -480,11 +476,11 @@ void OctoBassProcessor::getStateInformation(juce::MemoryBlock& destData)
   auto state = apvts_.copyState();
   state.setProperty("eqFormat", kGraphicEQStateFormat, nullptr);
 
-  if (currentIRPath_.isNotEmpty())
-    state.setProperty("irPath", currentIRPath_, nullptr);
+  if (const auto irPath = getCurrentIRPath(); irPath.isNotEmpty())
+    state.setProperty("irPath", irPath, nullptr);
 
-  if (currentNamModelPath_.isNotEmpty())
-    state.setProperty("namModelPath", currentNamModelPath_, nullptr);
+  if (const auto namPath = getCurrentNamModelPath(); namPath.isNotEmpty())
+    state.setProperty("namModelPath", namPath, nullptr);
 
   std::unique_ptr<juce::XmlElement> xml(state.createXml());
   copyXmlToBinary(*xml, destData);

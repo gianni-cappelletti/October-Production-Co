@@ -1,9 +1,7 @@
 #pragma once
 
 #include <array>
-#include <cmath>
 #include <cstdint>
-#include <cstring>
 
 #include "Types.hpp"
 
@@ -61,17 +59,10 @@ class GraphicEQ
                                           const GraphicEQCut& lowCut, const GraphicEQCut& highCut,
                                           float freqHz, SampleRate sampleRate);
 
-  // Proportional-Q constants (API 550A-style)
-  static constexpr float kQMin = 0.8f;
-  static constexpr float kQMax = 8.0f;
-
-  // Stage Q values for a 4th-order Butterworth cascade: 1/(2*cos(pi/8)), 1/(2*cos(3*pi/8))
-  static constexpr int kNumCutStages = 2;
-  static constexpr std::array<float, kNumCutStages> kCutStageQ = {{0.54119610f, 1.30656296f}};
-
-  static float computeQ(float absGainDb);
-
  private:
+  // Biquad stages in each 4th-order Butterworth cut cascade
+  static constexpr int kNumCutStages = 2;
+
   struct BiquadCoeffs
   {
     float b0 = 1.0f;
@@ -111,6 +102,8 @@ class GraphicEQ
   std::array<BiquadCoeffs, kNumCutStages> highCutCoeffs_{};
   std::array<BiquadState, kNumCutStages> highCutStates_{};
 
+  static_assert(kGraphicEQNumNodes <= 32,
+                "activeNodeMask_ is uint32_t; bit shifts on the node index require <= 32 nodes");
   uint32_t activeNodeMask_ = 0;
   SampleRate sampleRate_ = 44100.0;
 };

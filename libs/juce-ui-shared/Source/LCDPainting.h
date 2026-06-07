@@ -2,9 +2,14 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+// Shared LCD palette: every component drawing on the LCD references these so
+// the ink and backlight colours cannot drift apart
+inline const juce::Colour kLCDInkColour{0xff1c1c30};
+inline const juce::Colour kLCDBacklightColour{0xffF08830};
+
 inline void drawLCDBackground(juce::Graphics& g, juce::Rectangle<float> bounds)
 {
-  g.setColour(juce::Colour(0xffF08830));
+  g.setColour(kLCDBacklightColour);
   g.fillRoundedRectangle(bounds, 3.0f);
 
   g.setColour(juce::Colour(0xff1a1a1a));

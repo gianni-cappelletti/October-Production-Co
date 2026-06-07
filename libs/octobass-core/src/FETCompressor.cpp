@@ -1,5 +1,6 @@
 #include "octobass-core/FETCompressor.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace octob
@@ -48,7 +49,7 @@ void FETCompressor::setSampleRate(SampleRate sampleRate)
 
 void FETCompressor::setAmount(float amount)
 {
-  amount_ = CompressorMode::clamp(amount, 0.0f, 1.0f);
+  amount_ = std::clamp(amount, 0.0f, 1.0f);
   updateParameters();
 }
 
@@ -60,11 +61,11 @@ void FETCompressor::process(const Sample* input, Sample* output, FrameCount numF
 
     // Feed-forward: compute instantaneous level and gain reduction in dB.
     // No smoothing on the level — the smoother acts on the GR output instead.
-    float inputLevelDb = (std::fabs(in) > 1e-30f) ? std::log2(std::fabs(in)) * kLog2ToDb : -96.0f;
+    float inputLevelDb = (std::fabs(in) > 1e-30f) ? std::log2(std::fabs(in)) * Log2ToDb : -96.0f;
 
     float targetDb = computeStaticCurve(inputLevelDb);
     float instantGrDb = targetDb - inputLevelDb;
-    instantGrDb = CompressorMode::clamp(instantGrDb, kMaxGainReductionDb, 0.0f);
+    instantGrDb = std::clamp(instantGrDb, kMaxGainReductionDb, 0.0f);
 
     // Branching smoother on the gain reduction signal (Giannoulis et al. 2012).
     // Smoothing GR instead of level prevents the gain computer's nonlinearity
@@ -80,7 +81,7 @@ void FETCompressor::process(const Sample* input, Sample* output, FrameCount numF
 
     gainReductionDb_ = smoothedGrDb_;
 
-    float gainLinear = CompressorMode::dbToLinear(smoothedGrDb_);
+    float gainLinear = dbToLinear(smoothedGrDb_);
     output[i] = in * gainLinear;
   }
 }

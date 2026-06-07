@@ -124,7 +124,8 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
     ParamHandle gain;
   };
   ParamHandle paramHandle(const juce::String& paramID) const;
-  void forEachHandleParam(int handle, void (juce::RangedAudioParameter::*action)());
+  void forEachHandleParam(int handle, GraphicEQDisplay::GestureScope scope,
+                          void (juce::RangedAudioParameter::*action)());
 
   std::array<EQNodeParamHandles, octob::kGraphicEQNumNodes> eqNodeParams_{};
   ParamHandle eqLowCutActiveParam_;
