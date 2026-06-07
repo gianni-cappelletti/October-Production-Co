@@ -29,6 +29,13 @@ class NamProcessor
   void setQuality(double quality);
   double getQuality() const;
 
+  // Number of discrete quality levels the loaded model exposes:
+  //   0 = no model loaded
+  //   1 = model loaded, no quality options (setQuality is a no-op)
+  //  >1 = number of distinct configurations setQuality can select
+  // Call from the message thread only.
+  int getNumQualityLevels() const;
+
   void setSampleRate(double sampleRate);
   void setMaxBlockSize(size_t maxBlockSize);
 

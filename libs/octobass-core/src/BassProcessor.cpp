@@ -113,6 +113,11 @@ void BassProcessor::setNamQuality(float quality)
   namProcessor_.setQuality(static_cast<double>(quality));
 }
 
+int BassProcessor::getNamQualityLevels() const
+{
+  return namProcessor_.getNumQualityLevels();
+}
+
 bool BassProcessor::isNamModelLoaded() const
 {
   return namProcessor_.isModelLoaded();

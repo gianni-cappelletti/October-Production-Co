@@ -39,6 +39,10 @@ class BassProcessor
   // Message thread only -- not real-time safe.
   void setNamQuality(float quality);
 
+  // Discrete quality levels of the loaded NAM model: 0 = no model,
+  // 1 = no quality options, >1 = selectable levels. Message thread only.
+  int getNamQualityLevels() const;
+
   // Crossover
   void setCrossoverFrequency(float frequencyHz);
 

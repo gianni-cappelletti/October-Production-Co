@@ -81,8 +81,11 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
   juce::TextButton namPrevButton_;
   juce::TextButton namNextButton_;
   LCDDisplay namLCDDisplay_;
-  juce::Slider namQualitySlider_;
-  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> namQualityAttachment_;
+  juce::Label namQualityLabel_;
+  juce::ToggleButton namQualityToggle_;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> namQualityAttachment_;
+  int lastNamQualityLevels_ = -1;
+  void updateNamQualityToggle();
 
   // IR file loader
   juce::TextButton irLoadButton_;
@@ -132,6 +135,7 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
 
   juce::File lastBrowsedDirectory_;
   juce::Image logoImage_;
+  juce::TooltipWindow tooltipWindow_{this};
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OctoBassEditor)
 };

@@ -207,6 +207,40 @@ TEST_F(NamProcessorTest, QualityIsSafeOnNonSlimmableModel)
   EXPECT_GT(peak, 1e-6f) << "Non-slimmable model must keep processing after a quality change";
 }
 
+TEST_F(NamProcessorTest, QualityLevelsAreZeroWithoutModel)
+{
+  EXPECT_EQ(proc.getNumQualityLevels(), 0);
+}
+
+TEST_F(NamProcessorTest, QualityLevelsAreOneForNonSlimmableModels)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(wavenetModelPath, err)) << err;
+  EXPECT_EQ(proc.getNumQualityLevels(), 1);
+
+  ASSERT_TRUE(proc.loadModel(a1ModelPath, err)) << err;
+  EXPECT_EQ(proc.getNumQualityLevels(), 1);
+}
+
+TEST_F(NamProcessorTest, QualityLevelsMatchA2SubmodelCount)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(a2ModelPath, err)) << err;
+  EXPECT_EQ(proc.getNumQualityLevels(), 2)
+      << "The A2 container has two submodels (max_value 0.5 and 1.0), so it "
+         "must report two quality levels";
+}
+
+TEST_F(NamProcessorTest, QualityLevelsResetOnClearModel)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(a2ModelPath, err)) << err;
+  ASSERT_EQ(proc.getNumQualityLevels(), 2);
+
+  proc.clearModel();
+  EXPECT_EQ(proc.getNumQualityLevels(), 0);
+}
+
 TEST_F(NamProcessorTest, QualityPersistsAcrossModelLoads)
 {
   proc.setQuality(0.0);

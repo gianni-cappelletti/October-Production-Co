@@ -230,6 +230,12 @@ void OctoberLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
                                           bool /*shouldDrawButtonAsHighlighted*/,
                                           bool /*shouldDrawButtonAsDown*/)
 {
+  if (button.getComponentID() == "slideSwitch")
+  {
+    drawSlideSwitch(g, button);
+    return;
+  }
+
   auto bounds = button.getLocalBounds().toFloat().reduced(0.5f, 0.5f);
   const auto cornerSize = 4.0f;
   bool isOn = button.getToggleState();
@@ -319,6 +325,46 @@ void OctoberLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
   g.drawFittedText(button.getButtonText(),
                    button.getLocalBounds().withTrimmedLeft(static_cast<int>(ledWidth)),
                    juce::Justification::centred, 1);
+}
+
+void OctoberLookAndFeel::drawSlideSwitch(juce::Graphics& g, juce::ToggleButton& button)
+{
+  const bool isOn = button.getToggleState();
+  const float alpha = button.isEnabled() ? 1.0f : 0.5f;
+
+  auto bounds = button.getLocalBounds().toFloat().reduced(1.0f);
+  const float trackRadius = bounds.getHeight() * 0.5f;
+
+  // Recessed track: darker at the top to read as inset into the panel
+  juce::Colour trackTop = isOn ? juce::Colour(0xffa04e1c) : juce::Colour(0xff1e1e1e);
+  juce::Colour trackBottom = isOn ? juce::Colour(0xffe07030) : juce::Colour(0xff383838);
+  juce::ColourGradient trackGradient(trackTop.withMultipliedAlpha(alpha), bounds.getX(),
+                                     bounds.getY(), trackBottom.withMultipliedAlpha(alpha),
+                                     bounds.getX(), bounds.getBottom(), false);
+  g.setGradientFill(trackGradient);
+  g.fillRoundedRectangle(bounds, trackRadius);
+
+  g.setColour(juce::Colour(0xff181818).withMultipliedAlpha(alpha));
+  g.drawRoundedRectangle(bounds, trackRadius, 1.0f);
+
+  // Metallic thumb, same finish as the knob caps
+  const float thumbR = trackRadius - 2.0f;
+  const float thumbCx = isOn ? bounds.getRight() - trackRadius : bounds.getX() + trackRadius;
+  const float thumbCy = bounds.getCentreY();
+  juce::Point<float> thumbCentre(thumbCx, thumbCy);
+
+  g.setColour(juce::Colours::black.withAlpha(0.25f * alpha));
+  g.fillEllipse(thumbCx - thumbR, thumbCy - thumbR + 1.0f, thumbR * 2.0f, thumbR * 2.0f);
+
+  juce::ColourGradient thumbGradient(juce::Colour(0xfffafafa).withMultipliedAlpha(alpha),
+                                     thumbCentre.translated(-thumbR * 0.30f, -thumbR * 0.35f),
+                                     juce::Colour(0xff8c8c8c).withMultipliedAlpha(alpha),
+                                     thumbCentre.translated(thumbR * 0.50f, thumbR * 0.55f), true);
+  g.setGradientFill(thumbGradient);
+  g.fillEllipse(thumbCx - thumbR, thumbCy - thumbR, thumbR * 2.0f, thumbR * 2.0f);
+
+  g.setColour(juce::Colour(0xff666666).withMultipliedAlpha(alpha));
+  g.drawEllipse(thumbCx - thumbR, thumbCy - thumbR, thumbR * 2.0f, thumbR * 2.0f, 1.0f);
 }
 
 void OctoberLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,

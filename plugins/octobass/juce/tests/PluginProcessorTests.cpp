@@ -147,6 +147,25 @@ TEST_F(OctoBassProcessorTest, NamQualityParameterExists)
       << "NAM quality should default to full quality";
 }
 
+TEST_F(OctoBassProcessorTest, NamQualityLevelsFollowLoadedModel)
+{
+  EXPECT_EQ(processor.getNamQualityLevels(), 0) << "No model loaded yet";
+
+  const juce::String a1Path = juce::String(TEST_DATA_DIR) + "/INPUT_octobass_hm2_a1.nam";
+  const juce::String a2Path =
+      juce::String(TEST_DATA_DIR) + "/INPUT_HM2-W OctoBASS distortion 2_a2.nam";
+
+  juce::String err;
+  ASSERT_TRUE(processor.loadNamModel(a1Path, err)) << err;
+  EXPECT_EQ(processor.getNamQualityLevels(), 1) << "A1 models have no quality options";
+
+  ASSERT_TRUE(processor.loadNamModel(a2Path, err)) << err;
+  EXPECT_EQ(processor.getNamQualityLevels(), 2) << "A2 container exposes two quality levels";
+
+  processor.clearNamModel();
+  EXPECT_EQ(processor.getNamQualityLevels(), 0);
+}
+
 TEST_F(OctoBassProcessorTest, StateRoundTripWithNamQuality)
 {
   auto* param = processor.getAPVTS().getParameter("namQuality");

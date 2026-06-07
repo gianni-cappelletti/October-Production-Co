@@ -262,21 +262,19 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   namNextButton_.setTitle("Next NAM Model");
   namNextButton_.onClick = [this] { namNextClicked(); };
 
-  addAndMakeVisible(namQualitySlider_);
-  setupTrimSlider(namQualitySlider_);
-  namQualitySlider_.setTitle("NAM Quality");
-  namQualityAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-      audioProcessor.getAPVTS(), "namQuality", namQualitySlider_);
-  // Override after the attachment: it installs the parameter's plain "75%"
-  // formatter, and the drag popup is the only place the name can live. Reuse
-  // the parameter's own formatter so the two never drift apart.
-  namQualitySlider_.textFromValueFunction =
-      [param = audioProcessor.getAPVTS().getParameter("namQuality")](double value) -> juce::String
-  {
-    if (param == nullptr)
-      return "QUALITY";
-    return "QUALITY " + param->getText(param->convertTo0to1(static_cast<float>(value)), 0);
-  };
+  addAndMakeVisible(namQualityLabel_);
+  namQualityLabel_.setText("QUALITY", juce::dontSendNotification);
+  namQualityLabel_.setJustificationType(juce::Justification::centredRight);
+
+  addAndMakeVisible(namQualityToggle_);
+  namQualityToggle_.setComponentID("slideSwitch");
+  namQualityToggle_.setTitle("NAM Quality");
+  // ButtonAttachment maps the continuous namQuality parameter to the switch
+  // with a 0.5 threshold, matching the submodel selection threshold in
+  // nam::ContainerModel::SetSlimmableSize
+  namQualityAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+      audioProcessor.getAPVTS(), "namQuality", namQualityToggle_);
+  updateNamQualityToggle();
 
   addAndMakeVisible(namLCDDisplay_);
   namLCDDisplay_.setTextColour(juce::Colour(0xff1c1c30));
@@ -364,6 +362,25 @@ void OctoBassEditor::timerCallback()
                               eqLowCutFreqParam_.value->load());
   graphicEQDisplay_.setHighCut(eqHighCutActiveParam_.value->load() >= 0.5f,
                                eqHighCutFreqParam_.value->load());
+
+  // Models can also arrive outside this editor (host state restore), so the
+  // toggle's availability is polled rather than tied to the load callbacks
+  updateNamQualityToggle();
+}
+
+void OctoBassEditor::updateNamQualityToggle()
+{
+  const int levels = audioProcessor.getNamQualityLevels();
+  if (levels == lastNamQualityLevels_)
+    return;
+  lastNamQualityLevels_ = levels;
+
+  const bool hasQualityOptions = levels > 1;
+  namQualityToggle_.setEnabled(hasQualityOptions);
+  namQualityLabel_.setEnabled(hasQualityOptions);
+  namQualityToggle_.setTooltip(hasQualityOptions
+                                   ? "Full quality on, or reduced quality (lower CPU) off"
+                                   : "No quality options available");
 }
 
 OctoBassEditor::ParamHandle OctoBassEditor::paramHandle(const juce::String& paramID) const
@@ -613,8 +630,8 @@ void OctoBassEditor::resized()
     namClearButton_.setBounds(namButtonRow.removeFromLeft(48).reduced(2));
     namPrevButton_.setBounds(namButtonRow.removeFromLeft(28).reduced(2));
     namNextButton_.setBounds(namButtonRow.removeFromLeft(28).reduced(2));
-    namQualitySlider_.setBounds(
-        namButtonRow.removeFromRight(buttonH).withSizeKeepingCentre(trimKnobSize, trimKnobSize));
+    namQualityToggle_.setBounds(namButtonRow.removeFromRight(48).withSizeKeepingCentre(44, 20));
+    namQualityLabel_.setBounds(namButtonRow.removeFromRight(70).withTrimmedRight(4));
     namSection.removeFromTop(innerGap);
     namLCDDisplay_.setBounds(namSection.reduced(2, 0));
   }

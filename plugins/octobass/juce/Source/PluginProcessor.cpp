@@ -430,6 +430,11 @@ juce::String OctoBassProcessor::getCurrentNamModelPath() const
   return currentNamModelPath_;
 }
 
+int OctoBassProcessor::getNamQualityLevels() const
+{
+  return bassProcessor_.getNamQualityLevels();
+}
+
 bool OctoBassProcessor::loadImpulseResponse(const juce::String& filepath,
                                             juce::String& errorMessage)
 {

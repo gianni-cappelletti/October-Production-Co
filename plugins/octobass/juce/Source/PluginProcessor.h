@@ -49,6 +49,10 @@ class OctoBassProcessor : public juce::AudioProcessor,
   bool isNamModelLoaded() const;
   juce::String getCurrentNamModelPath() const;
 
+  // Discrete quality levels of the loaded NAM model: 0 = no model,
+  // 1 = no quality options, >1 = selectable levels. Message thread only.
+  int getNamQualityLevels() const;
+
   // IR management
   bool loadImpulseResponse(const juce::String& filepath, juce::String& errorMessage);
   void clearImpulseResponse();

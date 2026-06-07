@@ -12,7 +12,10 @@
 #include <atomic>
 #include <cstddef>
 #include <filesystem>
+#include <fstream>
+#include <json.hpp>
 #include <mutex>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -48,6 +51,67 @@ void forceNamArchitectureLinkage()
     (void)sink;
   }
 }
+
+// NAM core does not expose the granularity of SetSlimmableSize through the
+// SlimmableModel interface, so the level count is recovered from the model
+// file's JSON config using the same rules the architectures apply:
+//  - SlimmableContainer activates one of its submodels, so the level count is
+//    the submodel count (container.cpp, SetSlimmableSize).
+//  - A slimmable WaveNet maps quality to floor(quality * N) over each layer
+//    array's N allowed channel counts (wavenet/slimmable.cpp,
+//    ratio_to_channels), so the levels are the union of the i/N breakpoints
+//    across arrays, plus one.
+int countSlimmableWavenetLevels(const nlohmann::json& config)
+{
+  // IEEE-754 division is correctly rounded, so equal fractions from different
+  // arrays (1/2 and 2/4) collapse to the same breakpoint
+  std::set<double> breakpoints;
+
+  if (!config.contains("layers") || !config["layers"].is_array())
+    return 1;
+
+  for (const auto& layer : config["layers"])
+  {
+    if (!layer.contains("slimmable") || !layer["slimmable"].is_object())
+      continue;
+
+    const auto& slim = layer["slimmable"];
+    std::size_t numAllowed = 0;
+    if (slim.contains("kwargs") && slim["kwargs"].contains("allowed_channels"))
+      numAllowed = slim["kwargs"]["allowed_channels"].size();
+    else if (layer.contains("channels"))
+      // SlimmableWavenetConfig::create assumes [1..channels] when the
+      // allowed_channels list is missing
+      numAllowed = layer["channels"].get<std::size_t>();
+
+    for (std::size_t i = 1; i < numAllowed; ++i)
+      breakpoints.insert(static_cast<double>(i) / static_cast<double>(numAllowed));
+  }
+
+  return static_cast<int>(breakpoints.size()) + 1;
+}
+
+int countQualityLevels(const std::string& filepath)
+{
+  try
+  {
+    std::ifstream stream(filepath);
+    const auto json = nlohmann::json::parse(stream);
+    const auto architecture = json.value("architecture", std::string{});
+
+    if (architecture == "SlimmableContainer")
+      return static_cast<int>(json.at("config").at("submodels").size());
+    if (architecture == "WaveNet")
+      return countSlimmableWavenetLevels(json.at("config"));
+    return 1;
+  }
+  catch (const std::exception&)
+  {
+    // The model itself loaded, so it has at least the slim/full distinction
+    // that made it a SlimmableModel
+    return 2;
+  }
+}
 }  // namespace
 
 namespace octob
@@ -75,6 +139,8 @@ struct NamProcessor::Impl
   std::atomic<bool> pendingClear{false};
 
   double quality = 1.0;
+  // Message-thread only, like the load/clear calls that update it
+  int numQualityLevels = 0;
 
   void applyQuality(nam::DSP* target) const
   {
@@ -139,6 +205,9 @@ bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMess
       return false;
     }
 
+    const bool isSlimmable = dynamic_cast<nam::SlimmableModel*>(newModel.get()) != nullptr;
+    impl_->numQualityLevels = isSlimmable ? countQualityLevels(filepath) : 1;
+
     impl_->applyQuality(newModel.get());
 
     if (impl_->maxBlockSize > 0)
@@ -169,6 +238,7 @@ void NamProcessor::clearModel()
   impl_->pendingModel.reset();
   impl_->pendingModelPath.clear();
   impl_->pendingClear.store(true, std::memory_order_release);
+  impl_->numQualityLevels = 0;
 }
 
 bool NamProcessor::isModelLoaded() const
@@ -213,6 +283,11 @@ void NamProcessor::setQuality(double quality)
 double NamProcessor::getQuality() const
 {
   return impl_->quality;
+}
+
+int NamProcessor::getNumQualityLevels() const
+{
+  return impl_->numQualityLevels;
 }
 
 void NamProcessor::setSampleRate(double sampleRate)
