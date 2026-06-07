@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+#include <mutex>
 #include <octobir-core/IRProcessor.hpp>
 #include <string>
 #include <vector>
@@ -35,6 +37,14 @@ class BassProcessor
   bool isNamModelLoaded() const;
   std::string getCurrentNamModelPath() const;
 
+  // Quality/CPU trade-off for slimmable NAM models (0.0 slimmest, 1.0 full).
+  // Message thread only -- not real-time safe.
+  void setNamQuality(float quality);
+
+  // Discrete quality levels of the loaded NAM model: 0 = no model,
+  // 1 = no quality options, >1 = selectable levels. Message thread only.
+  int getNamQualityLevels() const;
+
   // Crossover
   void setCrossoverFrequency(float frequencyHz);
 
@@ -53,8 +63,9 @@ class BassProcessor
   void setHighBandSolo(bool solo);
 
   // Graphic EQ
-  void setGraphicEQBandGain(int bandIndex, float gainDb);
-  float getGraphicEQBandGain(int bandIndex) const;
+  void setGraphicEQNode(int slot, bool active, float freqHz, float gainDb);
+  void setGraphicEQLowCut(bool active, float freqHz);
+  void setGraphicEQHighCut(bool active, float freqHz);
 
   // Levels
   void setLowBandLevel(float levelDb);
@@ -98,8 +109,17 @@ class BassProcessor
   std::vector<Sample> dryHighBandBuffer_;
   std::vector<Sample> delayedLowBuffer_;
 
-  // Delay compensation for low band path
+  // Delay compensation for the low band path. The audio thread owns
+  // lowBandDelayBuffer_; the message thread stages a replacement in
+  // pendingDelayBuffer_ on IR load and the audio thread swaps it in via
+  // try_lock, so neither thread ever allocates or frees on the audio path.
+  // The displaced buffer parks in retiredDelayBuffer_ until the next
+  // message-thread call releases it.
   std::vector<Sample> lowBandDelayBuffer_;
+  std::vector<Sample> pendingDelayBuffer_;
+  std::vector<Sample> retiredDelayBuffer_;
+  std::mutex delayBufferSwapMutex_;
+  std::atomic<bool> hasPendingDelayBuffer_{false};
   size_t lowBandDelayWritePos_;
   int currentIRLatency_;
 
@@ -124,10 +144,7 @@ class BassProcessor
   std::string currentIRPath_;
   std::string currentNamModelPath_;
 
-  void updateDelayBuffer();
-
-  static float clamp(float value, float minVal, float maxVal);
-  static float dbToLinear(float db);
+  void stageDelayBuffer(int latencySamples);
 
   static void writeToDelayBuffer(std::vector<Sample>& buffer, size_t& writePos, const Sample* input,
                                  FrameCount numFrames);

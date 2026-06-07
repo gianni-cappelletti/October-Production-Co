@@ -50,4 +50,7 @@ target_link_libraries(octobir-vcv-tests
 )
 
 include(GoogleTest)
-gtest_discover_tests(octobir-vcv-tests)
+gtest_discover_tests(octobir-vcv-tests
+    DISCOVERY_MODE PRE_TEST
+    DISCOVERY_TIMEOUT 30
+)

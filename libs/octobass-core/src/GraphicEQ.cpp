@@ -2,12 +2,122 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <numbers>
 
 namespace octob
 {
 
+namespace
+{
+
+// Proportional-Q constants (API 550A-style)
+constexpr float kQMin = 0.8f;
+constexpr float kQMax = 8.0f;
+
+// Stage Q values for a 4th-order Butterworth cascade: 1/(2*cos(pi/8)), 1/(2*cos(3*pi/8))
+constexpr std::array<float, 2> kCutStageQ = {{0.54119610f, 1.30656296f}};
+
+// Proportional Q: wider bandwidth at low gain, narrower at high gain.
+// Modeled after the API 550A characteristic.
+float computeQ(float absGainDb)
+{
+  float normalized = absGainDb / MaxGraphicEQGainDb;
+  normalized = std::clamp(normalized, 0.0f, 1.0f);
+  return kQMin * std::pow(kQMax / kQMin, normalized);
+}
+
+struct BiquadCoeffsD
+{
+  double b0;
+  double b1;
+  double b2;
+  double a1;
+  double a2;
+};
+
+// Assign double-precision design coefficients into a float coefficient struct
+// (templated so the private nested GraphicEQ::BiquadCoeffs type can be named)
+template <typename CoeffsT>
+void assignCoeffs(CoeffsT& dst, const BiquadCoeffsD& src)
+{
+  dst.b0 = static_cast<float>(src.b0);
+  dst.b1 = static_cast<float>(src.b1);
+  dst.b2 = static_cast<float>(src.b2);
+  dst.a1 = static_cast<float>(src.a1);
+  dst.a2 = static_cast<float>(src.a2);
+}
+
+// The frequency range tops out at 20 kHz, which can exceed Nyquist at lower
+// sample rates; clamp so the biquad coefficients stay stable
+double clampBelowNyquist(double freqHz, SampleRate sampleRate)
+{
+  return std::min(freqHz, 0.49 * sampleRate);
+}
+
+BiquadCoeffsD computePeakingCoeffs(double gainDb, double centerFreqHz, double q,
+                                   SampleRate sampleRate)
+{
+  // RBJ Audio EQ Cookbook -- peaking EQ
+  double A = std::pow(10.0, gainDb / 40.0);
+  double w0 = 2.0 * std::numbers::pi * clampBelowNyquist(centerFreqHz, sampleRate) / sampleRate;
+  double alpha = std::sin(w0) / (2.0 * q);
+  double cosw0 = std::cos(w0);
+
+  double a0 = 1.0 + alpha / A;
+  double invA0 = 1.0 / a0;
+  return {(1.0 + alpha * A) * invA0, (-2.0 * cosw0) * invA0, (1.0 - alpha * A) * invA0,
+          (-2.0 * cosw0) * invA0, (1.0 - alpha / A) * invA0};
+}
+
+BiquadCoeffsD computeHighpassCoeffs(double cutoffFreqHz, double q, SampleRate sampleRate)
+{
+  // RBJ Audio EQ Cookbook -- highpass
+  double w0 = 2.0 * std::numbers::pi * clampBelowNyquist(cutoffFreqHz, sampleRate) / sampleRate;
+  double alpha = std::sin(w0) / (2.0 * q);
+  double cosw0 = std::cos(w0);
+
+  double invA0 = 1.0 / (1.0 + alpha);
+  double b0 = ((1.0 + cosw0) / 2.0) * invA0;
+  return {b0, -(1.0 + cosw0) * invA0, b0, (-2.0 * cosw0) * invA0, (1.0 - alpha) * invA0};
+}
+
+BiquadCoeffsD computeLowpassCoeffs(double cutoffFreqHz, double q, SampleRate sampleRate)
+{
+  // RBJ Audio EQ Cookbook -- lowpass
+  double w0 = 2.0 * std::numbers::pi * clampBelowNyquist(cutoffFreqHz, sampleRate) / sampleRate;
+  double alpha = std::sin(w0) / (2.0 * q);
+  double cosw0 = std::cos(w0);
+
+  double invA0 = 1.0 / (1.0 + alpha);
+  double b0 = ((1.0 - cosw0) / 2.0) * invA0;
+  return {b0, (1.0 - cosw0) * invA0, b0, (-2.0 * cosw0) * invA0, (1.0 - alpha) * invA0};
+}
+
+// Multiply the running magnitude-squared by |H(e^jw)|^2 of one biquad,
+// evaluated with complex arithmetic:
+//   N = b0 + b1*e^(-jw) + b2*e^(-2jw)
+//   D = 1  + a1*e^(-jw) + a2*e^(-2jw)
+void accumulateMagnitudeSq(const BiquadCoeffsD& c, double cosw, double sinw, double cos2w,
+                           double sin2w, double& totalMagSq)
+{
+  double numRe = c.b0 + c.b1 * cosw + c.b2 * cos2w;
+  double numIm = -(c.b1 * sinw + c.b2 * sin2w);
+  double denRe = 1.0 + c.a1 * cosw + c.a2 * cos2w;
+  double denIm = -(c.a1 * sinw + c.a2 * sin2w);
+
+  double numMagSq = numRe * numRe + numIm * numIm;
+  double denMagSq = denRe * denRe + denIm * denIm;
+
+  if (denMagSq > 1e-30)
+    totalMagSq *= numMagSq / denMagSq;
+}
+
+}  // namespace
+
 GraphicEQ::GraphicEQ()
 {
+  freqsHz_.fill(DefaultGraphicEQFreqHz);
   gainsDb_.fill(DefaultGraphicEQGainDb);
 }
 
@@ -16,31 +126,142 @@ void GraphicEQ::setSampleRate(SampleRate sampleRate)
   if (sampleRate > 0.0)
   {
     sampleRate_ = sampleRate;
-    for (int i = 0; i < kGraphicEQNumBands; ++i)
+    for (int i = 0; i < kGraphicEQNumNodes; ++i)
       updateCoefficients(i);
+    updateCutCoefficients(lowCutActive_, lowCutFreqHz_, true, lowCutCoeffs_);
+    updateCutCoefficients(highCutActive_, highCutFreqHz_, false, highCutCoeffs_);
   }
 }
 
-void GraphicEQ::setBandGain(int bandIndex, float gainDb)
+bool GraphicEQ::isValidSlot(int slot)
 {
-  if (bandIndex < 0 || bandIndex >= kGraphicEQNumBands)
+  return slot >= 0 && slot < kGraphicEQNumNodes;
+}
+
+void GraphicEQ::setNodeActive(int slot, bool active)
+{
+  if (!isValidSlot(slot))
+    return;
+
+  if (active_[static_cast<size_t>(slot)] == active)
+    return;
+
+  active_[static_cast<size_t>(slot)] = active;
+  updateCoefficients(slot);
+}
+
+bool GraphicEQ::getNodeActive(int slot) const
+{
+  if (!isValidSlot(slot))
+    return false;
+
+  return active_[static_cast<size_t>(slot)];
+}
+
+void GraphicEQ::setNodeFrequency(int slot, float freqHz)
+{
+  if (!isValidSlot(slot))
+    return;
+
+  freqHz = std::max(MinGraphicEQFreqHz, std::min(MaxGraphicEQFreqHz, freqHz));
+
+  if (freqsHz_[static_cast<size_t>(slot)] == freqHz)
+    return;
+
+  freqsHz_[static_cast<size_t>(slot)] = freqHz;
+  updateCoefficients(slot);
+}
+
+float GraphicEQ::getNodeFrequency(int slot) const
+{
+  if (!isValidSlot(slot))
+    return DefaultGraphicEQFreqHz;
+
+  return freqsHz_[static_cast<size_t>(slot)];
+}
+
+void GraphicEQ::setNodeGain(int slot, float gainDb)
+{
+  if (!isValidSlot(slot))
     return;
 
   gainDb = std::max(MinGraphicEQGainDb, std::min(MaxGraphicEQGainDb, gainDb));
 
-  if (gainsDb_[static_cast<size_t>(bandIndex)] == gainDb)
+  if (gainsDb_[static_cast<size_t>(slot)] == gainDb)
     return;
 
-  gainsDb_[static_cast<size_t>(bandIndex)] = gainDb;
-  updateCoefficients(bandIndex);
+  gainsDb_[static_cast<size_t>(slot)] = gainDb;
+  updateCoefficients(slot);
 }
 
-float GraphicEQ::getBandGain(int bandIndex) const
+float GraphicEQ::getNodeGain(int slot) const
 {
-  if (bandIndex < 0 || bandIndex >= kGraphicEQNumBands)
+  if (!isValidSlot(slot))
     return DefaultGraphicEQGainDb;
 
-  return gainsDb_[static_cast<size_t>(bandIndex)];
+  return gainsDb_[static_cast<size_t>(slot)];
+}
+
+void GraphicEQ::setNode(int slot, bool active, float freqHz, float gainDb)
+{
+  if (!isValidSlot(slot))
+    return;
+
+  auto idx = static_cast<size_t>(slot);
+  freqHz = std::max(MinGraphicEQFreqHz, std::min(MaxGraphicEQFreqHz, freqHz));
+  gainDb = std::max(MinGraphicEQGainDb, std::min(MaxGraphicEQGainDb, gainDb));
+
+  if (active_[idx] == active && freqsHz_[idx] == freqHz && gainsDb_[idx] == gainDb)
+    return;
+
+  active_[idx] = active;
+  freqsHz_[idx] = freqHz;
+  gainsDb_[idx] = gainDb;
+  updateCoefficients(slot);
+}
+
+void GraphicEQ::setLowCut(bool active, float freqHz)
+{
+  freqHz = std::max(MinGraphicEQFreqHz, std::min(MaxGraphicEQFreqHz, freqHz));
+
+  if (lowCutActive_ == active && lowCutFreqHz_ == freqHz)
+    return;
+
+  lowCutActive_ = active;
+  lowCutFreqHz_ = freqHz;
+  updateCutCoefficients(lowCutActive_, lowCutFreqHz_, true, lowCutCoeffs_);
+}
+
+bool GraphicEQ::getLowCutActive() const
+{
+  return lowCutActive_;
+}
+
+float GraphicEQ::getLowCutFrequency() const
+{
+  return lowCutFreqHz_;
+}
+
+void GraphicEQ::setHighCut(bool active, float freqHz)
+{
+  freqHz = std::max(MinGraphicEQFreqHz, std::min(MaxGraphicEQFreqHz, freqHz));
+
+  if (highCutActive_ == active && highCutFreqHz_ == freqHz)
+    return;
+
+  highCutActive_ = active;
+  highCutFreqHz_ = freqHz;
+  updateCutCoefficients(highCutActive_, highCutFreqHz_, false, highCutCoeffs_);
+}
+
+bool GraphicEQ::getHighCutActive() const
+{
+  return highCutActive_;
+}
+
+float GraphicEQ::getHighCutFrequency() const
+{
+  return highCutFreqHz_;
 }
 
 void GraphicEQ::process(const Sample* input, Sample* output, FrameCount numFrames)
@@ -48,7 +269,7 @@ void GraphicEQ::process(const Sample* input, Sample* output, FrameCount numFrame
   if (numFrames == 0)
     return;
 
-  if (activeBandMask_ == 0)
+  if (activeNodeMask_ == 0 && !lowCutActive_ && !highCutActive_)
   {
     if (input != output)
       std::memcpy(output, input, numFrames * sizeof(Sample));
@@ -58,15 +279,37 @@ void GraphicEQ::process(const Sample* input, Sample* output, FrameCount numFrame
   if (input != output)
     std::memcpy(output, input, numFrames * sizeof(Sample));
 
-  for (int b = 0; b < kGraphicEQNumBands; ++b)
+  for (int n = 0; n < kGraphicEQNumNodes; ++n)
   {
-    if (!(activeBandMask_ & (1u << b)))
+    if (!(activeNodeMask_ & (1u << n)))
       continue;
 
-    auto& coeffs = coeffs_[static_cast<size_t>(b)];
-    auto& state = states_[static_cast<size_t>(b)];
+    auto& coeffs = coeffs_[static_cast<size_t>(n)];
+    auto& state = states_[static_cast<size_t>(n)];
     for (FrameCount i = 0; i < numFrames; ++i)
       output[i] = tick(coeffs, state, output[i]);
+  }
+
+  if (lowCutActive_)
+  {
+    for (int stage = 0; stage < kNumCutStages; ++stage)
+    {
+      auto& coeffs = lowCutCoeffs_[static_cast<size_t>(stage)];
+      auto& state = lowCutStates_[static_cast<size_t>(stage)];
+      for (FrameCount i = 0; i < numFrames; ++i)
+        output[i] = tick(coeffs, state, output[i]);
+    }
+  }
+
+  if (highCutActive_)
+  {
+    for (int stage = 0; stage < kNumCutStages; ++stage)
+    {
+      auto& coeffs = highCutCoeffs_[static_cast<size_t>(stage)];
+      auto& state = highCutStates_[static_cast<size_t>(stage)];
+      for (FrameCount i = 0; i < numFrames; ++i)
+        output[i] = tick(coeffs, state, output[i]);
+    }
   }
 }
 
@@ -77,46 +320,65 @@ void GraphicEQ::reset()
     s.z1 = 0.0f;
     s.z2 = 0.0f;
   }
+  for (auto& s : lowCutStates_)
+  {
+    s.z1 = 0.0f;
+    s.z2 = 0.0f;
+  }
+  for (auto& s : highCutStates_)
+  {
+    s.z1 = 0.0f;
+    s.z2 = 0.0f;
+  }
 }
 
-void GraphicEQ::updateCoefficients(int bandIndex)
+void GraphicEQ::updateCoefficients(int slot)
 {
-  auto idx = static_cast<size_t>(bandIndex);
+  auto idx = static_cast<size_t>(slot);
   float gainDb = gainsDb_[idx];
 
-  if (std::fabs(gainDb) < 0.01f)
+  if (!active_[idx] || std::fabs(gainDb) < GraphicEQBypassGainDb)
   {
+    if (!(activeNodeMask_ & (1u << slot)))
+      return;
+
     // Pass-through: unity gain biquad
     coeffs_[idx] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-    activeBandMask_ &= ~(1u << bandIndex);
+    activeNodeMask_ &= ~(1u << slot);
     return;
   }
 
-  activeBandMask_ |= (1u << bandIndex);
+  activeNodeMask_ |= (1u << slot);
 
-  const float pi = 3.14159265358979323846f;
-  float centerFreq = kCenterFreqs[idx];
-  float sr = static_cast<float>(sampleRate_);
+  double q = static_cast<double>(computeQ(std::fabs(gainDb)));
+  BiquadCoeffsD c = computePeakingCoeffs(static_cast<double>(gainDb),
+                                         static_cast<double>(freqsHz_[idx]), q, sampleRate_);
 
-  // RBJ Audio EQ Cookbook -- peaking EQ
-  float A = std::pow(10.0f, gainDb / 40.0f);
-  float w0 = 2.0f * pi * centerFreq / sr;
-  float Q = computeQ(std::fabs(gainDb));
-  float alpha = std::sin(w0) / (2.0f * Q);
+  // Filter state (z1/z2) is intentionally left intact across coefficient
+  // changes so live frequency/gain drags do not click or reset the filter.
+  assignCoeffs(coeffs_[idx], c);
+}
 
-  float b0 = 1.0f + alpha * A;
-  float b1 = -2.0f * std::cos(w0);
-  float b2 = 1.0f - alpha * A;
-  float a0 = 1.0f + alpha / A;
-  float a1 = -2.0f * std::cos(w0);
-  float a2 = 1.0f - alpha / A;
+void GraphicEQ::updateCutCoefficients(bool active, float freqHz, bool isHighpass,
+                                      std::array<BiquadCoeffs, kNumCutStages>& coeffs)
+{
+  static_assert(kCutStageQ.size() == static_cast<size_t>(kNumCutStages));
+  for (int stage = 0; stage < kNumCutStages; ++stage)
+  {
+    auto idx = static_cast<size_t>(stage);
+    if (!active)
+    {
+      coeffs[idx] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+      continue;
+    }
 
-  float invA0 = 1.0f / a0;
-  coeffs_[idx].b0 = b0 * invA0;
-  coeffs_[idx].b1 = b1 * invA0;
-  coeffs_[idx].b2 = b2 * invA0;
-  coeffs_[idx].a1 = a1 * invA0;
-  coeffs_[idx].a2 = a2 * invA0;
+    BiquadCoeffsD c = isHighpass
+                          ? computeHighpassCoeffs(static_cast<double>(freqHz),
+                                                  static_cast<double>(kCutStageQ[idx]), sampleRate_)
+                          : computeLowpassCoeffs(static_cast<double>(freqHz),
+                                                 static_cast<double>(kCutStageQ[idx]), sampleRate_);
+    assignCoeffs(coeffs[idx], c);
+  }
 }
 
 Sample GraphicEQ::tick(const BiquadCoeffs& c, BiquadState& s, Sample input)
@@ -128,22 +390,13 @@ Sample GraphicEQ::tick(const BiquadCoeffs& c, BiquadState& s, Sample input)
   return output;
 }
 
-float GraphicEQ::computeQ(float absGainDb)
-{
-  // Proportional Q: wider bandwidth at low gain, narrower at high gain.
-  // Modeled after the API 550A characteristic.
-  float normalized = absGainDb / MaxGraphicEQGainDb;
-  normalized = std::max(0.0f, std::min(1.0f, normalized));
-  return kQMin * std::pow(kQMax / kQMin, normalized);
-}
-
-float GraphicEQ::computeMagnitudeResponseDb(const float* gainsDb, float freqHz,
-                                            SampleRate sampleRate)
+float GraphicEQ::computeMagnitudeResponseDb(const GraphicEQNode* nodes, int numNodes,
+                                            const GraphicEQCut& lowCut, const GraphicEQCut& highCut,
+                                            float freqHz, SampleRate sampleRate)
 {
   // Use double precision and complex evaluation to avoid catastrophic
   // float cancellation at low frequencies where cos(w) ~ 1.
-  const double pi = 3.14159265358979323846;
-  double w = 2.0 * pi * static_cast<double>(freqHz) / sampleRate;
+  double w = 2.0 * std::numbers::pi * static_cast<double>(freqHz) / sampleRate;
   double sinw = std::sin(w);
   double cosw = std::cos(w);
   double sin2w = std::sin(2.0 * w);
@@ -151,42 +404,37 @@ float GraphicEQ::computeMagnitudeResponseDb(const float* gainsDb, float freqHz,
 
   double totalMagSq = 1.0;
 
-  for (int i = 0; i < kGraphicEQNumBands; ++i)
+  for (int i = 0; i < numNodes; ++i)
   {
-    double gainDb = static_cast<double>(gainsDb[i]);
-    if (std::fabs(gainDb) < 0.01)
+    double gainDb = static_cast<double>(nodes[i].gainDb);
+    if (!nodes[i].active || std::fabs(gainDb) < static_cast<double>(GraphicEQBypassGainDb))
       continue;
 
-    auto idx = static_cast<size_t>(i);
-    double A = std::pow(10.0, gainDb / 40.0);
-    double w0 = 2.0 * pi * static_cast<double>(kCenterFreqs[idx]) / sampleRate;
-    double Q = static_cast<double>(computeQ(static_cast<float>(std::fabs(gainDb))));
-    double alpha = std::sin(w0) / (2.0 * Q);
-    double cosw0 = std::cos(w0);
+    double q = static_cast<double>(computeQ(static_cast<float>(std::fabs(gainDb))));
+    BiquadCoeffsD c =
+        computePeakingCoeffs(gainDb, static_cast<double>(nodes[i].freqHz), q, sampleRate);
+    accumulateMagnitudeSq(c, cosw, sinw, cos2w, sin2w, totalMagSq);
+  }
 
-    double b0 = (1.0 + alpha * A) / (1.0 + alpha / A);
-    double b1 = (-2.0 * cosw0) / (1.0 + alpha / A);
-    double b2 = (1.0 - alpha * A) / (1.0 + alpha / A);
-    double a1 = (-2.0 * cosw0) / (1.0 + alpha / A);
-    double a2 = (1.0 - alpha / A) / (1.0 + alpha / A);
-
-    // Evaluate H(e^jw) using complex arithmetic:
-    //   N = b0 + b1*e^(-jw) + b2*e^(-2jw)
-    //   D = 1  + a1*e^(-jw) + a2*e^(-2jw)
-    double numRe = b0 + b1 * cosw + b2 * cos2w;
-    double numIm = -(b1 * sinw + b2 * sin2w);
-    double denRe = 1.0 + a1 * cosw + a2 * cos2w;
-    double denIm = -(a1 * sinw + a2 * sin2w);
-
-    double numMagSq = numRe * numRe + numIm * numIm;
-    double denMagSq = denRe * denRe + denIm * denIm;
-
-    if (denMagSq > 1e-30)
-      totalMagSq *= numMagSq / denMagSq;
+  for (int stage = 0; stage < kNumCutStages; ++stage)
+  {
+    auto idx = static_cast<size_t>(stage);
+    if (lowCut.active)
+    {
+      BiquadCoeffsD c = computeHighpassCoeffs(static_cast<double>(lowCut.freqHz),
+                                              static_cast<double>(kCutStageQ[idx]), sampleRate);
+      accumulateMagnitudeSq(c, cosw, sinw, cos2w, sin2w, totalMagSq);
+    }
+    if (highCut.active)
+    {
+      BiquadCoeffsD c = computeLowpassCoeffs(static_cast<double>(highCut.freqHz),
+                                             static_cast<double>(kCutStageQ[idx]), sampleRate);
+      accumulateMagnitudeSq(c, cosw, sinw, cos2w, sin2w, totalMagSq);
+    }
   }
 
   if (totalMagSq <= 0.0)
-    return 0.0f;
+    return -200.0f;
 
   return static_cast<float>(10.0 * std::log10(totalMagSq));
 }

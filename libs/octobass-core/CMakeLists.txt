@@ -29,9 +29,10 @@ set(NAM_SOURCES
     ${NAM_DIR}/NAM/get_dsp.cpp
     ${NAM_DIR}/NAM/lstm.cpp
     ${NAM_DIR}/NAM/ring_buffer.cpp
-    ${NAM_DIR}/NAM/slimmable_wavenet.cpp
     ${NAM_DIR}/NAM/util.cpp
-    ${NAM_DIR}/NAM/wavenet.cpp
+    ${NAM_DIR}/NAM/wavenet/a2_fast.cpp
+    ${NAM_DIR}/NAM/wavenet/model.cpp
+    ${NAM_DIR}/NAM/wavenet/slimmable.cpp
 )
 
 add_library(octobass-core STATIC ${SOURCES} ${NAM_SOURCES})

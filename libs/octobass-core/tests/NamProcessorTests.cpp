@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -34,6 +37,31 @@ class NamProcessorTest : public ::testing::Test
 
   NamProcessor proc;
   const std::string wavenetModelPath = std::string(TEST_DATA_DIR) + "/INPUT_VHD.nam";
+  // A1 (legacy) model: file version 0.5.4, "WaveNet" architecture.
+  const std::string a1ModelPath = std::string(TEST_DATA_DIR) + "/INPUT_octobass_hm2_a1.nam";
+  // A2 model: file version 0.7.0, "SlimmableContainer" architecture.
+  const std::string a2ModelPath =
+      std::string(TEST_DATA_DIR) + "/INPUT_HM2-W OctoBASS distortion 2_a2.nam";
+
+  void expectLoadsAndRuns(const std::string& modelPath)
+  {
+    std::string err;
+    ASSERT_TRUE(proc.loadModel(modelPath, err)) << "Failed to load '" << modelPath << "': " << err;
+    EXPECT_TRUE(proc.isModelLoaded());
+    EXPECT_EQ(proc.getCurrentModelPath(), modelPath);
+    EXPECT_GT(proc.getExpectedSampleRate(), 0.0);
+
+    constexpr size_t kNumSamples = kBlockSize * 4;
+    const auto input = generateSine(1000.0f, 44100.0f, kNumSamples);
+    std::vector<float> output(kNumSamples);
+    for (size_t b = 0; b < kNumSamples / kBlockSize; ++b)
+      proc.process(input.data() + b * kBlockSize, output.data() + b * kBlockSize, kBlockSize);
+
+    float peak = 0.0f;
+    for (float s : output)
+      peak = std::max(peak, std::abs(s));
+    EXPECT_GT(peak, 1e-6f) << "NAM output should not be silent after loading model";
+  }
 };
 
 TEST_F(NamProcessorTest, LoadsWaveNetModelWithoutError)
@@ -49,12 +77,50 @@ TEST_F(NamProcessorTest, LoadsWaveNetModelWithoutError)
   EXPECT_GT(proc.getExpectedSampleRate(), 0.0);
 }
 
+TEST_F(NamProcessorTest, LoadsA1WaveNetModel)
+{
+  expectLoadsAndRuns(a1ModelPath);
+}
+
+TEST_F(NamProcessorTest, LoadsA2SlimmableModel)
+{
+  expectLoadsAndRuns(a2ModelPath);
+}
+
 TEST_F(NamProcessorTest, LoadFailsCleanlyOnMissingFile)
 {
   std::string err;
   EXPECT_FALSE(proc.loadModel("/nonexistent/path/missing.nam", err));
   EXPECT_FALSE(err.empty());
   EXPECT_FALSE(proc.isModelLoaded());
+}
+
+TEST_F(NamProcessorTest, LoadFailsCleanlyOnInvalidModelContent)
+{
+  const auto writeTempModel = [](const char* name, const char* content)
+  {
+    const auto path = (std::filesystem::temp_directory_path() / name).string();
+    std::ofstream out(path);
+    out << content;
+    return path;
+  };
+
+  const std::string notJsonPath =
+      writeTempModel("octobass_not_json.nam", "this is not json at all");
+  std::string err;
+  EXPECT_FALSE(proc.loadModel(notJsonPath, err)) << "Non-JSON content must be rejected";
+  EXPECT_FALSE(err.empty());
+  EXPECT_FALSE(proc.isModelLoaded());
+
+  const std::string badArchPath = writeTempModel(
+      "octobass_bad_arch.nam", R"({"architecture": "NotARealArchitecture", "config": {}})");
+  err.clear();
+  EXPECT_FALSE(proc.loadModel(badArchPath, err)) << "Unknown architectures must be rejected";
+  EXPECT_FALSE(err.empty());
+  EXPECT_FALSE(proc.isModelLoaded());
+
+  std::filesystem::remove(notJsonPath);
+  std::filesystem::remove(badArchPath);
 }
 
 TEST_F(NamProcessorTest, ProcessingLoadedModelProducesNonSilentOutput)
@@ -96,4 +162,132 @@ TEST_F(NamProcessorTest, ClearModelResetsState)
   proc.clearModel();
   EXPECT_FALSE(proc.isModelLoaded());
   EXPECT_TRUE(proc.getCurrentModelPath().empty());
+}
+
+TEST_F(NamProcessorTest, QualityDefaultsToFullAndClamps)
+{
+  EXPECT_DOUBLE_EQ(proc.getQuality(), 1.0);
+
+  proc.setQuality(2.0);
+  EXPECT_DOUBLE_EQ(proc.getQuality(), 1.0);
+
+  proc.setQuality(-0.5);
+  EXPECT_DOUBLE_EQ(proc.getQuality(), 0.0);
+
+  proc.setQuality(0.5);
+  EXPECT_DOUBLE_EQ(proc.getQuality(), 0.5);
+}
+
+TEST_F(NamProcessorTest, QualityAffectsA2SlimmableModelOutput)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(a2ModelPath, err)) << err;
+
+  constexpr size_t kNumSamples = kBlockSize * 4;
+  const auto input = generateSine(1000.0f, 44100.0f, kNumSamples);
+
+  auto processAll = [&](std::vector<float>& output)
+  {
+    for (size_t b = 0; b < kNumSamples / kBlockSize; ++b)
+      proc.process(input.data() + b * kBlockSize, output.data() + b * kBlockSize, kBlockSize);
+  };
+
+  std::vector<float> fullQuality(kNumSamples);
+  proc.setQuality(1.0);
+  processAll(fullQuality);
+
+  proc.reset();
+
+  std::vector<float> slimQuality(kNumSamples);
+  proc.setQuality(0.0);
+  processAll(slimQuality);
+
+  float peakFull = 0.0f;
+  float peakSlim = 0.0f;
+  float maxDiff = 0.0f;
+  for (size_t i = 0; i < kNumSamples; ++i)
+  {
+    ASSERT_TRUE(std::isfinite(slimQuality[i])) << "Non-finite output at sample " << i;
+    peakFull = std::max(peakFull, std::abs(fullQuality[i]));
+    peakSlim = std::max(peakSlim, std::abs(slimQuality[i]));
+    maxDiff = std::max(maxDiff, std::abs(fullQuality[i] - slimQuality[i]));
+  }
+
+  EXPECT_GT(peakFull, 1e-6f) << "Full-quality output should not be silent";
+  EXPECT_GT(peakSlim, 1e-6f) << "Slim output should not be silent";
+  EXPECT_GT(maxDiff, 1e-9f) << "Slimmest submodel should produce different output than the "
+                               "full model, or SetSlimmableSize is not taking effect";
+}
+
+TEST_F(NamProcessorTest, QualityIsSafeOnNonSlimmableModel)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(wavenetModelPath, err)) << err;
+
+  proc.setQuality(0.25);
+  EXPECT_DOUBLE_EQ(proc.getQuality(), 0.25);
+
+  constexpr size_t kNumSamples = kBlockSize;
+  const auto input = generateSine(1000.0f, 44100.0f, kNumSamples);
+  std::vector<float> output(kNumSamples);
+  proc.process(input.data(), output.data(), kNumSamples);
+
+  float peak = 0.0f;
+  for (float s : output)
+    peak = std::max(peak, std::abs(s));
+  EXPECT_GT(peak, 1e-6f) << "Non-slimmable model must keep processing after a quality change";
+}
+
+TEST_F(NamProcessorTest, QualityLevelsAreZeroWithoutModel)
+{
+  EXPECT_EQ(proc.getNumQualityLevels(), 0);
+}
+
+TEST_F(NamProcessorTest, QualityLevelsAreOneForNonSlimmableModels)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(wavenetModelPath, err)) << err;
+  EXPECT_EQ(proc.getNumQualityLevels(), 1);
+
+  ASSERT_TRUE(proc.loadModel(a1ModelPath, err)) << err;
+  EXPECT_EQ(proc.getNumQualityLevels(), 1);
+}
+
+TEST_F(NamProcessorTest, QualityLevelsMatchA2SubmodelCount)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(a2ModelPath, err)) << err;
+  EXPECT_EQ(proc.getNumQualityLevels(), 2)
+      << "The A2 container has two submodels (max_value 0.5 and 1.0), so it "
+         "must report two quality levels";
+}
+
+TEST_F(NamProcessorTest, QualityLevelsResetOnClearModel)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(a2ModelPath, err)) << err;
+  ASSERT_EQ(proc.getNumQualityLevels(), 2);
+
+  proc.clearModel();
+  EXPECT_EQ(proc.getNumQualityLevels(), 0);
+}
+
+TEST_F(NamProcessorTest, QualityPersistsAcrossModelLoads)
+{
+  proc.setQuality(0.0);
+
+  // Quality set before loading must apply to the freshly loaded model
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(a2ModelPath, err)) << err;
+  EXPECT_DOUBLE_EQ(proc.getQuality(), 0.0);
+
+  constexpr size_t kNumSamples = kBlockSize;
+  const auto input = generateSine(1000.0f, 44100.0f, kNumSamples);
+  std::vector<float> output(kNumSamples);
+  proc.process(input.data(), output.data(), kNumSamples);
+
+  float peak = 0.0f;
+  for (float s : output)
+    peak = std::max(peak, std::abs(s));
+  EXPECT_GT(peak, 1e-6f) << "Slimmest model should still produce output";
 }

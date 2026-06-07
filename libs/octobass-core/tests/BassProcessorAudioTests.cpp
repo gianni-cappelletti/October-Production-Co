@@ -89,6 +89,36 @@ double computeRMS(const std::vector<float>& buf)
   return std::sqrt(sum / static_cast<double>(buf.size()));
 }
 
+std::vector<float> generateSine(float freqHz, float sampleRate, size_t numSamples,
+                                float amplitude = 0.3f)
+{
+  constexpr double kPi = 3.14159265358979323846;
+  std::vector<float> buf(numSamples);
+  for (size_t i = 0; i < numSamples; ++i)
+    buf[i] = amplitude * static_cast<float>(std::sin(2.0 * kPi * freqHz * i / sampleRate));
+  return buf;
+}
+
+// RMS level change of a sine pushed through the full BassProcessor chain, in
+// dB, measured after a warmup period so crossover/EQ transients settle
+double measureToneGainDb(BassProcessor& proc, float toneHz)
+{
+  constexpr size_t kNumSamples = 16384;
+  constexpr size_t kSkip = 4096;
+
+  auto input = generateSine(toneHz, 44100.0f, kNumSamples);
+  auto output = processFullSignal(proc, input);
+
+  double inputSumSq = 0.0;
+  double outputSumSq = 0.0;
+  for (size_t i = kSkip; i < kNumSamples; ++i)
+  {
+    inputSumSq += static_cast<double>(input[i]) * input[i];
+    outputSumSq += static_cast<double>(output[i]) * output[i];
+  }
+  return 10.0 * std::log10(outputSumSq / inputSumSq);
+}
+
 float peakLevel(const std::vector<float>& buf)
 {
   float peak = 0.0f;
@@ -377,4 +407,94 @@ TEST_F(BassProcessorAudioTest, ProcessBass_AllModes_ProduceOutput)
     EXPECT_GT(peak, 1e-6f) << "Mode " << mode << " should produce non-silent output";
     EXPECT_LT(peak, 10.0f) << "Mode " << mode << " should not clip excessively";
   }
+}
+
+TEST_F(BassProcessorAudioTest, GraphicEQNode_AppliesBoostThroughFullChain)
+{
+  BassProcessor baseline;
+  baseline.setSampleRate(44100.0);
+  baseline.setMaxBlockSize(kBlockSize);
+
+  BassProcessor boosted;
+  boosted.setSampleRate(44100.0);
+  boosted.setMaxBlockSize(kBlockSize);
+  boosted.setGraphicEQNode(0, true, 1000.0f, 6.0f);
+
+  double baselineDb = measureToneGainDb(baseline, 1000.0f);
+  double boostedDb = measureToneGainDb(boosted, 1000.0f);
+
+  EXPECT_NEAR(boostedDb - baselineDb, 6.0, 1.5)
+      << "A +6dB node at 1kHz must boost a 1kHz tone through the full chain";
+}
+
+TEST_F(BassProcessorAudioTest, GraphicEQLowCut_AttenuatesThroughFullChain)
+{
+  BassProcessor baseline;
+  baseline.setSampleRate(44100.0);
+  baseline.setMaxBlockSize(kBlockSize);
+
+  BassProcessor cut;
+  cut.setSampleRate(44100.0);
+  cut.setMaxBlockSize(kBlockSize);
+  cut.setGraphicEQLowCut(true, 2000.0f);
+
+  double baselineDb = measureToneGainDb(baseline, 500.0f);
+  double cutDb = measureToneGainDb(cut, 500.0f);
+
+  EXPECT_LT(cutDb - baselineDb, -20.0)
+      << "A 2kHz low cut must strongly attenuate a 500Hz tone through the full chain";
+}
+
+TEST_F(BassProcessorAudioTest, GraphicEQHighCut_AttenuatesThroughFullChain)
+{
+  BassProcessor baseline;
+  baseline.setSampleRate(44100.0);
+  baseline.setMaxBlockSize(kBlockSize);
+
+  BassProcessor cut;
+  cut.setSampleRate(44100.0);
+  cut.setMaxBlockSize(kBlockSize);
+  cut.setGraphicEQHighCut(true, 500.0f);
+
+  double baselineDb = measureToneGainDb(baseline, 2000.0f);
+  double cutDb = measureToneGainDb(cut, 2000.0f);
+
+  EXPECT_LT(cutDb - baselineDb, -20.0)
+      << "A 500Hz high cut must strongly attenuate a 2kHz tone through the full chain";
+}
+
+TEST_F(BassProcessorAudioTest, NamQuality_AffectsSlimmableModelOutput)
+{
+  const std::string a2Path =
+      std::string(TEST_DATA_DIR) + "/INPUT_HM2-W OctoBASS distortion 2_a2.nam";
+
+  // 1kHz sits above the default 250Hz crossover, so the tone runs through the
+  // NAM model in the high band path
+  const auto renderTone = [&a2Path](float quality)
+  {
+    BassProcessor proc;
+    proc.setSampleRate(44100.0);
+    proc.setMaxBlockSize(kBlockSize);
+
+    std::string err;
+    EXPECT_TRUE(proc.loadNamModel(a2Path, err)) << err;
+    proc.setNamQuality(quality);
+
+    auto input = generateSine(1000.0f, 44100.0f, 8192);
+    return processFullSignal(proc, input);
+  };
+
+  auto fullQuality = renderTone(1.0f);
+  auto liteQuality = renderTone(0.0f);
+  ASSERT_EQ(fullQuality.size(), liteQuality.size());
+
+  EXPECT_GT(peakLevel(fullQuality), 1e-6f) << "Full-quality output must not be silent";
+  EXPECT_GT(peakLevel(liteQuality), 1e-6f) << "Lite-quality output must not be silent";
+
+  float maxDiff = 0.0f;
+  for (size_t i = 0; i < fullQuality.size(); ++i)
+    maxDiff = std::max(maxDiff, std::abs(fullQuality[i] - liteQuality[i]));
+
+  EXPECT_GT(maxDiff, 1e-4f)
+      << "setNamQuality must select a different A2 submodel and change the output";
 }

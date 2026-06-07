@@ -20,6 +20,10 @@ class OctoberLookAndFeel : public juce::LookAndFeel_V4
   void drawToggleButton(juce::Graphics&, juce::ToggleButton&, bool shouldDrawButtonAsHighlighted,
                         bool shouldDrawButtonAsDown) override;
 
+  // ToggleButtons with componentID "metalToggle" render as a hardware bat
+  // toggle switch (hex nut, collar, tilting lever) instead of the LED style
+  void drawMetalToggleSwitch(juce::Graphics&, juce::ToggleButton&);
+
   void drawComboBox(juce::Graphics&, int width, int height, bool isButtonDown, int buttonX,
                     int buttonY, int buttonW, int buttonH, juce::ComboBox&) override;
 

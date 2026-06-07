@@ -1,5 +1,6 @@
 #include "octobass-core/VCACompressor.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace octob
@@ -50,7 +51,7 @@ void VCACompressor::setSampleRate(SampleRate sampleRate)
 
 void VCACompressor::setAmount(float amount)
 {
-  amount_ = CompressorMode::clamp(amount, 0.0f, 1.0f);
+  amount_ = std::clamp(amount, 0.0f, 1.0f);
   updateParameters();
 }
 
@@ -66,7 +67,7 @@ void VCACompressor::process(const Sample* input, Sample* output, FrameCount numF
                   (1.0 - static_cast<double>(rmsCoeff_)) * inSquared;
 
     float levelDb = (rmsSquared_ > 1e-30)
-                        ? std::log2(static_cast<float>(rmsSquared_)) * (kLog2ToDb * 0.5f)
+                        ? std::log2(static_cast<float>(rmsSquared_)) * (Log2ToDb * 0.5f)
                         : -96.0f;
 
     // Gain computer (soft-knee curve)
@@ -81,7 +82,7 @@ void VCACompressor::process(const Sample* input, Sample* output, FrameCount numF
     else
     {
       // Dual release: blend fast and slow based on how deep the gain reduction is
-      float blend = CompressorMode::clamp(-envelopeDb_ / 20.0f, 0.0f, 1.0f);
+      float blend = std::clamp(-envelopeDb_ / 20.0f, 0.0f, 1.0f);
       float releaseCoeff = fastReleaseCoeff_ + blend * (slowReleaseCoeff_ - fastReleaseCoeff_);
       envelopeDb_ = releaseCoeff * envelopeDb_ + (1.0f - releaseCoeff) * gainReduction;
     }
@@ -92,7 +93,7 @@ void VCACompressor::process(const Sample* input, Sample* output, FrameCount numF
 
     gainReductionDb_ = envelopeDb_;
 
-    float gainLinear = CompressorMode::dbToLinear(envelopeDb_);
+    float gainLinear = dbToLinear(envelopeDb_);
     output[i] = in * gainLinear;
   }
 }

@@ -230,6 +230,12 @@ void OctoberLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
                                           bool /*shouldDrawButtonAsHighlighted*/,
                                           bool /*shouldDrawButtonAsDown*/)
 {
+  if (button.getComponentID() == "metalToggle")
+  {
+    drawMetalToggleSwitch(g, button);
+    return;
+  }
+
   auto bounds = button.getLocalBounds().toFloat().reduced(0.5f, 0.5f);
   const auto cornerSize = 4.0f;
   bool isOn = button.getToggleState();
@@ -319,6 +325,84 @@ void OctoberLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
   g.drawFittedText(button.getButtonText(),
                    button.getLocalBounds().withTrimmedLeft(static_cast<int>(ledWidth)),
                    juce::Justification::centred, 1);
+}
+
+void OctoberLookAndFeel::drawMetalToggleSwitch(juce::Graphics& g, juce::ToggleButton& button)
+{
+  const bool isOn = button.getToggleState();
+  const float alpha = button.isEnabled() ? 1.0f : 0.5f;
+
+  auto bounds = button.getLocalBounds().toFloat();
+  const float cx = bounds.getCentreX();
+  // Pivot at centre: the lever throws right (Full) or left (Lite) from here
+  const float cy = bounds.getCentreY();
+  const float baseR = juce::jmin(bounds.getWidth() * 0.28f, bounds.getHeight() * 0.36f);
+  juce::Point<float> pivot(cx, cy);
+
+  const float recessR = baseR * 0.42f;
+
+  juce::Path nut;
+  nut.addPolygon(pivot, 6, baseR, juce::MathConstants<float>::halfPi);
+
+  // Bat lever: dark tapered shaft with a ball tip, matching the knob skirts.
+  // Right = on (Full), left = off (Lite).
+  const float leverLen = bounds.getWidth() * 0.24f;
+  const float shaftBaseW = recessR * 0.80f;
+  const float ballR = recessR * 0.95f;
+
+  juce::Path lever;
+  lever.addQuadrilateral(-shaftBaseW, 0.0f, shaftBaseW, 0.0f, ballR * 0.7f, -leverLen,
+                         -ballR * 0.7f, -leverLen);
+  lever.addEllipse(-ballR, -leverLen - ballR * 1.6f, ballR * 2.0f, ballR * 2.0f);
+  lever.applyTransform(
+      juce::AffineTransform::rotation((isOn ? 1.0f : -1.0f) * juce::MathConstants<float>::halfPi)
+          .translated(pivot.x, pivot.y));
+
+  // Drop shadow of the whole silhouette, matching the other panel controls
+  {
+    juce::Path silhouette(nut);
+    silhouette.addPath(lever);
+    juce::DropShadow(juce::Colours::black.withAlpha(0.45f), 4, {0, 2}).drawForPath(g, silhouette);
+  }
+
+  // Hex mounting nut behind the collar, same brushed metal as the panel screws
+  {
+    juce::ColourGradient nutGradient(
+        juce::Colour(0xffABA9A9).withMultipliedAlpha(alpha), cx, cy - baseR,
+        juce::Colour(0xff7d7d7d).withMultipliedAlpha(alpha), cx, cy + baseR, false);
+    g.setGradientFill(nutGradient);
+    g.fillPath(nut);
+    g.setColour(juce::Colour(0xff4a4a4a).withMultipliedAlpha(alpha));
+    g.strokePath(nut, juce::PathStrokeType(1.0f));
+  }
+
+  // Threaded collar ring and dark recess the lever emerges from
+  const float collarR = baseR * 0.78f;
+  juce::ColourGradient collarGradient(
+      juce::Colour(0xffF5F5F5).withMultipliedAlpha(alpha), cx, cy - collarR,
+      juce::Colour(0xffB0B0B0).withMultipliedAlpha(alpha), cx, cy + collarR, false);
+  g.setGradientFill(collarGradient);
+  g.fillEllipse(cx - collarR, cy - collarR, collarR * 2.0f, collarR * 2.0f);
+  g.setColour(juce::Colour(0xff6a6a6a).withMultipliedAlpha(alpha));
+  g.drawEllipse(cx - collarR, cy - collarR, collarR * 2.0f, collarR * 2.0f, 1.0f);
+
+  g.setColour(juce::Colour(0xff1c1c1c).withMultipliedAlpha(alpha));
+  g.fillEllipse(cx - recessR, cy - recessR, recessR * 2.0f, recessR * 2.0f);
+
+  auto leverBounds = lever.getBounds();
+  juce::ColourGradient leverGradient(juce::Colour(0xff565656).withMultipliedAlpha(alpha),
+                                     leverBounds.getX(), leverBounds.getY(),
+                                     juce::Colour(0xff101010).withMultipliedAlpha(alpha),
+                                     leverBounds.getRight(), leverBounds.getBottom(), false);
+  g.setGradientFill(leverGradient);
+  g.fillPath(lever);
+  g.setColour(juce::Colour(0xff0a0a0a).withMultipliedAlpha(alpha));
+  g.strokePath(lever, juce::PathStrokeType(1.0f));
+
+  // Specular glint on the ball tip
+  const float ballCx = cx + (isOn ? 1.0f : -1.0f) * (leverLen + ballR * 0.6f);
+  g.setColour(juce::Colours::white.withAlpha(0.30f * alpha));
+  g.fillEllipse(ballCx - ballR * 0.45f, cy - ballR * 0.6f, ballR * 0.7f, ballR * 0.55f);
 }
 
 void OctoberLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,

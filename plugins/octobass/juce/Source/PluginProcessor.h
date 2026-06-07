@@ -7,7 +7,11 @@
 #include <octobass-core/BassProcessor.hpp>
 #include <octobass-core/Types.hpp>
 
-class OctoBassProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
+// AsyncUpdater is public so tests can flush deferred work deterministically
+// with handleUpdateNowIfNeeded() instead of pumping the message loop
+class OctoBassProcessor : public juce::AudioProcessor,
+                          public juce::AsyncUpdater,
+                          private juce::AudioProcessorValueTreeState::Listener
 {
  public:
   OctoBassProcessor();
@@ -47,6 +51,10 @@ class OctoBassProcessor : public juce::AudioProcessor, private juce::AsyncUpdate
   bool isNamModelLoaded() const;
   juce::String getCurrentNamModelPath() const;
 
+  // Discrete quality levels of the loaded NAM model: 0 = no model,
+  // 1 = no quality options, >1 = selectable levels. Message thread only.
+  int getNamQualityLevels() const;
+
   // IR management
   bool loadImpulseResponse(const juce::String& filepath, juce::String& errorMessage);
   void clearImpulseResponse();
@@ -72,14 +80,50 @@ class OctoBassProcessor : public juce::AudioProcessor, private juce::AsyncUpdate
   bool prevLowSolo_ = false;
   bool prevHighSolo_ = false;
 
-  juce::String currentIRPath_;
-  juce::String currentNamModelPath_;
+  // Which solo button the message thread must switch off to keep the pair
+  // mutually exclusive (setValueNotifyingHost is not real-time safe)
+  enum class SoloCorrection : int
+  {
+    None,
+    ClearLow,
+    ClearHigh
+  };
+  std::atomic<SoloCorrection> pendingSoloCorrection_{SoloCorrection::None};
 
   juce::SpinLock pendingStateLock_;
   juce::ValueTree pendingState_;
   void handleAsyncUpdate() override;
 
-  std::array<std::atomic<float>*, octob::kGraphicEQNumBands> eqBandGainParams_{};
+  // NAM quality is applied on the message thread via the async updater because
+  // SetSlimmableSize is not real-time safe
+  void parameterChanged(const juce::String& parameterID, float newValue) override;
+  std::atomic<bool> namQualityDirty_{false};
+  std::atomic<float>* namQualityParam_ = nullptr;
+
+  struct EQNodeParams
+  {
+    std::atomic<float>* active = nullptr;
+    std::atomic<float>* freq = nullptr;
+    std::atomic<float>* gain = nullptr;
+  };
+  std::array<EQNodeParams, octob::kGraphicEQNumNodes> eqNodeParams_{};
+  std::atomic<float>* eqLowCutActiveParam_ = nullptr;
+  std::atomic<float>* eqLowCutFreqParam_ = nullptr;
+  std::atomic<float>* eqHighCutActiveParam_ = nullptr;
+  std::atomic<float>* eqHighCutFreqParam_ = nullptr;
+
+  std::atomic<float>* crossoverParam_ = nullptr;
+  std::atomic<float>* squashParam_ = nullptr;
+  std::atomic<float>* compressionModeParam_ = nullptr;
+  std::atomic<float>* lowBandLevelParam_ = nullptr;
+  std::atomic<float>* highInputGainParam_ = nullptr;
+  std::atomic<float>* highOutputGainParam_ = nullptr;
+  std::atomic<float>* outputGainParam_ = nullptr;
+  std::atomic<float>* dryWetMixParam_ = nullptr;
+  std::atomic<float>* gateThresholdParam_ = nullptr;
+  std::atomic<float>* highBandMixParam_ = nullptr;
+  std::atomic<float>* lowBandSoloParam_ = nullptr;
+  std::atomic<float>* highBandSoloParam_ = nullptr;
 
   juce::AbstractFifo spectrumFifo_{kSpectrumFifoSize};
   std::array<float, kSpectrumFifoSize> spectrumFifoBuffer_{};

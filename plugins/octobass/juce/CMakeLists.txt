@@ -31,6 +31,7 @@ juce_add_plugin(OctoBASS
     PRODUCT_NAME "OctoBASS")
 
 target_sources(OctoBASS PRIVATE
+    Source/GraphicEQDisplay.cpp
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp)
 

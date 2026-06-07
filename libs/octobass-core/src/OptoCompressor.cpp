@@ -1,5 +1,6 @@
 #include "octobass-core/OptoCompressor.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace octob
@@ -47,7 +48,7 @@ void OptoCompressor::setSampleRate(SampleRate sampleRate)
 
 void OptoCompressor::setAmount(float amount)
 {
-  amount_ = CompressorMode::clamp(amount, 0.0f, 1.0f);
+  amount_ = std::clamp(amount, 0.0f, 1.0f);
 }
 
 void OptoCompressor::process(const Sample* input, Sample* output, FrameCount numFrames)
@@ -89,10 +90,9 @@ void OptoCompressor::process(const Sample* input, Sample* output, FrameCount num
 
     // Gain reduction derived from the T4 cell slow state
     float reductionLinear = 1.0f / (1.0f + slowState_ * 4.0f);
-    gainReductionDb_ = CompressorMode::clamp(CompressorMode::linearToDb(reductionLinear),
-                                             kMaxGainReductionDb, 0.0f);
+    gainReductionDb_ = std::clamp(linearToDb(reductionLinear), kMaxGainReductionDb, 0.0f);
 
-    float gainLinear = CompressorMode::dbToLinear(gainReductionDb_);
+    float gainLinear = dbToLinear(gainReductionDb_);
     output[i] = in * gainLinear;
   }
 }
@@ -120,7 +120,7 @@ float OptoCompressor::getStaticMakeupDb() const
 
   float nominalDrive = kNominalLevel * amount_ * kDriveScale;
   float nominalReduction = 1.0f / (1.0f + nominalDrive * kCurveScale);
-  float grDb = CompressorMode::linearToDb(nominalReduction);
+  float grDb = linearToDb(nominalReduction);
   return -grDb * 0.5f;
 }
 

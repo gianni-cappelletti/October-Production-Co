@@ -15,6 +15,7 @@ enable_testing()
 add_executable(octobass-plugin-tests
     TestMain.cpp
     PluginProcessorTests.cpp
+    ../Source/GraphicEQDisplay.cpp
     ../Source/PluginProcessor.cpp
     ../Source/PluginEditor.cpp
 )
@@ -51,4 +52,7 @@ target_link_libraries(octobass-plugin-tests
 )
 
 include(GoogleTest)
-gtest_discover_tests(octobass-plugin-tests)
+gtest_discover_tests(octobass-plugin-tests
+    DISCOVERY_MODE PRE_TEST
+    DISCOVERY_TIMEOUT 30
+)

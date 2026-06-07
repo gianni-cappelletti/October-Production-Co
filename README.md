@@ -7,10 +7,10 @@ Hey there! Welcome to the repo. There are two plugins in here at the moment: Oct
 - OctoBASS seeks to be an all-in-one bass plugin, akin to modern metal bass splitting plugins that have compression for the low end and distortion for the high end. Set the crossover frequency, compress the low end to sit well in a mix, and apply a NAM capture to the high band for an infinite amount of distortion options. It's intended to be a free open source alternative to modern bass plugins like Neural DSP's Parallax. 
 
 ### OctobIR
-![OctobIR](docs/media/octobir_ui.png)
+<img src="docs/media/octobir_ui.png" alt="OctobIR" width="583">
 
 ### OctoBASS
-![OctoBASS](docs/media/octobass_ui.png)
+<img src="docs/media/octobass_ui.png" alt="OctoBASS" width="762">
 
 ### Included Tones
 

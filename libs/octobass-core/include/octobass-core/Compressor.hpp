@@ -38,8 +38,6 @@ class Compressor
   SampleRate sampleRate_;
   float squash_;
   int mode_;
-
-  static float clamp(float value, float minVal, float maxVal);
 };
 
 }  // namespace octob

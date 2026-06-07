@@ -1,5 +1,6 @@
 #include "octobass-core/BusCompressor.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace octob
@@ -50,7 +51,7 @@ void BusCompressor::setSampleRate(SampleRate sampleRate)
 
 void BusCompressor::setAmount(float amount)
 {
-  amount_ = CompressorMode::clamp(amount, 0.0f, 1.0f);
+  amount_ = std::clamp(amount, 0.0f, 1.0f);
   updateParameters();
 }
 
@@ -66,7 +67,7 @@ void BusCompressor::process(const Sample* input, Sample* output, FrameCount numF
                   (1.0 - static_cast<double>(rmsCoeff_)) * inSquared;
 
     float levelDb = (rmsSquared_ > 1e-30)
-                        ? std::log2(static_cast<float>(rmsSquared_)) * (kLog2ToDb * 0.5f)
+                        ? std::log2(static_cast<float>(rmsSquared_)) * (Log2ToDb * 0.5f)
                         : -96.0f;
 
     // Gain computer (soft-knee curve)
@@ -82,7 +83,7 @@ void BusCompressor::process(const Sample* input, Sample* output, FrameCount numF
     else
     {
       // Auto-release: blend fast/slow based on gain reduction depth
-      float grDepth = CompressorMode::clamp(-envelopeDb_ / 12.0f, 0.0f, 1.0f);
+      float grDepth = std::clamp(-envelopeDb_ / 12.0f, 0.0f, 1.0f);
       float releaseCoeff = fastReleaseCoeff_ + grDepth * (slowReleaseCoeff_ - fastReleaseCoeff_);
       envelopeDb_ = releaseCoeff * envelopeDb_ + (1.0f - releaseCoeff) * gainReduction;
     }
@@ -93,7 +94,7 @@ void BusCompressor::process(const Sample* input, Sample* output, FrameCount numF
 
     gainReductionDb_ = envelopeDb_;
 
-    float gainLinear = CompressorMode::dbToLinear(envelopeDb_);
+    float gainLinear = dbToLinear(envelopeDb_);
     output[i] = in * gainLinear;
   }
 }
