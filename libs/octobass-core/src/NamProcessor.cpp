@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
@@ -18,6 +19,8 @@
 #include <set>
 #include <stdexcept>
 #include <vector>
+
+#include "octobass-core/Types.hpp"
 
 namespace
 {
@@ -117,6 +120,36 @@ int countQualityLevels(const std::string& filepath)
 namespace octob
 {
 
+namespace
+{
+// Same 5ms one-pole constant BassProcessor uses for its makeup gain; keeps
+// calibration steps (model swap, mode change) click-free
+float gainSmoothingCoeff(double sampleRate)
+{
+  constexpr float kSmoothMs = 5.0f;
+  return 1.0f - std::exp(-1.0f / (static_cast<float>(sampleRate) * kSmoothMs * 0.001f));
+}
+
+NamModelMetadata readModelMetadata(nam::DSP* model)
+{
+  NamModelMetadata metadata;
+  if (model == nullptr)
+    return metadata;
+
+  metadata.hasInputLevel = model->HasInputLevel();
+  if (metadata.hasInputLevel)
+    metadata.inputLevelDbu = model->GetInputLevel();
+  metadata.hasOutputLevel = model->HasOutputLevel();
+  if (metadata.hasOutputLevel)
+    metadata.outputLevelDbu = model->GetOutputLevel();
+  // GetLoudness throws when the model has no loudness, so the guard is load-bearing
+  metadata.hasLoudness = model->HasLoudness();
+  if (metadata.hasLoudness)
+    metadata.loudnessDb = model->GetLoudness();
+  return metadata;
+}
+}  // namespace
+
 struct NamProcessor::Impl
 {
   // Active model, only touched by the audio thread (after initial setup)
@@ -148,6 +181,47 @@ struct NamProcessor::Impl
   double quality = 1.0;
   // Message-thread only, like the load/clear calls that update it
   int numQualityLevels = 0;
+
+  // Calibration controls: written by the host wrapper's per-block setters,
+  // read on the audio thread. Raw/off defaults keep the processor neutral
+  // until the wrapper forwards its parameters.
+  std::atomic<bool> calibrateInput{false};
+  std::atomic<float> inputCalibrationLevelDbu{DefaultNamInputCalibrationLevelDbu};
+  std::atomic<int> outputMode{static_cast<int>(NamOutputMode::Raw)};
+
+  // Smoothed calibration gains, audio thread only
+  float currentInputGainLinear = 1.0f;
+  float currentOutputGainLinear = 1.0f;
+  float gainSmoothCoeff = gainSmoothingCoeff(44100.0);
+
+  // Both target computations require a loaded model (audio thread, post-swap)
+  float calibrationInputTargetLinear()
+  {
+    if (!calibrateInput.load(std::memory_order_relaxed) || !model->HasInputLevel())
+      return 1.0f;
+    return dbToLinear(inputCalibrationLevelDbu.load(std::memory_order_relaxed) -
+                      static_cast<float>(model->GetInputLevel()));
+  }
+
+  float calibrationOutputTargetLinear()
+  {
+    switch (static_cast<NamOutputMode>(outputMode.load(std::memory_order_relaxed)))
+    {
+      case NamOutputMode::Normalized:
+        if (model->HasLoudness())
+          return dbToLinear(
+              static_cast<float>(NamNormalizedTargetLoudnessDb - model->GetLoudness()));
+        break;
+      case NamOutputMode::Calibrated:
+        if (model->HasOutputLevel())
+          return dbToLinear(static_cast<float>(model->GetOutputLevel()) -
+                            inputCalibrationLevelDbu.load(std::memory_order_relaxed));
+        break;
+      case NamOutputMode::Raw:
+        break;
+    }
+    return 1.0f;
+  }
 
   void applyQuality(nam::DSP* target) const
   {
@@ -336,9 +410,38 @@ int NamProcessor::getNumQualityLevels() const
   return impl_->numQualityLevels;
 }
 
+NamModelMetadata NamProcessor::getModelMetadata() const
+{
+  // Same pinning as getExpectedSampleRate: the lock holds both unique_ptrs
+  // against the audio-thread swap while the metadata fields are read
+  const std::lock_guard<std::mutex> lock(impl_->swapMutex);
+  if (impl_->pendingClear.load(std::memory_order_acquire))
+    return {};
+  if (impl_->hasPendingModel.load(std::memory_order_acquire))
+    return readModelMetadata(impl_->pendingModel.get());
+  return readModelMetadata(impl_->model.get());
+}
+
+void NamProcessor::setCalibrateInput(bool enabled)
+{
+  impl_->calibrateInput.store(enabled, std::memory_order_relaxed);
+}
+
+void NamProcessor::setInputCalibrationLevel(float levelDbu)
+{
+  levelDbu = std::clamp(levelDbu, MinNamInputCalibrationLevelDbu, MaxNamInputCalibrationLevelDbu);
+  impl_->inputCalibrationLevelDbu.store(levelDbu, std::memory_order_relaxed);
+}
+
+void NamProcessor::setOutputMode(NamOutputMode mode)
+{
+  impl_->outputMode.store(static_cast<int>(mode), std::memory_order_relaxed);
+}
+
 void NamProcessor::setSampleRate(double sampleRate)
 {
   impl_->sampleRate = sampleRate;
+  impl_->gainSmoothCoeff = gainSmoothingCoeff(sampleRate);
   impl_->resetModel();
 }
 
@@ -363,31 +466,72 @@ void NamProcessor::process(const float* input, float* output, size_t numFrames)
     return;
   }
 
+  const float inputTarget = impl_->calibrationInputTargetLinear();
+  const float outputTarget = impl_->calibrationOutputTargetLinear();
+  float inputGain = impl_->currentInputGainLinear;
+  float outputGain = impl_->currentOutputGainLinear;
+
 #ifdef NAM_SAMPLE_FLOAT
-  // NAM_SAMPLE is float, can use buffers directly with pointer indirection
-  NAM_SAMPLE* inPtr = const_cast<NAM_SAMPLE*>(input);
-  NAM_SAMPLE* outPtr = output;
-  impl_->model->process(&inPtr, &outPtr, static_cast<int>(numFrames));
-#else
-  // NAM_SAMPLE is double, need conversion buffers
+  // NAM_SAMPLE is float: keep the zero-copy path whenever calibration is
+  // fully settled at unity
+  if (inputTarget == 1.0f && outputTarget == 1.0f && inputGain == 1.0f && outputGain == 1.0f)
+  {
+    NAM_SAMPLE* inPtr = const_cast<NAM_SAMPLE*>(input);
+    NAM_SAMPLE* outPtr = output;
+    impl_->model->process(&inPtr, &outPtr, static_cast<int>(numFrames));
+    return;
+  }
+#endif
+
+  // Staged path: the pre-model gain ramp lands in inputBuffer (which also
+  // covers the float/double conversion when NAM_SAMPLE is double)
   auto& inBuf = impl_->inputBuffer;
-  auto& outBuf = impl_->outputBuffer;
+  const float coeff = impl_->gainSmoothCoeff;
 
   for (size_t i = 0; i < numFrames; ++i)
-    inBuf[i] = static_cast<NAM_SAMPLE>(input[i]);
+  {
+    inputGain += (inputTarget - inputGain) * coeff;
+    inBuf[i] = static_cast<NAM_SAMPLE>(input[i] * inputGain);
+  }
 
   NAM_SAMPLE* inPtr = inBuf.data();
+#ifdef NAM_SAMPLE_FLOAT
+  NAM_SAMPLE* outPtr = output;
+  impl_->model->process(&inPtr, &outPtr, static_cast<int>(numFrames));
+
+  for (size_t i = 0; i < numFrames; ++i)
+  {
+    outputGain += (outputTarget - outputGain) * coeff;
+    output[i] *= outputGain;
+  }
+#else
+  auto& outBuf = impl_->outputBuffer;
   NAM_SAMPLE* outPtr = outBuf.data();
   impl_->model->process(&inPtr, &outPtr, static_cast<int>(numFrames));
 
   for (size_t i = 0; i < numFrames; ++i)
-    output[i] = static_cast<float>(outBuf[i]);
+  {
+    outputGain += (outputTarget - outputGain) * coeff;
+    output[i] = static_cast<float>(outBuf[i]) * outputGain;
+  }
 #endif
+
+  // Snap once the asymptotic ramp is within rounding of its target so the
+  // zero-copy path can re-engage after a return to unity
+  constexpr float kSnapEpsilon = 1.0e-6f;
+  if (std::abs(inputGain - inputTarget) < kSnapEpsilon)
+    inputGain = inputTarget;
+  if (std::abs(outputGain - outputTarget) < kSnapEpsilon)
+    outputGain = outputTarget;
+  impl_->currentInputGainLinear = inputGain;
+  impl_->currentOutputGainLinear = outputGain;
 }
 
 void NamProcessor::reset()
 {
   impl_->resetModel();
+  impl_->currentInputGainLinear = 1.0f;
+  impl_->currentOutputGainLinear = 1.0f;
 }
 
 int NamProcessor::getLatencySamples() const

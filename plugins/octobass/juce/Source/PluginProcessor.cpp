@@ -123,6 +123,10 @@ OctoBassProcessor::OctoBassProcessor()
 
   namQualityParam_ = apvts_.getRawParameterValue("namQuality");
   apvts_.addParameterListener("namQuality", this);
+
+  namCalibrateInputParam_ = apvts_.getRawParameterValue("namCalibrateInput");
+  namInputCalibrationLevelParam_ = apvts_.getRawParameterValue("namInputCalibrationLevel");
+  namOutputModeParam_ = apvts_.getRawParameterValue("namOutputMode");
 }
 
 OctoBassProcessor::~OctoBassProcessor()
@@ -252,6 +256,24 @@ juce::AudioProcessorValueTreeState::ParameterLayout OctoBassProcessor::createPar
       octob::DefaultNamQuality, juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) { return juce::String(static_cast<int>(value * 100.0f)) + "%"; }));
 
+  // Calibration params are new in 2.2.0; the version hint keeps host-facing
+  // parameter order stable for sessions saved with older builds
+  layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"namCalibrateInput", 2},
+                                                        "NAM Calibrate Input", false));
+
+  layout.add(std::make_unique<juce::AudioParameterFloat>(
+      juce::ParameterID{"namInputCalibrationLevel", 2}, "NAM Input Level",
+      juce::NormalisableRange<float>(octob::MinNamInputCalibrationLevelDbu,
+                                     octob::MaxNamInputCalibrationLevelDbu, 0.1f),
+      octob::DefaultNamInputCalibrationLevelDbu, juce::String(),
+      juce::AudioProcessorParameter::genericParameter,
+      [](float value, int) { return juce::String(value, 1) + " dBu"; }));
+
+  layout.add(std::make_unique<juce::AudioParameterChoice>(
+      juce::ParameterID{"namOutputMode", 2}, "NAM Output Mode",
+      juce::StringArray("Raw", "Normalized", "Calibrated"),
+      static_cast<int>(octob::NamOutputMode::Normalized)));
+
   return layout;
 }
 
@@ -284,6 +306,9 @@ void OctoBassProcessor::processBlock(juce::AudioBuffer<float>& buffer,
   bassProcessor_.setDryWetMix(dryWetMixParam_->load());
   bassProcessor_.setGateThreshold(gateThresholdParam_->load());
   bassProcessor_.setHighBandMix(highBandMixParam_->load());
+  bassProcessor_.setNamCalibrateInput(namCalibrateInputParam_->load() >= 0.5f);
+  bassProcessor_.setNamInputCalibrationLevel(namInputCalibrationLevelParam_->load());
+  bassProcessor_.setNamOutputMode(static_cast<int>(namOutputModeParam_->load()));
 
   for (int i = 0; i < octob::kGraphicEQNumNodes; ++i)
   {
@@ -404,7 +429,14 @@ bool OctoBassProcessor::loadNamModel(const juce::String& filepath, juce::String&
   std::string err;
   if (bassProcessor_.loadNamModel(filepath.toStdString(), err))
   {
-    DBG("Loaded NAM model: " + filepath);
+    // DBG-only in release builds
+    [[maybe_unused]] const auto metadata = bassProcessor_.getNamModelMetadata();
+    DBG("Loaded NAM model: " + filepath + " (input level: " +
+        (metadata.hasInputLevel ? juce::String(metadata.inputLevelDbu, 1) + " dBu" : "none") +
+        ", output level: " +
+        (metadata.hasOutputLevel ? juce::String(metadata.outputLevelDbu, 1) + " dBu" : "none") +
+        ", loudness: " +
+        (metadata.hasLoudness ? juce::String(metadata.loudnessDb, 1) + " dB" : "none") + ")");
     errorMessage.clear();
     return true;
   }
@@ -431,6 +463,11 @@ juce::String OctoBassProcessor::getCurrentNamModelPath() const
 int OctoBassProcessor::getNamQualityLevels() const
 {
   return bassProcessor_.getNamQualityLevels();
+}
+
+octob::NamModelMetadata OctoBassProcessor::getNamModelMetadata() const
+{
+  return bassProcessor_.getNamModelMetadata();
 }
 
 bool OctoBassProcessor::loadImpulseResponse(const juce::String& filepath,

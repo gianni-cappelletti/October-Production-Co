@@ -136,6 +136,28 @@ int BassProcessor::getNamQualityLevels() const
   return namProcessor_.getNumQualityLevels();
 }
 
+void BassProcessor::setNamCalibrateInput(bool enabled)
+{
+  namProcessor_.setCalibrateInput(enabled);
+}
+
+void BassProcessor::setNamInputCalibrationLevel(float levelDbu)
+{
+  namProcessor_.setInputCalibrationLevel(levelDbu);
+}
+
+void BassProcessor::setNamOutputMode(int mode)
+{
+  mode = std::clamp(mode, static_cast<int>(NamOutputMode::Raw),
+                    static_cast<int>(NamOutputMode::Calibrated));
+  namProcessor_.setOutputMode(static_cast<NamOutputMode>(mode));
+}
+
+NamModelMetadata BassProcessor::getNamModelMetadata() const
+{
+  return namProcessor_.getModelMetadata();
+}
+
 bool BassProcessor::isNamModelLoaded() const
 {
   return namProcessor_.isModelLoaded();

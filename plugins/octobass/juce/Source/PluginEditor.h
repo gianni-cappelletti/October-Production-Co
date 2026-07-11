@@ -6,6 +6,7 @@
 
 #include "GraphicEQDisplay.h"
 #include "LCDDisplay.h"
+#include "NamCalibrationPanel.h"
 #include "OctoberLookAndFeel.h"
 #include "PluginProcessor.h"
 #include "PopupToggleButton.h"
@@ -86,6 +87,13 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> namQualityAttachment_;
   int lastNamQualityLevels_ = -1;
   void updateNamQualityToggle();
+
+  // NAM calibration modal
+  juce::TextButton namCalibrateButton_;
+  NamCalibrationPanel namCalibrationPanel_{audioProcessor.getAPVTS()};
+  octob::NamModelMetadata lastNamMetadata_;
+  bool lastNamLoaded_ = false;
+  void updateNamCalibrationControls();
 
   // IR file loader
   juce::TextButton irLoadButton_;

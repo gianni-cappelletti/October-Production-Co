@@ -45,6 +45,13 @@ class BassProcessor
   // 1 = no quality options, >1 = selectable levels. Message thread only.
   int getNamQualityLevels() const;
 
+  // NAM calibration (see NamProcessor). Setters are real-time safe and
+  // callable per block; the metadata query is message thread only.
+  void setNamCalibrateInput(bool enabled);
+  void setNamInputCalibrationLevel(float levelDbu);
+  void setNamOutputMode(int mode);
+  NamModelMetadata getNamModelMetadata() const;
+
   // Crossover
   void setCrossoverFrequency(float frequencyHz);
 
