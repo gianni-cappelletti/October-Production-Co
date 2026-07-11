@@ -67,6 +67,7 @@ Download the latest release for your platform from [GitHub Releases](https://git
 **VCV Rack (OctobIR only)**
 - VCV Rack plugins are distributed through the [VCV Library](https://library.vcvrack.com/)
 - Search for "OctobIR" in the VCV Rack plugin manager
+- The Library builds from a dedicated packaging repo, [vcv-octobir](https://github.com/gianni-cappelletti/vcv-octobir), which pins this monorepo as a submodule; see [docs/development/RELEASING.md](docs/development/RELEASING.md)
 
 ### Option 2: Building from Source
 

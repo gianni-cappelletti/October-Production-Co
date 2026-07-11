@@ -62,6 +62,15 @@ constexpr float DefaultHighBandMix = 1.0f;
 // NAM model quality/CPU trade-off (0.0 slimmest, 1.0 full quality)
 constexpr float DefaultNamQuality = 1.0f;
 
+// NAM calibration: reference level in dBu that 0 dBFS peak corresponds to at
+// the plugin input; range matches the NAM Gateway plugin
+constexpr float DefaultNamInputCalibrationLevelDbu = 12.0f;
+constexpr float MinNamInputCalibrationLevelDbu = -60.0f;
+constexpr float MaxNamInputCalibrationLevelDbu = 60.0f;
+
+// Target loudness for the Normalized NAM output mode (Gateway parity)
+constexpr double NamNormalizedTargetLoudnessDb = -18.0;
+
 // Noise gate defaults and limits
 constexpr float DefaultGateThresholdDb = -96.0f;
 constexpr float MinGateThresholdDb = -96.0f;

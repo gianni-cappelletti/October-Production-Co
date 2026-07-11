@@ -1,0 +1,8 @@
+{
+  "version": "0.5.4",
+  "architecture": "Linear",
+  "config": {"receptive_field": 1, "bias": false},
+  "weights": [1.0],
+  "sample_rate": 44100,
+  "metadata": {"loudness": -21.5, "input_level_dbu": 18.0, "output_level_dbu": 14.0}
+}

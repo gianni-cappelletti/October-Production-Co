@@ -16,6 +16,7 @@ add_executable(octobass-plugin-tests
     TestMain.cpp
     PluginProcessorTests.cpp
     ../Source/GraphicEQDisplay.cpp
+    ../Source/NamCalibrationPanel.cpp
     ../Source/PluginProcessor.cpp
     ../Source/PluginEditor.cpp
 )

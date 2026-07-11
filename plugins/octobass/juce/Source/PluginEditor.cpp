@@ -278,6 +278,20 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
       audioProcessor.getAPVTS(), "namQuality", namQualityToggle_);
   updateNamQualityToggle();
 
+  addAndMakeVisible(namCalibrateButton_);
+  namCalibrateButton_.setPaintingIsUnclipped(true);
+  namCalibrateButton_.setButtonText("CAL");
+  namCalibrateButton_.setTitle("NAM Calibration Settings");
+  namCalibrateButton_.onClick = [this]
+  {
+    namCalibrationPanel_.setVisible(true);
+    namCalibrationPanel_.toFront(true);
+    namCalibrationPanel_.grabKeyboardFocus();
+  };
+
+  namCalibrationPanel_.onDismiss = [this] { namCalibrationPanel_.setVisible(false); };
+  updateNamCalibrationControls();
+
   addAndMakeVisible(namLCDDisplay_);
   namLCDDisplay_.setTextColour(kLCDInkColour);
   namLCDDisplay_.setOnClick([this] { namLoadClicked(); });
@@ -319,6 +333,9 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
 
   logoImage_ =
       juce::ImageCache::getFromMemory(BinaryData::OctoberLogo_png, BinaryData::OctoberLogo_pngSize);
+
+  // Added last so the modal overlays every other child when shown
+  addChildComponent(namCalibrationPanel_);
 
   setResizable(true, true);
   getConstrainer()->setFixedAspectRatio(static_cast<double>(kDesignWidth) /
@@ -368,6 +385,7 @@ void OctoBassEditor::timerCallback()
   // Models can also arrive outside this editor (host state restore), so the
   // toggle's availability is polled rather than tied to the load callbacks
   updateNamQualityToggle();
+  updateNamCalibrationControls();
 }
 
 void OctoBassEditor::updateNamQualityToggle()
@@ -378,6 +396,24 @@ void OctoBassEditor::updateNamQualityToggle()
   lastNamQualityLevels_ = levels;
 
   namQualityToggle_.setEnabled(levels > 1);
+}
+
+void OctoBassEditor::updateNamCalibrationControls()
+{
+  const bool loaded = audioProcessor.isNamModelLoaded();
+  const auto metadata = audioProcessor.getNamModelMetadata();
+  if (loaded == lastNamLoaded_ && metadata == lastNamMetadata_)
+    return;
+  lastNamLoaded_ = loaded;
+  lastNamMetadata_ = metadata;
+
+  namCalibrateButton_.setEnabled(loaded);
+  namCalibrationPanel_.setCapabilities(metadata);
+  if (!loaded && namCalibrationPanel_.isVisible())
+  {
+    DBG("NAM model cleared while calibration panel open, dismissing it");
+    namCalibrationPanel_.setVisible(false);
+  }
 }
 
 OctoBassEditor::ParamHandle OctoBassEditor::paramHandle(const juce::String& paramID) const
@@ -635,10 +671,13 @@ void OctoBassEditor::resized()
     namClearButton_.setBounds(namButtonRow.removeFromLeft(48).reduced(2));
     namPrevButton_.setBounds(namButtonRow.removeFromLeft(28).reduced(2));
     namNextButton_.setBounds(namButtonRow.removeFromLeft(28).reduced(2));
+    namCalibrateButton_.setBounds(namButtonRow.removeFromLeft(44).reduced(2));
     namQualityToggle_.setBounds(namButtonRow.removeFromRight(48).withSizeKeepingCentre(44, 28));
     namSection.removeFromTop(innerGap);
     namLCDDisplay_.setBounds(namSection.reduced(2, 0));
   }
+
+  namCalibrationPanel_.setBounds(0, 0, kDesignWidth, kDesignHeight);
 
   // IR file loader
   {

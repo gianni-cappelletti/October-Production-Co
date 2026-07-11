@@ -546,6 +546,33 @@ TEST_F(BassProcessorTest, ClearNamModel)
   EXPECT_TRUE(proc.getCurrentNamModelPath().empty());
 }
 
+TEST_F(BassProcessorTest, NamCalibrationForwardsToNamProcessor)
+{
+  std::string namPath = std::string(TEST_DATA_DIR) + "/INPUT_calibration_linear.nam";
+  std::string err;
+  ASSERT_TRUE(proc.loadNamModel(namPath, err)) << "NAM load failed: " << err;
+
+  const auto metadata = proc.getNamModelMetadata();
+  EXPECT_TRUE(metadata.hasInputLevel);
+  EXPECT_DOUBLE_EQ(metadata.inputLevelDbu, 18.0);
+  EXPECT_TRUE(metadata.hasOutputLevel);
+  EXPECT_DOUBLE_EQ(metadata.outputLevelDbu, 14.0);
+  EXPECT_TRUE(metadata.hasLoudness);
+  EXPECT_DOUBLE_EQ(metadata.loudnessDb, -21.5);
+
+  // Out-of-range mode must clamp rather than misbehave; the block must
+  // still process cleanly with calibration engaged
+  proc.setNamCalibrateInput(true);
+  proc.setNamInputCalibrationLevel(24.0f);
+  proc.setNamOutputMode(99);
+
+  std::vector<float> input(kBlockSize, 0.1f);
+  std::vector<float> output(kBlockSize, 0.0f);
+  proc.processMono(input.data(), output.data(), kBlockSize);
+  for (float s : output)
+    ASSERT_TRUE(std::isfinite(s));
+}
+
 TEST_F(BassProcessorTest, NamModelLoading_ValidModel)
 {
   std::string namPath = std::string(TEST_DATA_DIR) + "/INPUT_VHD.nam";

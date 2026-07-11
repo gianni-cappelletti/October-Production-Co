@@ -59,22 +59,27 @@ For VCV Rack, run the sync script to update `plugin.json`:
 
 #### VCV Rack Plugin Distribution (OctobIR Only)
 
-VCV Rack plugins are distributed through the [VCV Library](https://library.vcvrack.com/), not GitHub releases:
+VCV Rack plugins are distributed through the [VCV Library](https://library.vcvrack.com/), not GitHub releases. The Library build farm requires a standard Rack plugin (`plugin.json` + `Makefile`) at the **root** of the repository it builds, which this monorepo is not. OctobIR is therefore submitted through a dedicated packaging repository, [vcv-octobir](https://github.com/gianni-cappelletti/vcv-octobir), which pins this monorepo as a submodule (`opc`) and exposes a standard Rack plugin at its root. No plugin source is duplicated.
 
-1. **Sync version** from the `VERSION` file: `./scripts/sync-vcv-version.sh`
-2. **Test locally:**
+> The monorepo's `plugins/octobir/vcv-rack/plugin.json` is used only for local
+> development and CMake builds. The manifest the Library actually builds from lives
+> in the wrapper repo.
+
+To release a VCV Rack update:
+
+1. **Cut the monorepo release** as above (bump `VERSION`, run `./scripts/sync-vcv-version.sh`, commit, tag `vX.Y.Z`).
+2. **Update the wrapper repo** ([vcv-octobir](https://github.com/gianni-cappelletti/vcv-octobir)):
    ```bash
-   make octobir-vcv
-   # Install and test in VCV Rack
+   git -C opc fetch
+   git -C opc checkout vX.Y.Z          # pin to the monorepo release tag
+   git add opc
+   # bump "version" in plugin.json to X.Y.Z to match
+   git commit -m "Bump OctobIR to X.Y.Z"
+   git tag -a vX.Y.Z -m "vX.Y.Z"
+   git push --follow-tags
    ```
-3. **Commit and push:**
-   ```bash
-   git add plugins/octobir/vcv-rack/plugin.json
-   git commit -m "Sync VCV plugin version"
-   git push
-   ```
-4. **Submit to VCV Library:**
-    - First time: Create issue at [VCV Library](https://github.com/VCVRack/library) with plugin info
-    - Updates: Comment in your plugin's issue with version number and commit hash
-    - VCV builds for all platforms automatically
-5. **Users download** via VCV Rack's built-in Plugin Manager
+   CI cross-builds all four platforms (mac-x64, mac-arm64, win-x64, lin-x64) and attaches the `.vcvplugin` artifacts to a GitHub Release.
+3. **Notify the VCV Library:**
+    - First time: create an issue at [VCVRack/library](https://github.com/VCVRack/library) with the plugin slug and the **wrapper repo** as the source URL.
+    - Updates: comment in the plugin's thread with the new version and the wrapper commit hash.
+4. **Users download** via VCV Rack's built-in Plugin Manager.

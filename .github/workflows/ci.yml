@@ -463,8 +463,8 @@ jobs:
           -DBUILD_OCTOBIR_JUCE=ON \
           -DBUILD_OCTOBIR_VCV=OFF \
           -DBUILD_OCTOBASS_JUCE=OFF \
-          -G "Visual Studio 17 2022" -A x64
-        cmake --build build/release --target OctobIR_All --config Release -j
+          -G Ninja
+        cmake --build build/release --target OctobIR_All -j
 
   build-octobass-juce-windows:
     name: Build OctoBASS JUCE Plugin (Windows)
@@ -490,5 +490,5 @@ jobs:
           -DBUILD_OCTOBASS_JUCE=ON \
           -DBUILD_OCTOBIR_JUCE=OFF \
           -DBUILD_OCTOBIR_VCV=OFF \
-          -G "Visual Studio 17 2022" -A x64
-        cmake --build build/release --target OctoBASS_All --config Release -j
+          -G Ninja
+        cmake --build build/release --target OctoBASS_All -j

@@ -32,6 +32,7 @@ juce_add_plugin(OctoBASS
 
 target_sources(OctoBASS PRIVATE
     Source/GraphicEQDisplay.cpp
+    Source/NamCalibrationPanel.cpp
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp)
 

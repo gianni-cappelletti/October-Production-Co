@@ -181,6 +181,109 @@ TEST_F(OctoBassProcessorTest, StateRoundTripWithNamQuality)
   EXPECT_NEAR(processor2.getAPVTS().getRawParameterValue("namQuality")->load(), 0.25f, 0.02f);
 }
 
+TEST_F(OctoBassProcessorTest, NamCalibrationParametersExistWithDefaults)
+{
+  auto& apvts = processor.getAPVTS();
+
+  auto* calibrate = apvts.getRawParameterValue("namCalibrateInput");
+  ASSERT_NE(calibrate, nullptr);
+  EXPECT_LT(calibrate->load(), 0.5f) << "Input calibration should default to off";
+
+  auto* level = apvts.getRawParameterValue("namInputCalibrationLevel");
+  ASSERT_NE(level, nullptr);
+  EXPECT_NEAR(level->load(), octob::DefaultNamInputCalibrationLevelDbu, 0.01f);
+
+  auto* mode = apvts.getRawParameterValue("namOutputMode");
+  ASSERT_NE(mode, nullptr);
+  EXPECT_EQ(static_cast<int>(mode->load()), static_cast<int>(octob::NamOutputMode::Normalized))
+      << "Output mode should default to Normalized (Gateway parity)";
+}
+
+TEST_F(OctoBassProcessorTest, NamOutputModeHasThreeChoices)
+{
+  auto* param =
+      dynamic_cast<juce::AudioParameterChoice*>(processor.getAPVTS().getParameter("namOutputMode"));
+  ASSERT_NE(param, nullptr);
+  EXPECT_EQ(param->choices, juce::StringArray("Raw", "Normalized", "Calibrated"));
+}
+
+TEST_F(OctoBassProcessorTest, StateRoundTripWithNamCalibration)
+{
+  auto& apvts = processor.getAPVTS();
+  auto* calibrate = apvts.getParameter("namCalibrateInput");
+  auto* level = apvts.getParameter("namInputCalibrationLevel");
+  auto* mode = apvts.getParameter("namOutputMode");
+  ASSERT_NE(calibrate, nullptr);
+  ASSERT_NE(level, nullptr);
+  ASSERT_NE(mode, nullptr);
+
+  calibrate->setValueNotifyingHost(1.0f);
+  level->setValueNotifyingHost(level->convertTo0to1(20.0f));
+  mode->setValueNotifyingHost(
+      mode->convertTo0to1(static_cast<float>(octob::NamOutputMode::Calibrated)));
+
+  juce::MemoryBlock stateData;
+  processor.getStateInformation(stateData);
+
+  OctoBassProcessor processor2;
+  processor2.setStateInformation(stateData.getData(), static_cast<int>(stateData.getSize()));
+
+  auto& apvts2 = processor2.getAPVTS();
+  EXPECT_GE(apvts2.getRawParameterValue("namCalibrateInput")->load(), 0.5f);
+  EXPECT_NEAR(apvts2.getRawParameterValue("namInputCalibrationLevel")->load(), 20.0f, 0.05f);
+  EXPECT_EQ(static_cast<int>(apvts2.getRawParameterValue("namOutputMode")->load()),
+            static_cast<int>(octob::NamOutputMode::Calibrated));
+}
+
+TEST_F(OctoBassProcessorTest, LegacyStateLeavesNamCalibrationAtDefaults)
+{
+  // A pre-2.2.0 session tree has no calibration PARAM children; restoring it
+  // must land every calibration parameter back on its default
+  juce::ValueTree state("OctoBassParams");
+  juce::ValueTree crossover("PARAM");
+  crossover.setProperty("id", "crossoverFrequency", nullptr);
+  crossover.setProperty("value", 300.0f, nullptr);
+  state.appendChild(crossover, nullptr);
+
+  juce::MemoryBlock stateData;
+  std::unique_ptr<juce::XmlElement> xml(state.createXml());
+  juce::AudioProcessor::copyXmlToBinary(*xml, stateData);
+
+  auto& apvts = processor.getAPVTS();
+  apvts.getParameter("namCalibrateInput")->setValueNotifyingHost(1.0f);
+  auto* mode = apvts.getParameter("namOutputMode");
+  mode->setValueNotifyingHost(mode->convertTo0to1(static_cast<float>(octob::NamOutputMode::Raw)));
+
+  processor.setStateInformation(stateData.getData(), static_cast<int>(stateData.getSize()));
+
+  EXPECT_LT(apvts.getRawParameterValue("namCalibrateInput")->load(), 0.5f);
+  EXPECT_NEAR(apvts.getRawParameterValue("namInputCalibrationLevel")->load(),
+              octob::DefaultNamInputCalibrationLevelDbu, 0.01f);
+  EXPECT_EQ(static_cast<int>(apvts.getRawParameterValue("namOutputMode")->load()),
+            static_cast<int>(octob::NamOutputMode::Normalized));
+  EXPECT_NEAR(apvts.getRawParameterValue("crossoverFrequency")->load(), 300.0f, 1.0f);
+}
+
+TEST_F(OctoBassProcessorTest, NamMetadataAccessorReflectsLoadedModel)
+{
+  EXPECT_EQ(processor.getNamModelMetadata(), octob::NamModelMetadata{});
+
+  const juce::String fixturePath = juce::String(TEST_DATA_DIR) + "/INPUT_calibration_linear.nam";
+  juce::String err;
+  ASSERT_TRUE(processor.loadNamModel(fixturePath, err)) << err;
+
+  const auto metadata = processor.getNamModelMetadata();
+  EXPECT_TRUE(metadata.hasInputLevel);
+  EXPECT_DOUBLE_EQ(metadata.inputLevelDbu, 18.0);
+  EXPECT_TRUE(metadata.hasOutputLevel);
+  EXPECT_DOUBLE_EQ(metadata.outputLevelDbu, 14.0);
+  EXPECT_TRUE(metadata.hasLoudness);
+  EXPECT_DOUBLE_EQ(metadata.loudnessDb, -21.5);
+
+  processor.clearNamModel();
+  EXPECT_EQ(processor.getNamModelMetadata(), octob::NamModelMetadata{});
+}
+
 TEST_F(OctoBassProcessorTest, IRNotLoadedByDefault)
 {
   EXPECT_FALSE(processor.isIRLoaded());

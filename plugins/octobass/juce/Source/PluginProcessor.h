@@ -55,6 +55,10 @@ class OctoBassProcessor : public juce::AudioProcessor,
   // 1 = no quality options, >1 = selectable levels. Message thread only.
   int getNamQualityLevels() const;
 
+  // Level metadata of the loaded NAM model, all-false defaults when none is
+  // loaded. Message thread only.
+  octob::NamModelMetadata getNamModelMetadata() const;
+
   // IR management
   bool loadImpulseResponse(const juce::String& filepath, juce::String& errorMessage);
   void clearImpulseResponse();
@@ -124,6 +128,9 @@ class OctoBassProcessor : public juce::AudioProcessor,
   std::atomic<float>* highBandMixParam_ = nullptr;
   std::atomic<float>* lowBandSoloParam_ = nullptr;
   std::atomic<float>* highBandSoloParam_ = nullptr;
+  std::atomic<float>* namCalibrateInputParam_ = nullptr;
+  std::atomic<float>* namInputCalibrationLevelParam_ = nullptr;
+  std::atomic<float>* namOutputModeParam_ = nullptr;
 
   juce::AbstractFifo spectrumFifo_{kSpectrumFifoSize};
   std::array<float, kSpectrumFifoSize> spectrumFifoBuffer_{};

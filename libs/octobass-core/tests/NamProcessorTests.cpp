@@ -272,6 +272,180 @@ TEST_F(NamProcessorTest, QualityLevelsResetOnClearModel)
   EXPECT_EQ(proc.getNumQualityLevels(), 0);
 }
 
+class NamCalibrationTest : public NamProcessorTest
+{
+ protected:
+  // Identity Linear model (1-tap, weight 1.0) with full level metadata:
+  // input_level_dbu 18.0, output_level_dbu 14.0, loudness -21.5
+  const std::string calibrationModelPath =
+      std::string(TEST_DATA_DIR) + "/INPUT_calibration_linear.nam";
+
+  static constexpr size_t kNumBlocks = 8;
+  // The 5ms gain ramp settles well inside one 512-sample block at 44.1kHz;
+  // measuring the last block keeps every assertion on steady-state output
+  static constexpr size_t kMeasuredBlock = kNumBlocks - 1;
+
+  float steadyStateRms(std::vector<float>& output, const std::vector<float>& input)
+  {
+    for (size_t b = 0; b < kNumBlocks; ++b)
+      proc.process(input.data() + b * kBlockSize, output.data() + b * kBlockSize, kBlockSize);
+
+    double sumSquares = 0.0;
+    for (size_t i = kMeasuredBlock * kBlockSize; i < kNumBlocks * kBlockSize; ++i)
+      sumSquares += static_cast<double>(output[i]) * output[i];
+    return static_cast<float>(std::sqrt(sumSquares / kBlockSize));
+  }
+
+  float gainVersusUncalibrated(float rmsCalibrated, const std::vector<float>& input)
+  {
+    double sumSquares = 0.0;
+    for (size_t i = kMeasuredBlock * kBlockSize; i < kNumBlocks * kBlockSize; ++i)
+      sumSquares += static_cast<double>(input[i]) * input[i];
+    const float rmsInput = static_cast<float>(std::sqrt(sumSquares / kBlockSize));
+    return rmsCalibrated / rmsInput;
+  }
+};
+
+TEST_F(NamCalibrationTest, MetadataEmptyWhenNoModel)
+{
+  EXPECT_EQ(proc.getModelMetadata(), NamModelMetadata{});
+}
+
+TEST_F(NamCalibrationTest, MetadataExposedImmediatelyAfterLoad)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(calibrationModelPath, err)) << err;
+
+  // No process() call yet: the staged (pending) model must already report
+  const auto metadata = proc.getModelMetadata();
+  EXPECT_TRUE(metadata.hasInputLevel);
+  EXPECT_DOUBLE_EQ(metadata.inputLevelDbu, 18.0);
+  EXPECT_TRUE(metadata.hasOutputLevel);
+  EXPECT_DOUBLE_EQ(metadata.outputLevelDbu, 14.0);
+  EXPECT_TRUE(metadata.hasLoudness);
+  EXPECT_DOUBLE_EQ(metadata.loudnessDb, -21.5);
+}
+
+TEST_F(NamCalibrationTest, MetadataReportsLoudnessOnlyModels)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(wavenetModelPath, err)) << err;
+
+  const auto metadata = proc.getModelMetadata();
+  EXPECT_FALSE(metadata.hasInputLevel);
+  EXPECT_FALSE(metadata.hasOutputLevel);
+  EXPECT_TRUE(metadata.hasLoudness);
+  EXPECT_NEAR(metadata.loudnessDb, -19.875, 0.001);
+}
+
+TEST_F(NamCalibrationTest, MetadataClearedAfterClearModel)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(calibrationModelPath, err)) << err;
+  proc.clearModel();
+  EXPECT_EQ(proc.getModelMetadata(), NamModelMetadata{});
+}
+
+TEST_F(NamCalibrationTest, InputCalibrationGainMatchesFormula)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(calibrationModelPath, err)) << err;
+
+  proc.setCalibrateInput(true);
+  proc.setInputCalibrationLevel(24.0f);  // 24 - 18 = +6 dB through the identity model
+
+  const auto input = generateSine(1000.0f, 44100.0f, kNumBlocks * kBlockSize, 0.1f);
+  std::vector<float> output(input.size());
+  const float gain = gainVersusUncalibrated(steadyStateRms(output, input), input);
+  EXPECT_NEAR(gain, std::pow(10.0f, 6.0f / 20.0f), 0.01f * gain);
+}
+
+TEST_F(NamCalibrationTest, InputCalibrationInertWithoutInputLevelMetadata)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(wavenetModelPath, err)) << err;
+
+  const auto input = generateSine(1000.0f, 44100.0f, kNumBlocks * kBlockSize, 0.1f);
+  std::vector<float> uncalibrated(input.size());
+  steadyStateRms(uncalibrated, input);
+
+  proc.reset();
+  proc.setCalibrateInput(true);
+  proc.setInputCalibrationLevel(30.0f);
+  std::vector<float> calibrated(input.size());
+  steadyStateRms(calibrated, input);
+
+  for (size_t i = 0; i < input.size(); ++i)
+    ASSERT_FLOAT_EQ(calibrated[i], uncalibrated[i]) << "at sample " << i;
+}
+
+TEST_F(NamCalibrationTest, OutputModeRawLeavesIdentityModelAtUnity)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(calibrationModelPath, err)) << err;
+  proc.setOutputMode(NamOutputMode::Raw);
+
+  const auto input = generateSine(1000.0f, 44100.0f, kNumBlocks * kBlockSize, 0.1f);
+  std::vector<float> output(input.size());
+  const float gain = gainVersusUncalibrated(steadyStateRms(output, input), input);
+  EXPECT_NEAR(gain, 1.0f, 0.001f);
+}
+
+TEST_F(NamCalibrationTest, OutputModeNormalizedUsesLoudness)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(calibrationModelPath, err)) << err;
+  proc.setOutputMode(NamOutputMode::Normalized);  // -18 - (-21.5) = +3.5 dB
+
+  const auto input = generateSine(1000.0f, 44100.0f, kNumBlocks * kBlockSize, 0.1f);
+  std::vector<float> output(input.size());
+  const float gain = gainVersusUncalibrated(steadyStateRms(output, input), input);
+  EXPECT_NEAR(gain, std::pow(10.0f, 3.5f / 20.0f), 0.01f * gain);
+}
+
+TEST_F(NamCalibrationTest, OutputModeCalibratedUsesOutputLevel)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(calibrationModelPath, err)) << err;
+  proc.setOutputMode(NamOutputMode::Calibrated);
+
+  proc.setInputCalibrationLevel(20.0f);  // 14 - 20 = -6 dB
+  const auto input = generateSine(1000.0f, 44100.0f, kNumBlocks * kBlockSize, 0.1f);
+  std::vector<float> output(input.size());
+  float gain = gainVersusUncalibrated(steadyStateRms(output, input), input);
+  EXPECT_NEAR(gain, std::pow(10.0f, -6.0f / 20.0f), 0.01f * gain);
+
+  proc.reset();
+  proc.setInputCalibrationLevel(12.0f);  // default level: 14 - 12 = +2 dB
+  gain = gainVersusUncalibrated(steadyStateRms(output, input), input);
+  EXPECT_NEAR(gain, std::pow(10.0f, 2.0f / 20.0f), 0.01f * gain);
+}
+
+TEST_F(NamCalibrationTest, CalibrationGainRampIsClickFree)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(calibrationModelPath, err)) << err;
+
+  // DC through the identity model isolates the gain trajectory from the
+  // signal itself: any step in the output is a step in the gain
+  const std::vector<float> input(kNumBlocks * kBlockSize, 0.1f);
+  std::vector<float> output(input.size());
+
+  proc.process(input.data(), output.data(), kBlockSize);
+  proc.setCalibrateInput(true);
+  proc.setInputCalibrationLevel(44.0f);  // 44 - 18 = +26 dB, a x20 linear step
+  for (size_t b = 1; b < kNumBlocks; ++b)
+    proc.process(input.data() + b * kBlockSize, output.data() + b * kBlockSize, kBlockSize);
+
+  // 5ms one-pole at 44.1kHz moves the gain by at most ~0.9% of the remaining
+  // 1.9 linear range per sample on a 0.1 signal; a hard step would jump 1.9
+  float maxDelta = 0.0f;
+  for (size_t i = 1; i < output.size(); ++i)
+    maxDelta = std::max(maxDelta, std::abs(output[i] - output[i - 1]));
+  EXPECT_LT(maxDelta, 0.05f);
+  EXPECT_NEAR(output.back(), 0.1f * std::pow(10.0f, 26.0f / 20.0f), 0.01f);
+}
+
 TEST_F(NamProcessorTest, QualityPersistsAcrossModelLoads)
 {
   proc.setQuality(0.0);
