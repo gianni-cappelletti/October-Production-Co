@@ -1473,4 +1473,4 @@ struct OpcVcvIrWidget final : ModuleWidget
 }  // namespace
 
 // NOLINTNEXTLINE(bugprone-throwing-static-initialization)
-Model* modelOpcVcvIr = createModel<OpcVcvIr, OpcVcvIrWidget>("opc-vcv-ir");
+Model* modelOpcVcvIr = createModel<OpcVcvIr, OpcVcvIrWidget>("OPC-OctobIR");
