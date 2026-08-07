@@ -21,15 +21,9 @@ The [`tones/`](tones) directory ships a starter pack of impulse responses and NA
 
 These assets are GPL-3.0-licensed alongside the rest of the project -- drop them into OctobIR's IR slots or OctoBASS's NAM loader to get started.
 
-Hear it in action! Raw bass DI, then the same DI processed by OctoBASS:
+Hear it in action:
 
-**Raw DI**
-
-https://github.com/user-attachments/assets/dc8d3316-7a73-4e9f-92c5-e41b4101d1a1
-
-**Processed**
-
-https://github.com/user-attachments/assets/55826a40-47cb-4395-9ee8-78e17190db8d
+[![Watch the demo](https://img.youtube.com/vi/2IXuBt0V-WM/maxresdefault.jpg)](https://youtu.be/2IXuBt0V-WM)
 
 ## Supported Platforms
 
