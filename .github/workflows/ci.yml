@@ -305,6 +305,35 @@ jobs:
       shell: bash
       run: ./build/test-octobir-juce-windows/plugins/octobir/juce/tests/octobir-plugin-tests.exe
 
+  test-octobir-vcv-windows:
+    name: Run OctobIR VCV Tests (Windows)
+    runs-on: windows-latest
+    needs: [lint]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Configure CMake
+      shell: bash
+      run: cmake --preset test-octobir-vcv-windows -G Ninja
+
+    - name: Build VCV tests
+      shell: bash
+      run: cmake --build build/test-octobir-vcv-windows --target octobir-vcv-tests -j
+
+    - name: Run VCV tests
+      shell: bash
+      run: ./build/test-octobir-vcv-windows/plugins/octobir/vcv-rack/tests/octobir-vcv-tests.exe
+
   test-octobass-juce-windows:
     name: Run OctoBASS JUCE Tests (Windows)
     runs-on: windows-latest
