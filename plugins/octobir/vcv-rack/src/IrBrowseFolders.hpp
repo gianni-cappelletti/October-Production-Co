@@ -28,11 +28,17 @@ inline IrBrowseFolders& irBrowseFolders()
 inline std::string userHomeFolder()
 {
 #ifdef _WIN32
-  const char* home = std::getenv("USERPROFILE");
+  // The narrow getenv returns the ANSI code page, Rack paths must be UTF-8
+  const wchar_t* home = _wgetenv(L"USERPROFILE");
+  if (home != nullptr)
+    return rack::string::UTF16toUTF8(home);
 #else
   const char* home = std::getenv("HOME");
+  if (home != nullptr)
+    return home;
 #endif
-  return home != nullptr ? std::string(home) : std::string();
+  WARN("User home folder is not set in the environment");
+  return "";
 }
 
 inline json_t* browseFoldersToJson()

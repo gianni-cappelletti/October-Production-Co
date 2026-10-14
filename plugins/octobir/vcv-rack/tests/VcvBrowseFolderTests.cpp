@@ -22,7 +22,7 @@ std::string toUtf8(const fs::path& path)
 fs::path homeFolder()
 {
 #ifdef _WIN32
-  const char* home = std::getenv("USERPROFILE");
+  const wchar_t* home = _wgetenv(L"USERPROFILE");
 #else
   const char* home = std::getenv("HOME");
 #endif
@@ -97,6 +97,20 @@ TEST_F(VcvBrowseFolderTest, FirstEverBrowse_OpensHomeFolder)
   EXPECT_TRUE(isFolder(module.getBrowseStartFolder(false), homeFolder()));
   EXPECT_TRUE(isFolder(module.getBrowseStartFolder(true), homeFolder()));
 }
+
+#ifdef _WIN32
+TEST_F(VcvBrowseFolderTest, FirstEverBrowse_WithNonAsciiUserProfile_OpensHomeFolder)
+{
+  const fs::path nonAsciiHome = makeFolder(fs::path(u8"José 山田"));
+  const std::wstring originalHome = homeFolder().wstring();
+  ASSERT_EQ(_wputenv_s(L"USERPROFILE", nonAsciiHome.c_str()), 0);
+
+  const std::string startFolder = OpcVcvIr().getBrowseStartFolder(false);
+
+  _wputenv_s(L"USERPROFILE", originalHome.c_str());
+  EXPECT_TRUE(isFolder(startFolder, nonAsciiHome));
+}
+#endif
 
 // Rule 2: last folder used for this slot, across modules and Rack sessions
 

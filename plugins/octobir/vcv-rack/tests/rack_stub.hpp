@@ -182,6 +182,19 @@ inline std::string getDirectory(const std::string& path)
 
 }  // namespace system
 
+#ifdef _WIN32
+namespace string
+{
+
+inline std::string UTF16toUTF8(const std::wstring& w)
+{
+  const std::u8string u8 = std::filesystem::path(w).u8string();
+  return {u8.begin(), u8.end()};
+}
+
+}  // namespace string
+#endif
+
 template <typename T>
 T clamp(T x, T lo, T hi)
 {

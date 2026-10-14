@@ -178,6 +178,19 @@
       }
     },
     {
+      "name": "test-octobir-vcv-windows",
+      "displayName": "OctobIR VCV Tests (Windows, no ASan)",
+      "inherits": "_dev-base",
+      "binaryDir": "${sourceDir}/build/test-octobir-vcv-windows",
+      "cacheVariables": {
+        "BUILD_OCTOBIR_JUCE": "OFF",
+        "BUILD_OCTOBIR_VCV": "OFF",
+        "BUILD_OCTOBASS": "OFF",
+        "BUILD_OCTOBASS_JUCE": "OFF",
+        "BUILD_OCTOBIR_VCV_TESTS": "ON"
+      }
+    },
+    {
       "name": "test-octobass-juce-windows",
       "displayName": "OctoBASS JUCE Tests (Windows, no ASan)",
       "inherits": "_dev-base",
@@ -205,6 +218,7 @@
     { "name": "test-octobass-juce", "configurePreset": "test-octobass-juce", "jobs": 0 },
     { "name": "test-octobir-core-windows", "configurePreset": "test-octobir-core-windows", "jobs": 0 },
     { "name": "test-octobir-juce-windows", "configurePreset": "test-octobir-juce-windows", "jobs": 0 },
+    { "name": "test-octobir-vcv-windows", "configurePreset": "test-octobir-vcv-windows", "jobs": 0 },
     { "name": "test-octobass-juce-windows", "configurePreset": "test-octobass-juce-windows", "jobs": 0 }
   ]
 }
