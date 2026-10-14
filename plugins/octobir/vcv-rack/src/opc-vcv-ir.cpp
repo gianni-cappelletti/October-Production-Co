@@ -478,14 +478,17 @@ void openIRFileDialog(OpcVcvIr* module, bool isIR2)
     return;
   }
 
-  char* path = osdialog_file(OSDIALOG_OPEN, nullptr, nullptr, filters);
+  const std::string startFolder = module->getBrowseStartFolder(isIR2);
+  char* path = osdialog_file(OSDIALOG_OPEN, startFolder.empty() ? nullptr : startFolder.c_str(),
+                             nullptr, filters);
   if (path != nullptr)
   {
-    if (isIR2)
-      module->loadIR2(std::string(path));
-    else
-      module->loadIR(std::string(path));
+    module->loadPickedFile(isIR2, std::string(path));
     free(path);
+  }
+  else
+  {
+    INFO("openIRFileDialog: IR %s file dialog cancelled", isIR2 ? "B" : "A");
   }
   osdialog_filters_free(filters);
 }

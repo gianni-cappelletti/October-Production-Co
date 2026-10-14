@@ -16,6 +16,7 @@ add_executable(octobir-vcv-tests
     TestMain.cpp
     VcvModuleTests.cpp
     VcvAudioTests.cpp
+    VcvBrowseFolderTests.cpp
 )
 
 target_include_directories(octobir-vcv-tests

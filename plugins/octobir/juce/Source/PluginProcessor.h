@@ -2,12 +2,24 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <cstdint>
 #include <octobir-core/IRProcessor.hpp>
 
-class OctobIRProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
+#include "BrowseFolderMemory.h"
+
+// AsyncUpdater is public so tests can flush deferred work deterministically
+// with handleUpdateNowIfNeeded() instead of pumping the message loop
+class OctobIRProcessor : public juce::AudioProcessor, public juce::AsyncUpdater
 {
  public:
-  OctobIRProcessor();
+  enum class FileSlot : uint8_t
+  {
+    IR1,
+    IR2
+  };
+
+  explicit OctobIRProcessor(const juce::File& browseFolderSettingsFile =
+                                BrowseFolderMemory::getDefaultSettingsFile(JucePlugin_Name));
   ~OctobIRProcessor() override;
 
   void prepareToPlay(double sampleRate, int samplesPerBlock) override;
@@ -44,6 +56,10 @@ class OctobIRProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
   juce::String getCurrentIR1Path() const { return currentIR1Path_; }
   juce::String getCurrentIR2Path() const { return currentIR2Path_; }
 
+  // File browser support, message thread only
+  juce::File getBrowseStartFolder(FileSlot slot) const;
+  bool loadPickedFile(FileSlot slot, const juce::File& file, juce::String& errorMessage);
+
   juce::AudioProcessorValueTreeState& getAPVTS() { return apvts_; }
 
   float getCurrentInputLevel() const { return irProcessor_.getCurrentInputLevel(); }
@@ -57,6 +73,7 @@ class OctobIRProcessor : public juce::AudioProcessor, private juce::AsyncUpdater
   octob::IRProcessor irProcessor_;
   juce::String currentIR1Path_;
   juce::String currentIR2Path_;
+  BrowseFolderMemory browseFolderMemory_;
 
   juce::AudioProcessorValueTreeState apvts_;
   juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

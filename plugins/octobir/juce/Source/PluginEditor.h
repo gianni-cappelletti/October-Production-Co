@@ -159,10 +159,7 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
   void swapIROrderClicked();
   void updateMeters();
   void cycleIRFile(int irIndex, int direction);
-  juce::File getLastBrowsedDirectory() const;
-  void updateLastBrowsedDirectory(const juce::File& file);
 
-  juce::File lastBrowsedDirectory_;
   juce::Image logoImage_;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OctobIREditor)

@@ -111,12 +111,10 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
   void irClearClicked();
   void irPrevClicked();
   void irNextClicked();
-  void loadNamFile(const juce::File& file);
-  void loadIRFile(const juce::File& file);
+  void showNamLoadResult(const juce::File& file, bool loaded, const juce::String& error);
+  void showIRLoadResult(const juce::File& file, bool loaded, const juce::String& error);
   void cycleNamFile(int direction);
   void cycleIRFile(int direction);
-  juce::File getLastBrowsedDirectory() const;
-  void updateLastBrowsedDirectory(const juce::File& file);
 
   // Cached parameter handles so the 30 Hz timer and the EQ display callbacks
   // avoid per-tick string lookups
@@ -142,7 +140,6 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
   ParamHandle eqHighCutFreqParam_;
   ParamHandle crossoverParam_;
 
-  juce::File lastBrowsedDirectory_;
   juce::Image logoImage_;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OctoBassEditor)

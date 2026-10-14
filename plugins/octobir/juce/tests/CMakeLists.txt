@@ -16,6 +16,7 @@ add_executable(octobir-plugin-tests
     TestMain.cpp
     PluginProcessorTests.cpp
     PluginAudioTests.cpp
+    BrowseFolderTests.cpp
     ../Source/PluginProcessor.cpp
     ../Source/PluginEditor.cpp
 )

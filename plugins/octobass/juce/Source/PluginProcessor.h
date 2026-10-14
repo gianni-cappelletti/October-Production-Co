@@ -4,8 +4,11 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
 #include <octobass-core/BassProcessor.hpp>
 #include <octobass-core/Types.hpp>
+
+#include "BrowseFolderMemory.h"
 
 // AsyncUpdater is public so tests can flush deferred work deterministically
 // with handleUpdateNowIfNeeded() instead of pumping the message loop
@@ -14,7 +17,14 @@ class OctoBassProcessor : public juce::AudioProcessor,
                           private juce::AudioProcessorValueTreeState::Listener
 {
  public:
-  OctoBassProcessor();
+  enum class FileSlot : uint8_t
+  {
+    NamModel,
+    ImpulseResponse
+  };
+
+  explicit OctoBassProcessor(const juce::File& browseFolderSettingsFile =
+                                 BrowseFolderMemory::getDefaultSettingsFile(JucePlugin_Name));
   ~OctoBassProcessor() override;
 
   void prepareToPlay(double sampleRate, int samplesPerBlock) override;
@@ -65,6 +75,10 @@ class OctoBassProcessor : public juce::AudioProcessor,
   bool isIRLoaded() const;
   juce::String getCurrentIRPath() const;
 
+  // File browser support, message thread only
+  juce::File getBrowseStartFolder(FileSlot slot) const;
+  bool loadPickedFile(FileSlot slot, const juce::File& file, juce::String& errorMessage);
+
   int getLatencySamples() const;
 
   // Spectrum analyzer FIFO (single-writer audio thread, single-reader GUI timer)
@@ -80,6 +94,7 @@ class OctoBassProcessor : public juce::AudioProcessor,
   juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
   octob::BassProcessor bassProcessor_;
+  BrowseFolderMemory browseFolderMemory_;
 
   bool prevLowSolo_ = false;
   bool prevHighSolo_ = false;

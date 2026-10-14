@@ -705,8 +705,9 @@ void OctoBassEditor::resized()
 
 void OctoBassEditor::namLoadClicked()
 {
-  auto chooser = std::make_shared<juce::FileChooser>("Select NAM model file",
-                                                     getLastBrowsedDirectory(), "*.nam");
+  auto chooser = std::make_shared<juce::FileChooser>(
+      "Select NAM model file",
+      audioProcessor.getBrowseStartFolder(OctoBassProcessor::FileSlot::NamModel), "*.nam");
 
   auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
@@ -721,11 +722,15 @@ void OctoBassEditor::namLoadClicked()
           return;
         }
         auto file = fc.getResult();
-        if (file.existsAsFile())
+        if (!file.existsAsFile())
         {
-          safeThis->updateLastBrowsedDirectory(file);
-          safeThis->loadNamFile(file);
+          DBG("NAM chooser closed without a file");
+          return;
         }
+        juce::String error;
+        const bool loaded = safeThis->audioProcessor.loadPickedFile(
+            OctoBassProcessor::FileSlot::NamModel, file, error);
+        safeThis->showNamLoadResult(file, loaded, error);
       });
 }
 
@@ -780,10 +785,10 @@ static juce::File adjacentFile(const juce::String& currentPath, const juce::Stri
   return files[(currentIndex + direction + files.size()) % files.size()];
 }
 
-void OctoBassEditor::loadNamFile(const juce::File& file)
+void OctoBassEditor::showNamLoadResult(const juce::File& file, bool loaded,
+                                       const juce::String& error)
 {
-  juce::String error;
-  if (audioProcessor.loadNamModel(file.getFullPathName(), error))
+  if (loaded)
   {
     namLCDDisplay_.setText(file.getFileName());
   }
@@ -798,16 +803,21 @@ void OctoBassEditor::loadNamFile(const juce::File& file)
 void OctoBassEditor::cycleNamFile(int direction)
 {
   auto next = adjacentFile(audioProcessor.getCurrentNamModelPath(), "*.nam", direction);
-  if (next != juce::File())
-    loadNamFile(next);
+  if (next == juce::File())
+    return;
+
+  juce::String error;
+  const bool loaded = audioProcessor.loadNamModel(next.getFullPathName(), error);
+  showNamLoadResult(next, loaded, error);
 }
 
 // --- IR file loader handlers ---
 
 void OctoBassEditor::irLoadClicked()
 {
-  auto chooser = std::make_shared<juce::FileChooser>("Select impulse response WAV file",
-                                                     getLastBrowsedDirectory(), "*.wav");
+  auto chooser = std::make_shared<juce::FileChooser>(
+      "Select impulse response WAV file",
+      audioProcessor.getBrowseStartFolder(OctoBassProcessor::FileSlot::ImpulseResponse), "*.wav");
 
   auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
@@ -822,11 +832,15 @@ void OctoBassEditor::irLoadClicked()
           return;
         }
         auto file = fc.getResult();
-        if (file.existsAsFile())
+        if (!file.existsAsFile())
         {
-          safeThis->updateLastBrowsedDirectory(file);
-          safeThis->loadIRFile(file);
+          DBG("IR chooser closed without a file");
+          return;
         }
+        juce::String error;
+        const bool loaded = safeThis->audioProcessor.loadPickedFile(
+            OctoBassProcessor::FileSlot::ImpulseResponse, file, error);
+        safeThis->showIRLoadResult(file, loaded, error);
       });
 }
 
@@ -846,10 +860,10 @@ void OctoBassEditor::irNextClicked()
   cycleIRFile(1);
 }
 
-void OctoBassEditor::loadIRFile(const juce::File& file)
+void OctoBassEditor::showIRLoadResult(const juce::File& file, bool loaded,
+                                      const juce::String& error)
 {
-  juce::String error;
-  if (audioProcessor.loadImpulseResponse(file.getFullPathName(), error))
+  if (loaded)
   {
     irLCDDisplay_.setText(file.getFileName());
   }
@@ -864,40 +878,10 @@ void OctoBassEditor::loadIRFile(const juce::File& file)
 void OctoBassEditor::cycleIRFile(int direction)
 {
   auto next = adjacentFile(audioProcessor.getCurrentIRPath(), "*.wav", direction);
-  if (next != juce::File())
-    loadIRFile(next);
-}
+  if (next == juce::File())
+    return;
 
-// --- Directory helpers ---
-
-juce::File OctoBassEditor::getLastBrowsedDirectory() const
-{
-  if (lastBrowsedDirectory_.exists() && lastBrowsedDirectory_.isDirectory())
-    return lastBrowsedDirectory_;
-
-  juce::String namPath = audioProcessor.getCurrentNamModelPath();
-  if (namPath.isNotEmpty())
-  {
-    juce::File namFile(namPath);
-    if (namFile.existsAsFile())
-      return namFile.getParentDirectory();
-  }
-
-  juce::String irPath = audioProcessor.getCurrentIRPath();
-  if (irPath.isNotEmpty())
-  {
-    juce::File irFile(irPath);
-    if (irFile.existsAsFile())
-      return irFile.getParentDirectory();
-  }
-
-  return juce::File::getSpecialLocation(juce::File::userHomeDirectory);
-}
-
-void OctoBassEditor::updateLastBrowsedDirectory(const juce::File& file)
-{
-  if (file.existsAsFile())
-    lastBrowsedDirectory_ = file.getParentDirectory();
-  else if (file.isDirectory())
-    lastBrowsedDirectory_ = file;
+  juce::String error;
+  const bool loaded = audioProcessor.loadImpulseResponse(next.getFullPathName(), error);
+  showIRLoadResult(next, loaded, error);
 }

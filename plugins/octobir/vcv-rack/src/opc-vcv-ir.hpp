@@ -13,6 +13,8 @@
 #include <octobir-core/IRProcessor.hpp>
 #include <string>
 
+#include "IrBrowseFolders.hpp"
+
 struct OpcVcvIr final : Module
 {
   enum class ParamId : uint8_t
@@ -175,6 +177,20 @@ struct OpcVcvIr final : Module
       std::lock_guard<std::mutex> lock(path_mutex_);
       loaded_file_path2_.clear();
     }
+  }
+
+  std::string getBrowseStartFolder(bool ir2) const
+  {
+    return resolveIRBrowseStartFolder(ir2, getLoadedFilePath(ir2));
+  }
+
+  void loadPickedFile(bool ir2, const std::string& file_path)
+  {
+    rememberPickedIRFolder(ir2, file_path);
+    if (ir2)
+      loadIR2(file_path);
+    else
+      loadIR(file_path);
   }
 
   void clearIR1()

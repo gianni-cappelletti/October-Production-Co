@@ -89,11 +89,12 @@ void migrateLegacyGraphicEQState(juce::ValueTree& state)
 
 }  // namespace
 
-OctoBassProcessor::OctoBassProcessor()
+OctoBassProcessor::OctoBassProcessor(const juce::File& browseFolderSettingsFile)
     : AudioProcessor(BusesProperties()
                          .withInput("Input", juce::AudioChannelSet::mono(), true)
                          .withOutput("Output", juce::AudioChannelSet::mono(), true)),
-      apvts_(*this, nullptr, "OctoBassParams", createParameterLayout())
+      apvts_(*this, nullptr, "OctoBassParams", createParameterLayout()),
+      browseFolderMemory_(browseFolderSettingsFile)
 {
   for (int i = 0; i < octob::kGraphicEQNumNodes; ++i)
   {
@@ -608,6 +609,32 @@ void OctoBassProcessor::handleAsyncUpdate()
     juce::String err;
     loadNamModel(namFile.getFullPathName(), err);
   }
+}
+
+namespace
+{
+BrowseFolderMemory::Slot toBrowseSlot(OctoBassProcessor::FileSlot slot)
+{
+  return slot == OctoBassProcessor::FileSlot::NamModel ? BrowseFolderMemory::Slot{"NAM", {}}
+                                                       : BrowseFolderMemory::Slot{"IR", {}};
+}
+}  // namespace
+
+juce::File OctoBassProcessor::getBrowseStartFolder(FileSlot slot) const
+{
+  const auto loadedPath =
+      slot == FileSlot::NamModel ? getCurrentNamModelPath() : getCurrentIRPath();
+  const auto loadedFile =
+      juce::File::isAbsolutePath(loadedPath) ? juce::File(loadedPath) : juce::File();
+  return browseFolderMemory_.getStartFolder(toBrowseSlot(slot), loadedFile);
+}
+
+bool OctoBassProcessor::loadPickedFile(FileSlot slot, const juce::File& file,
+                                       juce::String& errorMessage)
+{
+  browseFolderMemory_.rememberPickedFile(toBrowseSlot(slot), file);
+  return slot == FileSlot::NamModel ? loadNamModel(file.getFullPathName(), errorMessage)
+                                    : loadImpulseResponse(file.getFullPathName(), errorMessage);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
