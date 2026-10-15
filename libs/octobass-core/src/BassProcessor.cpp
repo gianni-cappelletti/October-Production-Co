@@ -40,7 +40,8 @@ void BassProcessor::setSampleRate(SampleRate sampleRate)
   graphicEQ_.setSampleRate(sampleRate);
   crossover_.setSampleRate(sampleRate);
   compressor_.setSampleRate(sampleRate);
-  namProcessor_.setSampleRate(sampleRate);
+  for (auto& nam : namSlots_)
+    nam.setSampleRate(sampleRate);
   irProcessor_.setSampleRate(sampleRate);
   noiseGate_.setSampleRate(sampleRate);
 
@@ -58,7 +59,8 @@ void BassProcessor::setMaxBlockSize(FrameCount maxBlockSize)
   dryBuffer_.resize(maxBlockSize, 0.0f);
   dryHighBandBuffer_.resize(maxBlockSize, 0.0f);
   delayedLowBuffer_.resize(maxBlockSize, 0.0f);
-  namProcessor_.setMaxBlockSize(maxBlockSize);
+  for (auto& nam : namSlots_)
+    nam.setMaxBlockSize(maxBlockSize);
   irProcessor_.setMaxBlockSize(maxBlockSize);
 
   // Prepare-time call with no concurrent audio: size the delay line directly
@@ -110,62 +112,73 @@ std::string BassProcessor::getCurrentIRPath() const
   return currentIRPath_;
 }
 
-bool BassProcessor::loadNamModel(const std::string& filepath, std::string& errorMessage)
+bool BassProcessor::loadNamModel(NamSlot slot, const std::string& filepath,
+                                 std::string& errorMessage)
 {
-  if (namProcessor_.loadModel(filepath, errorMessage))
+  if (namSlot(slot).loadModel(filepath, errorMessage))
   {
-    currentNamModelPath_ = filepath;
+    namModelPaths_[slotIndex(slot)] = filepath;
     return true;
   }
   return false;
 }
 
-void BassProcessor::clearNamModel()
+void BassProcessor::clearNamModel(NamSlot slot)
 {
-  namProcessor_.clearModel();
-  currentNamModelPath_.clear();
+  namSlot(slot).clearModel();
+  namModelPaths_[slotIndex(slot)].clear();
 }
 
-void BassProcessor::setNamQuality(float quality)
+bool BassProcessor::isNamModelLoaded(NamSlot slot) const
 {
-  namProcessor_.setQuality(static_cast<double>(quality));
+  return namSlot(slot).isModelLoaded();
 }
 
-int BassProcessor::getNamQualityLevels() const
+std::string BassProcessor::getCurrentNamModelPath(NamSlot slot) const
 {
-  return namProcessor_.getNumQualityLevels();
+  return namModelPaths_[slotIndex(slot)];
 }
 
-void BassProcessor::setNamCalibrateInput(bool enabled)
+void BassProcessor::setNamQuality(NamSlot slot, float quality)
 {
-  namProcessor_.setCalibrateInput(enabled);
+  namSlot(slot).setQuality(static_cast<double>(quality));
 }
 
-void BassProcessor::setNamInputCalibrationLevel(float levelDbu)
+int BassProcessor::getNamQualityLevels(NamSlot slot) const
 {
-  namProcessor_.setInputCalibrationLevel(levelDbu);
+  return namSlot(slot).getNumQualityLevels();
 }
 
-void BassProcessor::setNamOutputMode(int mode)
+void BassProcessor::setNamCalibrateInput(NamSlot slot, bool enabled)
+{
+  namSlot(slot).setCalibrateInput(enabled);
+}
+
+void BassProcessor::setNamInputCalibrationLevel(NamSlot slot, float levelDbu)
+{
+  namSlot(slot).setInputCalibrationLevel(levelDbu);
+}
+
+void BassProcessor::setNamOutputMode(NamSlot slot, int mode)
 {
   mode = std::clamp(mode, static_cast<int>(NamOutputMode::Raw),
                     static_cast<int>(NamOutputMode::Calibrated));
-  namProcessor_.setOutputMode(static_cast<NamOutputMode>(mode));
+  namSlot(slot).setOutputMode(static_cast<NamOutputMode>(mode));
 }
 
-NamModelMetadata BassProcessor::getNamModelMetadata() const
+NamModelMetadata BassProcessor::getNamModelMetadata(NamSlot slot) const
 {
-  return namProcessor_.getModelMetadata();
+  return namSlot(slot).getModelMetadata();
 }
 
-bool BassProcessor::isNamModelLoaded() const
+void BassProcessor::setNamEnabled(NamSlot slot, bool enabled)
 {
-  return namProcessor_.isModelLoaded();
+  namSlot(slot).setEnabled(enabled);
 }
 
-std::string BassProcessor::getCurrentNamModelPath() const
+bool BassProcessor::isNamEnabled(NamSlot slot) const
 {
-  return currentNamModelPath_;
+  return namSlot(slot).isEnabled();
 }
 
 void BassProcessor::setGraphicEQNode(int slot, bool active, float freqHz, float gainDb)
@@ -278,14 +291,15 @@ void BassProcessor::processMono(const Sample* input, Sample* output, FrameCount 
     std::copy(highBandBuffer_.data(), highBandBuffer_.data() + numFrames,
               dryHighBandBuffer_.data());
 
-  // High band chain: InputGain -> NAM -> IR -> OutputGain
+  // High band chain: InputGain -> NAM slot 1 -> NAM slot 2 -> IR -> OutputGain
 
   // 1. Apply input gain to high band
   for (FrameCount i = 0; i < numFrames; ++i)
     highBandBuffer_[i] *= highInputGainLinear_;
 
-  // 2. NAM processing (passes through when no model loaded)
-  namProcessor_.process(highBandBuffer_.data(), highBandBuffer_.data(), numFrames);
+  // 2. NAM slots in series (each passes through when empty or switched off)
+  for (auto& nam : namSlots_)
+    nam.process(highBandBuffer_.data(), highBandBuffer_.data(), numFrames);
 
   // 3. Convolve high band through IR
   irProcessor_.processMono(highBandBuffer_.data(), highBandBuffer_.data(), numFrames);
@@ -371,7 +385,8 @@ void BassProcessor::reset()
   graphicEQ_.reset();
   crossover_.reset();
   compressor_.reset();
-  namProcessor_.reset();
+  for (auto& nam : namSlots_)
+    nam.reset();
   irProcessor_.reset();
   noiseGate_.reset();
   currentMakeupLinear_ = 1.0f;

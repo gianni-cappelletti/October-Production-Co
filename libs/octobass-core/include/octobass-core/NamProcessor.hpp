@@ -84,6 +84,13 @@ class NamProcessor
   void setInputCalibrationLevel(float levelDbu);
   void setOutputMode(NamOutputMode mode);
 
+  // Slot on/off switch. Real-time safe, callable per audio block. A switched
+  // off slot outputs its input untouched, but the model keeps processing so
+  // switching back on resumes exactly where an always-on model would be;
+  // both directions crossfade to stay click-free.
+  void setEnabled(bool enabled);
+  bool isEnabled() const;
+
   void setSampleRate(double sampleRate);
   void setMaxBlockSize(size_t maxBlockSize);
 

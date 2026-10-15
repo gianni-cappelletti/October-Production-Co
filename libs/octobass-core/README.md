@@ -9,7 +9,7 @@ Platform-agnostic bass processing DSP library.
 - Unified "squash" control for compression intensity across modes
 - Noise gate with hysteresis and peak detection
 - 24-band graphic EQ (ISO 1/3-octave spacing, ~28 Hz to 12.6 kHz)
-- Neural Amp Modeler (NAM) integration for amp modeling in the high-frequency band
+- Two serial Neural Amp Modeler (NAM) slots in the high-frequency band, each with its own quality, calibration, and on/off switch
 - IR convolution in the high-frequency chain (via octobir-core)
 - Low/high band solo with mutually exclusive selection
 - Per-band level control and high-band input/output gain
@@ -31,7 +31,8 @@ processor.setSquash(0.5f);
 processor.setCompressionMode(0); // VCA
 
 std::string error;
-processor.loadNamModel("/path/to/model.nam", error);
+processor.loadNamModel(octob::NamSlot::First, "/path/to/pedal.nam", error);
+processor.loadNamModel(octob::NamSlot::Second, "/path/to/amp.nam", error);
 processor.loadImpulseResponse("/path/to/cabinet.wav", error);
 
 float input[512], output[512];
@@ -55,11 +56,17 @@ Main bass processing class.
 - `void clearImpulseResponse()` - Remove loaded IR
 - `bool isIRLoaded() const` / `std::string getCurrentIRPath() const`
 
-#### NAM Model Loading
+#### NAM Slots
 
-- `bool loadNamModel(const std::string& filepath, std::string& errorMessage)` - Load a Neural Amp Model
-- `void clearNamModel()` - Remove loaded model
-- `bool isNamModelLoaded() const` / `std::string getCurrentNamModelPath() const`
+High band chain: input gain -> `NamSlot::First` -> `NamSlot::Second` -> IR -> output gain. An empty or switched-off slot passes audio through unchanged.
+
+- `bool loadNamModel(NamSlot slot, const std::string& filepath, std::string& errorMessage)` - Load a Neural Amp Model into a slot
+- `void clearNamModel(NamSlot slot)` - Remove the slot's model
+- `bool isNamModelLoaded(NamSlot slot) const` / `std::string getCurrentNamModelPath(NamSlot slot) const`
+- `void setNamQuality(NamSlot slot, float quality)` / `int getNamQualityLevels(NamSlot slot) const` - Slimmable model quality (message thread only)
+- `void setNamCalibrateInput(NamSlot slot, bool enabled)` / `void setNamInputCalibrationLevel(NamSlot slot, float levelDbu)` / `void setNamOutputMode(NamSlot slot, int mode)` - Per-slot calibration (0=Raw, 1=Normalized, 2=Calibrated)
+- `NamModelMetadata getNamModelMetadata(NamSlot slot) const` - Level metadata of the slot's model
+- `void setNamEnabled(NamSlot slot, bool enabled)` / `bool isNamEnabled(NamSlot slot) const` - Slot on/off with a 10 ms crossfade; the model keeps processing while off
 
 #### Crossover
 

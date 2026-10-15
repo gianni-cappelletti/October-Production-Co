@@ -4,8 +4,9 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <octobass-core/NamProcessor.hpp>
+#include <octobass-core/Types.hpp>
 
-// Modal overlay with the NAM calibration settings, mirroring the NAM Gateway
+// Modal overlay with one NAM slot's calibration settings, mirroring the NAM Gateway
 // plugin: an input-calibration toggle with its reference level in dBu, and
 // the output mode (Raw / Normalized / Calibrated). Covers the whole editor
 // with a scrim; clicking outside the panel, the close button, or Escape
@@ -13,7 +14,7 @@
 class NamCalibrationPanel : public juce::Component
 {
  public:
-  explicit NamCalibrationPanel(juce::AudioProcessorValueTreeState& apvts);
+  NamCalibrationPanel(juce::AudioProcessorValueTreeState& apvts, octob::NamSlot slot);
 
   // Greys out the controls whose metadata the loaded model lacks
   void setCapabilities(const octob::NamModelMetadata& metadata);

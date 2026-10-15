@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 
 #include <algorithm>
+#include <optional>
 #include <vector>
 
 #include "LegacyEQBands.h"
@@ -10,6 +11,56 @@ namespace
 {
 
 constexpr int kGraphicEQStateFormat = 2;
+
+constexpr std::array<OctoBassProcessor::NamSlotIds, octob::kNumNamSlots> kNamSlotIds{{
+    {"namQuality", "namCalibrateInput", "namInputCalibrationLevel", "namOutputMode", "namOn",
+     "namModelPath"},
+    {"nam2Quality", "nam2CalibrateInput", "nam2InputCalibrationLevel", "nam2OutputMode", "nam2On",
+     "nam2ModelPath"},
+}};
+
+std::unique_ptr<juce::AudioParameterFloat> makeNamQualityParameter(const juce::ParameterID& id,
+                                                                   const juce::String& slotName)
+{
+  return std::make_unique<juce::AudioParameterFloat>(
+      id, slotName + " Quality", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+      octob::DefaultNamQuality, juce::String(), juce::AudioProcessorParameter::genericParameter,
+      [](float value, int) { return juce::String(static_cast<int>(value * 100.0f)) + "%"; });
+}
+
+std::unique_ptr<juce::AudioParameterBool> makeNamCalibrateInputParameter(
+    const juce::ParameterID& id, const juce::String& slotName)
+{
+  return std::make_unique<juce::AudioParameterBool>(id, slotName + " Calibrate Input", false);
+}
+
+std::unique_ptr<juce::AudioParameterFloat> makeNamInputLevelParameter(const juce::ParameterID& id,
+                                                                      const juce::String& slotName)
+{
+  return std::make_unique<juce::AudioParameterFloat>(
+      id, slotName + " Input Level",
+      juce::NormalisableRange<float>(octob::MinNamInputCalibrationLevelDbu,
+                                     octob::MaxNamInputCalibrationLevelDbu, 0.1f),
+      octob::DefaultNamInputCalibrationLevelDbu, juce::String(),
+      juce::AudioProcessorParameter::genericParameter,
+      [](float value, int) { return juce::String(value, 1) + " dBu"; });
+}
+
+std::unique_ptr<juce::AudioParameterChoice> makeNamOutputModeParameter(const juce::ParameterID& id,
+                                                                       const juce::String& slotName)
+{
+  return std::make_unique<juce::AudioParameterChoice>(
+      id, slotName + " Output Mode", juce::StringArray("Raw", "Normalized", "Calibrated"),
+      static_cast<int>(octob::NamOutputMode::Normalized));
+}
+
+// "On" rather than "Bypass" so a footswitch sending CC 127 for down maps
+// straight onto the slot being engaged
+std::unique_ptr<juce::AudioParameterBool> makeNamOnParameter(const juce::ParameterID& id,
+                                                             const juce::String& slotName)
+{
+  return std::make_unique<juce::AudioParameterBool>(id, slotName + " On", true);
+}
 
 // Convert legacy fixed-band EQ state (eqBandGain0..23) into node parameters.
 // The largest-magnitude gains win when more bands are set than node slots exist.
@@ -122,17 +173,23 @@ OctoBassProcessor::OctoBassProcessor(const juce::File& browseFolderSettingsFile)
   lowBandSoloParam_ = apvts_.getRawParameterValue("lowBandSolo");
   highBandSoloParam_ = apvts_.getRawParameterValue("highBandSolo");
 
-  namQualityParam_ = apvts_.getRawParameterValue("namQuality");
-  apvts_.addParameterListener("namQuality", this);
-
-  namCalibrateInputParam_ = apvts_.getRawParameterValue("namCalibrateInput");
-  namInputCalibrationLevelParam_ = apvts_.getRawParameterValue("namInputCalibrationLevel");
-  namOutputModeParam_ = apvts_.getRawParameterValue("namOutputMode");
+  for (const auto slot : octob::kNamSlots)
+  {
+    const auto& ids = getNamSlotIds(slot);
+    auto& params = namSlotParams(slot);
+    params.quality = apvts_.getRawParameterValue(ids.quality);
+    params.calibrateInput = apvts_.getRawParameterValue(ids.calibrateInput);
+    params.inputCalibrationLevel = apvts_.getRawParameterValue(ids.inputCalibrationLevel);
+    params.outputMode = apvts_.getRawParameterValue(ids.outputMode);
+    params.on = apvts_.getRawParameterValue(ids.on);
+    apvts_.addParameterListener(ids.quality, this);
+  }
 }
 
 OctoBassProcessor::~OctoBassProcessor()
 {
-  apvts_.removeParameterListener("namQuality", this);
+  for (const auto slot : octob::kNamSlots)
+    apvts_.removeParameterListener(getNamSlotIds(slot).quality, this);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout OctoBassProcessor::createParameterLayout()
@@ -252,28 +309,28 @@ juce::AudioProcessorValueTreeState::ParameterLayout OctoBassProcessor::createPar
       "eqHighCutFreq", "EQ High Cut Freq", freqRange, octob::MaxGraphicEQFreqHz, juce::String(),
       juce::AudioProcessorParameter::genericParameter, freqToText));
 
-  layout.add(std::make_unique<juce::AudioParameterFloat>(
-      "namQuality", "NAM Quality", juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
-      octob::DefaultNamQuality, juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(static_cast<int>(value * 100.0f)) + "%"; }));
+  using octob::NamSlot;
+  const auto& slot1 = getNamSlotIds(NamSlot::First);
+  const auto slot1Name = getNamSlotName(NamSlot::First);
 
-  // Calibration params are new in 2.2.0; the version hint keeps host-facing
-  // parameter order stable for sessions saved with older builds
-  layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"namCalibrateInput", 2},
-                                                        "NAM Calibrate Input", false));
+  // Slot 1 quality predates version hints; its calibration params arrived in
+  // 2.2.0. The hints keep host-facing parameter order stable for sessions
+  // saved with older builds.
+  layout.add(makeNamQualityParameter({slot1.quality, 0}, slot1Name));
+  layout.add(makeNamCalibrateInputParameter({slot1.calibrateInput, 2}, slot1Name));
+  layout.add(makeNamInputLevelParameter({slot1.inputCalibrationLevel, 2}, slot1Name));
+  layout.add(makeNamOutputModeParameter({slot1.outputMode, 2}, slot1Name));
 
-  layout.add(std::make_unique<juce::AudioParameterFloat>(
-      juce::ParameterID{"namInputCalibrationLevel", 2}, "NAM Input Level",
-      juce::NormalisableRange<float>(octob::MinNamInputCalibrationLevelDbu,
-                                     octob::MaxNamInputCalibrationLevelDbu, 0.1f),
-      octob::DefaultNamInputCalibrationLevelDbu, juce::String(),
-      juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 1) + " dBu"; }));
+  // New in 2.3.0, added after every older parameter
+  layout.add(makeNamOnParameter({slot1.on, 3}, slot1Name));
 
-  layout.add(std::make_unique<juce::AudioParameterChoice>(
-      juce::ParameterID{"namOutputMode", 2}, "NAM Output Mode",
-      juce::StringArray("Raw", "Normalized", "Calibrated"),
-      static_cast<int>(octob::NamOutputMode::Normalized)));
+  const auto& slot2 = getNamSlotIds(NamSlot::Second);
+  const auto slot2Name = getNamSlotName(NamSlot::Second);
+  layout.add(makeNamQualityParameter({slot2.quality, 3}, slot2Name));
+  layout.add(makeNamCalibrateInputParameter({slot2.calibrateInput, 3}, slot2Name));
+  layout.add(makeNamInputLevelParameter({slot2.inputCalibrationLevel, 3}, slot2Name));
+  layout.add(makeNamOutputModeParameter({slot2.outputMode, 3}, slot2Name));
+  layout.add(makeNamOnParameter({slot2.on, 3}, slot2Name));
 
   return layout;
 }
@@ -307,9 +364,14 @@ void OctoBassProcessor::processBlock(juce::AudioBuffer<float>& buffer,
   bassProcessor_.setDryWetMix(dryWetMixParam_->load());
   bassProcessor_.setGateThreshold(gateThresholdParam_->load());
   bassProcessor_.setHighBandMix(highBandMixParam_->load());
-  bassProcessor_.setNamCalibrateInput(namCalibrateInputParam_->load() >= 0.5f);
-  bassProcessor_.setNamInputCalibrationLevel(namInputCalibrationLevelParam_->load());
-  bassProcessor_.setNamOutputMode(static_cast<int>(namOutputModeParam_->load()));
+  for (const auto slot : octob::kNamSlots)
+  {
+    const auto& params = namSlotParams(slot);
+    bassProcessor_.setNamCalibrateInput(slot, params.calibrateInput->load() >= 0.5f);
+    bassProcessor_.setNamInputCalibrationLevel(slot, params.inputCalibrationLevel->load());
+    bassProcessor_.setNamOutputMode(slot, static_cast<int>(params.outputMode->load()));
+    bassProcessor_.setNamEnabled(slot, params.on->load() >= 0.5f);
+  }
 
   for (int i = 0; i < octob::kGraphicEQNumNodes; ++i)
   {
@@ -425,14 +487,15 @@ const juce::String OctoBassProcessor::getProgramName(int /*index*/)
 
 void OctoBassProcessor::changeProgramName(int /*index*/, const juce::String& /*newName*/) {}
 
-bool OctoBassProcessor::loadNamModel(const juce::String& filepath, juce::String& errorMessage)
+bool OctoBassProcessor::loadNamModel(octob::NamSlot slot, const juce::String& filepath,
+                                     juce::String& errorMessage)
 {
   std::string err;
-  if (bassProcessor_.loadNamModel(filepath.toStdString(), err))
+  if (bassProcessor_.loadNamModel(slot, filepath.toStdString(), err))
   {
     // DBG-only in release builds
-    [[maybe_unused]] const auto metadata = bassProcessor_.getNamModelMetadata();
-    DBG("Loaded NAM model: " + filepath + " (input level: " +
+    [[maybe_unused]] const auto metadata = bassProcessor_.getNamModelMetadata(slot);
+    DBG("Loaded " + getNamSlotName(slot) + " model: " + filepath + " (input level: " +
         (metadata.hasInputLevel ? juce::String(metadata.inputLevelDbu, 1) + " dBu" : "none") +
         ", output level: " +
         (metadata.hasOutputLevel ? juce::String(metadata.outputLevelDbu, 1) + " dBu" : "none") +
@@ -441,34 +504,34 @@ bool OctoBassProcessor::loadNamModel(const juce::String& filepath, juce::String&
     errorMessage.clear();
     return true;
   }
-  DBG("Failed to load NAM model: " + juce::String(err));
+  DBG("Failed to load " + getNamSlotName(slot) + " model: " + juce::String(err));
   errorMessage = juce::String(err);
   return false;
 }
 
-void OctoBassProcessor::clearNamModel()
+void OctoBassProcessor::clearNamModel(octob::NamSlot slot)
 {
-  bassProcessor_.clearNamModel();
+  bassProcessor_.clearNamModel(slot);
 }
 
-bool OctoBassProcessor::isNamModelLoaded() const
+bool OctoBassProcessor::isNamModelLoaded(octob::NamSlot slot) const
 {
-  return bassProcessor_.isNamModelLoaded();
+  return bassProcessor_.isNamModelLoaded(slot);
 }
 
-juce::String OctoBassProcessor::getCurrentNamModelPath() const
+juce::String OctoBassProcessor::getCurrentNamModelPath(octob::NamSlot slot) const
 {
-  return juce::String(bassProcessor_.getCurrentNamModelPath());
+  return juce::String(bassProcessor_.getCurrentNamModelPath(slot));
 }
 
-int OctoBassProcessor::getNamQualityLevels() const
+int OctoBassProcessor::getNamQualityLevels(octob::NamSlot slot) const
 {
-  return bassProcessor_.getNamQualityLevels();
+  return bassProcessor_.getNamQualityLevels(slot);
 }
 
-octob::NamModelMetadata OctoBassProcessor::getNamModelMetadata() const
+octob::NamModelMetadata OctoBassProcessor::getNamModelMetadata(octob::NamSlot slot) const
 {
-  return bassProcessor_.getNamModelMetadata();
+  return bassProcessor_.getNamModelMetadata(slot);
 }
 
 bool OctoBassProcessor::loadImpulseResponse(const juce::String& filepath,
@@ -517,8 +580,9 @@ void OctoBassProcessor::getStateInformation(juce::MemoryBlock& destData)
   if (const auto irPath = getCurrentIRPath(); irPath.isNotEmpty())
     state.setProperty("irPath", irPath, nullptr);
 
-  if (const auto namPath = getCurrentNamModelPath(); namPath.isNotEmpty())
-    state.setProperty("namModelPath", namPath, nullptr);
+  for (const auto slot : octob::kNamSlots)
+    if (const auto namPath = getCurrentNamModelPath(slot); namPath.isNotEmpty())
+      state.setProperty(getNamSlotIds(slot).modelPathProperty, namPath, nullptr);
 
   std::unique_ptr<juce::XmlElement> xml(state.createXml());
   copyXmlToBinary(*xml, destData);
@@ -545,10 +609,13 @@ void OctoBassProcessor::parameterChanged(const juce::String& parameterID, float 
 {
   // Defer to the message thread: SetSlimmableSize is not real-time safe and
   // host automation can fire this callback from the audio thread
-  if (parameterID == "namQuality")
+  for (const auto slot : octob::kNamSlots)
   {
-    namQualityDirty_.store(true, std::memory_order_release);
-    triggerAsyncUpdate();
+    if (parameterID == getNamSlotIds(slot).quality)
+    {
+      namSlotParams(slot).qualityDirty.store(true, std::memory_order_release);
+      triggerAsyncUpdate();
+    }
   }
 }
 
@@ -556,8 +623,12 @@ void OctoBassProcessor::handleAsyncUpdate()
 {
   setLatencySamples(bassProcessor_.getLatencySamples());
 
-  if (namQualityDirty_.exchange(false, std::memory_order_acq_rel))
-    bassProcessor_.setNamQuality(namQualityParam_->load());
+  for (const auto slot : octob::kNamSlots)
+  {
+    auto& params = namSlotParams(slot);
+    if (params.qualityDirty.exchange(false, std::memory_order_acq_rel))
+      bassProcessor_.setNamQuality(slot, params.quality->load());
+  }
 
   switch (pendingSoloCorrection_.exchange(SoloCorrection::None, std::memory_order_acq_rel))
   {
@@ -596,34 +667,86 @@ void OctoBassProcessor::handleAsyncUpdate()
     return file;
   };
 
-  if (auto irFile = restorableFile(state.getProperty("irPath").toString(), "wav");
-      irFile != juce::File())
+  // Every file slot ends up matching the restored state: a slot the state
+  // does not use, or whose file cannot be loaded any more, is emptied
+  juce::String err;
+  if (const auto irFile = restorableFile(state.getProperty("irPath").toString(), "wav");
+      irFile == juce::File() || !loadImpulseResponse(irFile.getFullPathName(), err))
   {
-    juce::String err;
-    loadImpulseResponse(irFile.getFullPathName(), err);
+    if (getCurrentIRPath().isNotEmpty())
+    {
+      DBG("Restored state has no usable IR, clearing the IR slot");
+      clearImpulseResponse();
+    }
   }
 
-  if (auto namFile = restorableFile(state.getProperty("namModelPath").toString(), "nam");
-      namFile != juce::File())
+  for (const auto slot : octob::kNamSlots)
   {
-    juce::String err;
-    loadNamModel(namFile.getFullPathName(), err);
+    const auto namFile =
+        restorableFile(state.getProperty(getNamSlotIds(slot).modelPathProperty).toString(), "nam");
+    if (namFile != juce::File() && loadNamModel(slot, namFile.getFullPathName(), err))
+      continue;
+
+    if (getCurrentNamModelPath(slot).isNotEmpty())
+    {
+      DBG("Restored state has no usable model for " + getNamSlotName(slot) + ", clearing it");
+      clearNamModel(slot);
+    }
   }
 }
 
 namespace
 {
+// Each NAM slot remembers its own folder; one that has never been picked from
+// falls back to the other NAM slot's folder
 BrowseFolderMemory::Slot toBrowseSlot(OctoBassProcessor::FileSlot slot)
 {
-  return slot == OctoBassProcessor::FileSlot::NamModel ? BrowseFolderMemory::Slot{"NAM", {}}
-                                                       : BrowseFolderMemory::Slot{"IR", {}};
+  switch (slot)
+  {
+    case OctoBassProcessor::FileSlot::Nam1:
+      return {"NAM", "NAM2"};
+    case OctoBassProcessor::FileSlot::Nam2:
+      return {"NAM2", "NAM"};
+    case OctoBassProcessor::FileSlot::ImpulseResponse:
+      break;
+  }
+  return {"IR", {}};
+}
+
+std::optional<octob::NamSlot> namSlotFor(OctoBassProcessor::FileSlot slot)
+{
+  switch (slot)
+  {
+    case OctoBassProcessor::FileSlot::Nam1:
+      return octob::NamSlot::First;
+    case OctoBassProcessor::FileSlot::Nam2:
+      return octob::NamSlot::Second;
+    case OctoBassProcessor::FileSlot::ImpulseResponse:
+      break;
+  }
+  return std::nullopt;
 }
 }  // namespace
 
+const OctoBassProcessor::NamSlotIds& OctoBassProcessor::getNamSlotIds(octob::NamSlot slot)
+{
+  return kNamSlotIds[static_cast<size_t>(slot)];
+}
+
+juce::String OctoBassProcessor::getNamSlotName(octob::NamSlot slot)
+{
+  return "NAM " + juce::String(static_cast<int>(slot) + 1);
+}
+
+OctoBassProcessor::FileSlot OctoBassProcessor::fileSlotFor(octob::NamSlot slot)
+{
+  return slot == octob::NamSlot::First ? FileSlot::Nam1 : FileSlot::Nam2;
+}
+
 juce::File OctoBassProcessor::getBrowseStartFolder(FileSlot slot) const
 {
-  const auto loadedPath =
-      slot == FileSlot::NamModel ? getCurrentNamModelPath() : getCurrentIRPath();
+  const auto namSlot = namSlotFor(slot);
+  const auto loadedPath = namSlot ? getCurrentNamModelPath(*namSlot) : getCurrentIRPath();
   const auto loadedFile =
       juce::File::isAbsolutePath(loadedPath) ? juce::File(loadedPath) : juce::File();
   return browseFolderMemory_.getStartFolder(toBrowseSlot(slot), loadedFile);
@@ -633,8 +756,9 @@ bool OctoBassProcessor::loadPickedFile(FileSlot slot, const juce::File& file,
                                        juce::String& errorMessage)
 {
   browseFolderMemory_.rememberPickedFile(toBrowseSlot(slot), file);
-  return slot == FileSlot::NamModel ? loadNamModel(file.getFullPathName(), errorMessage)
-                                    : loadImpulseResponse(file.getFullPathName(), errorMessage);
+  if (const auto namSlot = namSlotFor(slot))
+    return loadNamModel(*namSlot, file.getFullPathName(), errorMessage);
+  return loadImpulseResponse(file.getFullPathName(), errorMessage);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

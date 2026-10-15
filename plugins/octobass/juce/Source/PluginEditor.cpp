@@ -65,7 +65,8 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   if (auto typeface = laf_.getLCDTypeface())
   {
     graphicEQDisplay_.setTypeface(typeface);
-    namLCDDisplay_.setTypeface(typeface);
+    for (auto& controls : namSlots_)
+      controls.lcdDisplay.setTypeface(typeface);
     irLCDDisplay_.setTypeface(typeface);
   }
 
@@ -176,6 +177,7 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   addAndMakeVisible(lowBandSoloButton_);
   lowBandSoloButton_.setPaintingIsUnclipped(true);
   lowBandSoloButton_.setButtonText("S");
+  lowBandSoloButton_.setTitle("Low Band Solo");
   lowBandSoloAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "lowBandSolo", lowBandSoloButton_);
 
@@ -205,7 +207,7 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   highInputGainLabel_.setJustificationType(juce::Justification::centred);
 
   addAndMakeVisible(highInputGainSlider_);
-  setupRotarySlider(highInputGainSlider_);
+  setupTrimSlider(highInputGainSlider_);
   highInputGainAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
       audioProcessor.getAPVTS(), "highInputGain", highInputGainSlider_);
 
@@ -215,7 +217,7 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   highOutputGainLabel_.setJustificationType(juce::Justification::centred);
 
   addAndMakeVisible(highOutputGainSlider_);
-  setupRotarySlider(highOutputGainSlider_);
+  setupTrimSlider(highOutputGainSlider_);
   highOutputGainAttachment_ =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           audioProcessor.getAPVTS(), "highOutputGain", highOutputGainSlider_);
@@ -224,6 +226,7 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   addAndMakeVisible(highBandSoloButton_);
   highBandSoloButton_.setPaintingIsUnclipped(true);
   highBandSoloButton_.setButtonText("S");
+  highBandSoloButton_.setTitle("High Band Solo");
   highBandSoloAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "highBandSolo", highBandSoloButton_);
 
@@ -237,67 +240,8 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   highBandMixAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
       audioProcessor.getAPVTS(), "highBandMix", highBandMixSlider_);
 
-  // --- NAM file loader ---
-  addAndMakeVisible(namLoadButton_);
-  namLoadButton_.setPaintingIsUnclipped(true);
-  namLoadButton_.setButtonText("");
-  namLoadButton_.setTitle("Load NAM Model");
-  namLoadButton_.setComponentID("loadButton");
-  namLoadButton_.onClick = [this] { namLoadClicked(); };
-
-  addAndMakeVisible(namClearButton_);
-  namClearButton_.setPaintingIsUnclipped(true);
-  namClearButton_.setButtonText("CLEAR");
-  namClearButton_.onClick = [this] { namClearClicked(); };
-
-  addAndMakeVisible(namPrevButton_);
-  namPrevButton_.setPaintingIsUnclipped(true);
-  namPrevButton_.setButtonText("<");
-  namPrevButton_.setTitle("Previous NAM Model");
-  namPrevButton_.onClick = [this] { namPrevClicked(); };
-
-  addAndMakeVisible(namNextButton_);
-  namNextButton_.setPaintingIsUnclipped(true);
-  namNextButton_.setButtonText(">");
-  namNextButton_.setTitle("Next NAM Model");
-  namNextButton_.onClick = [this] { namNextClicked(); };
-
-  addAndMakeVisible(namQualityToggle_);
-  namQualityToggle_.setComponentID("metalToggle");
-  namQualityToggle_.setTitle("NAM Quality");
-  namQualityToggle_.popupTextProvider = [this]() -> juce::String
-  {
-    if (lastNamQualityLevels_ <= 1)
-      return "No quality options available";
-    return namQualityToggle_.getToggleState() ? "Full" : "Lite";
-  };
-  // ButtonAttachment maps the continuous namQuality parameter to the switch
-  // with a 0.5 threshold, matching the submodel selection threshold in
-  // nam::ContainerModel::SetSlimmableSize
-  namQualityAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-      audioProcessor.getAPVTS(), "namQuality", namQualityToggle_);
-  updateNamQualityToggle();
-
-  addAndMakeVisible(namCalibrateButton_);
-  namCalibrateButton_.setPaintingIsUnclipped(true);
-  namCalibrateButton_.setButtonText("CAL");
-  namCalibrateButton_.setTitle("NAM Calibration Settings");
-  namCalibrateButton_.onClick = [this]
-  {
-    namCalibrationPanel_.setVisible(true);
-    namCalibrationPanel_.toFront(true);
-    namCalibrationPanel_.grabKeyboardFocus();
-  };
-
-  namCalibrationPanel_.onDismiss = [this] { namCalibrationPanel_.setVisible(false); };
-  updateNamCalibrationControls();
-
-  addAndMakeVisible(namLCDDisplay_);
-  namLCDDisplay_.setTextColour(kLCDInkColour);
-  namLCDDisplay_.setOnClick([this] { namLoadClicked(); });
-  namLCDDisplay_.setText(audioProcessor.getCurrentNamModelPath().isEmpty()
-                             ? "No NAM loaded"
-                             : juce::File(audioProcessor.getCurrentNamModelPath()).getFileName());
+  for (const auto slot : octob::kNamSlots)
+    setUpNamSlot(slot);
 
   // --- IR file loader ---
   addAndMakeVisible(irLoadButton_);
@@ -310,32 +254,32 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   addAndMakeVisible(irClearButton_);
   irClearButton_.setPaintingIsUnclipped(true);
   irClearButton_.setButtonText("CLEAR");
+  irClearButton_.setTitle("Clear IR");
   irClearButton_.onClick = [this] { irClearClicked(); };
 
   addAndMakeVisible(irPrevButton_);
   irPrevButton_.setPaintingIsUnclipped(true);
   irPrevButton_.setButtonText("<");
   irPrevButton_.setTitle("Previous IR");
-  irPrevButton_.onClick = [this] { irPrevClicked(); };
+  irPrevButton_.onClick = [this] { cycleIRFile(-1); };
 
   addAndMakeVisible(irNextButton_);
   irNextButton_.setPaintingIsUnclipped(true);
   irNextButton_.setButtonText(">");
   irNextButton_.setTitle("Next IR");
-  irNextButton_.onClick = [this] { irNextClicked(); };
+  irNextButton_.onClick = [this] { cycleIRFile(1); };
 
   addAndMakeVisible(irLCDDisplay_);
   irLCDDisplay_.setTextColour(kLCDInkColour);
   irLCDDisplay_.setOnClick([this] { irLoadClicked(); });
-  irLCDDisplay_.setText(audioProcessor.getCurrentIRPath().isEmpty()
-                            ? "No IR loaded"
-                            : juce::File(audioProcessor.getCurrentIRPath()).getFileName());
+  showIRPath(audioProcessor.getCurrentIRPath());
 
   logoImage_ =
       juce::ImageCache::getFromMemory(BinaryData::OctoberLogo_png, BinaryData::OctoberLogo_pngSize);
 
-  // Added last so the modal overlays every other child when shown
-  addChildComponent(namCalibrationPanel_);
+  // Added last so the modals overlay every other child when shown
+  for (auto& controls : namSlots_)
+    addChildComponent(*controls.calibrationPanel);
 
   setResizable(true, true);
   getConstrainer()->setFixedAspectRatio(static_cast<double>(kDesignWidth) /
@@ -383,37 +327,129 @@ void OctoBassEditor::timerCallback()
                                eqHighCutFreqParam_.value->load());
 
   // Models can also arrive outside this editor (host state restore), so the
-  // toggle's availability is polled rather than tied to the load callbacks
-  updateNamQualityToggle();
-  updateNamCalibrationControls();
-}
-
-void OctoBassEditor::updateNamQualityToggle()
-{
-  const int levels = audioProcessor.getNamQualityLevels();
-  if (levels == lastNamQualityLevels_)
-    return;
-  lastNamQualityLevels_ = levels;
-
-  namQualityToggle_.setEnabled(levels > 1);
-}
-
-void OctoBassEditor::updateNamCalibrationControls()
-{
-  const bool loaded = audioProcessor.isNamModelLoaded();
-  const auto metadata = audioProcessor.getNamModelMetadata();
-  if (loaded == lastNamLoaded_ && metadata == lastNamMetadata_)
-    return;
-  lastNamLoaded_ = loaded;
-  lastNamMetadata_ = metadata;
-
-  namCalibrateButton_.setEnabled(loaded);
-  namCalibrationPanel_.setCapabilities(metadata);
-  if (!loaded && namCalibrationPanel_.isVisible())
+  // slot controls are polled rather than tied to the load callbacks
+  for (const auto slot : octob::kNamSlots)
   {
-    DBG("NAM model cleared while calibration panel open, dismissing it");
-    namCalibrationPanel_.setVisible(false);
+    updateNamQualityToggle(slot);
+    updateNamCalibrationControls(slot);
   }
+  syncLoadedFileDisplays();
+}
+
+void OctoBassEditor::setUpNamSlot(octob::NamSlot slot)
+{
+  auto& controls = namControls(slot);
+  const auto slotName = OctoBassProcessor::getNamSlotName(slot);
+
+  addAndMakeVisible(controls.loadButton);
+  controls.loadButton.setPaintingIsUnclipped(true);
+  controls.loadButton.setButtonText("");
+  controls.loadButton.setTitle("Load " + slotName + " Model");
+  controls.loadButton.setComponentID("loadButton");
+  controls.loadButton.onClick = [this, slot] { namLoadClicked(slot); };
+
+  addAndMakeVisible(controls.clearButton);
+  controls.clearButton.setPaintingIsUnclipped(true);
+  controls.clearButton.setButtonText("CLEAR");
+  controls.clearButton.setTitle("Clear " + slotName + " Model");
+  controls.clearButton.onClick = [this, slot] { namClearClicked(slot); };
+
+  addAndMakeVisible(controls.prevButton);
+  controls.prevButton.setPaintingIsUnclipped(true);
+  controls.prevButton.setButtonText("<");
+  controls.prevButton.setTitle("Previous " + slotName + " Model");
+  controls.prevButton.onClick = [this, slot] { cycleNamFile(slot, -1); };
+
+  addAndMakeVisible(controls.nextButton);
+  controls.nextButton.setPaintingIsUnclipped(true);
+  controls.nextButton.setButtonText(">");
+  controls.nextButton.setTitle("Next " + slotName + " Model");
+  controls.nextButton.onClick = [this, slot] { cycleNamFile(slot, 1); };
+
+  addAndMakeVisible(controls.calibrateButton);
+  controls.calibrateButton.setPaintingIsUnclipped(true);
+  controls.calibrateButton.setButtonText("CAL");
+  controls.calibrateButton.setTitle(slotName + " Calibration Settings");
+  controls.calibrateButton.onClick = [&controls]
+  {
+    controls.calibrationPanel->setVisible(true);
+    controls.calibrationPanel->toFront(true);
+    controls.calibrationPanel->grabKeyboardFocus();
+  };
+
+  addAndMakeVisible(controls.qualityToggle);
+  controls.qualityToggle.setComponentID("metalToggle");
+  controls.qualityToggle.setTitle(slotName + " Quality");
+  controls.qualityToggle.popupTextProvider = [&controls]() -> juce::String
+  {
+    if (controls.lastQualityLevels <= 1)
+      return "No quality options available";
+    return controls.qualityToggle.getToggleState() ? "Full" : "Lite";
+  };
+  // ButtonAttachment maps the continuous quality parameter to the switch
+  // with a 0.5 threshold, matching the submodel selection threshold in
+  // nam::ContainerModel::SetSlimmableSize
+  controls.qualityAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+          audioProcessor.getAPVTS(), OctoBassProcessor::getNamSlotIds(slot).quality,
+          controls.qualityToggle);
+
+  addAndMakeVisible(controls.lcdDisplay);
+  controls.lcdDisplay.setTextColour(kLCDInkColour);
+  controls.lcdDisplay.setOnClick([this, slot] { namLoadClicked(slot); });
+  showNamPath(slot, audioProcessor.getCurrentNamModelPath(slot));
+
+  controls.calibrationPanel =
+      std::make_unique<NamCalibrationPanel>(audioProcessor.getAPVTS(), slot);
+  controls.calibrationPanel->onDismiss = [&controls]
+  { controls.calibrationPanel->setVisible(false); };
+
+  updateNamQualityToggle(slot);
+  updateNamCalibrationControls(slot);
+}
+
+void OctoBassEditor::updateNamQualityToggle(octob::NamSlot slot)
+{
+  auto& controls = namControls(slot);
+  const int levels = audioProcessor.getNamQualityLevels(slot);
+  if (levels == controls.lastQualityLevels)
+    return;
+  controls.lastQualityLevels = levels;
+
+  controls.qualityToggle.setEnabled(levels > 1);
+}
+
+void OctoBassEditor::updateNamCalibrationControls(octob::NamSlot slot)
+{
+  auto& controls = namControls(slot);
+  const bool loaded = audioProcessor.isNamModelLoaded(slot);
+  const auto metadata = audioProcessor.getNamModelMetadata(slot);
+  if (loaded == controls.lastLoaded && metadata == controls.lastMetadata)
+    return;
+  controls.lastLoaded = loaded;
+  controls.lastMetadata = metadata;
+
+  controls.calibrateButton.setEnabled(loaded);
+  controls.calibrationPanel->setCapabilities(metadata);
+  if (!loaded && controls.calibrationPanel->isVisible())
+  {
+    DBG(OctoBassProcessor::getNamSlotName(slot) +
+        " model cleared while its calibration panel was open, dismissing it");
+    controls.calibrationPanel->setVisible(false);
+  }
+}
+
+void OctoBassEditor::syncLoadedFileDisplays()
+{
+  for (const auto slot : octob::kNamSlots)
+  {
+    const auto path = audioProcessor.getCurrentNamModelPath(slot);
+    if (path != namControls(slot).shownPath)
+      showNamPath(slot, path);
+  }
+
+  if (const auto irPath = audioProcessor.getCurrentIRPath(); irPath != shownIRPath_)
+    showIRPath(irPath);
 }
 
 OctoBassEditor::ParamHandle OctoBassEditor::paramHandle(const juce::String& paramID) const
@@ -551,8 +587,6 @@ void OctoBassEditor::resized()
   const int row1Y = row1CenterY - fullRowH / 2;
   const int row2Y = row2CenterY - fullRowH / 2;
 
-  // Trim knob: label(14) + knob(28) = 42
-  const int trimLabelH = 14;
   const int trimKnobSize = 28;
 
   // Zone X boundaries
@@ -616,79 +650,78 @@ void OctoBassEditor::resized()
   }
 
   // === RIGHT ZONE ===
-  // Layout: Input knob (left), Mix/Solo stacked (center), Output knob (right-aligned with LCD edge)
-  const int knobColW = 120;
-  const int outputRightEdge = kDesignWidth - pad;
-  const int outputColX = outputRightEdge - 86;
-  const int inputColX = rightX + 30;
-  const int midColX = inputColX + knobColW;
-  const int midColW = outputColX - midColX;
-
-  // Row 1: Input + Output full rotary knobs + Mix/Solo stacked between them
+  // Row 1 is a compact strip of trim knobs (Input, Mix, Output) plus Solo,
+  // labels aligned with the other zones' row 1 labels
+  const int stripX = rightX + 20;
+  const int stripW = kDesignWidth - pad - stripX;
+  const int stripColW = stripW / 4;
+  const int stripKnobY = row1Y + labelH;
+  auto stripColumn = [&](int index)
   {
-    auto area = juce::Rectangle<int>(inputColX, row1Y, knobColW, fullRowH);
-    highInputGainLabel_.setBounds(area.removeFromTop(labelH));
-    highInputGainSlider_.setBounds(area.withSizeKeepingCentre(86, fullKnobH));
-  }
+    return juce::Rectangle<int>(stripX + index * stripColW, row1Y, stripColW,
+                                labelH + trimKnobSize);
+  };
+  auto placeTrim = [&](int index, juce::Label& label, juce::Slider& slider)
   {
-    auto area = juce::Rectangle<int>(outputColX, row1Y, 86, fullRowH);
-    highOutputGainLabel_.setBounds(area.removeFromTop(labelH));
-    highOutputGainSlider_.setBounds(area);
-  }
+    auto area = stripColumn(index);
+    label.setBounds(area.removeFromTop(labelH));
+    slider.setBounds(area.withSizeKeepingCentre(trimKnobSize, trimKnobSize));
+  };
+  placeTrim(0, highInputGainLabel_, highInputGainSlider_);
+  placeTrim(1, highBandMixLabel_, highBandMixSlider_);
+  placeTrim(2, highOutputGainLabel_, highOutputGainSlider_);
+  highBandSoloButton_.setBounds(
+      stripColumn(3).withY(stripKnobY).withHeight(trimKnobSize).withSizeKeepingCentre(40, 28));
+  const int stripBottom = stripKnobY + trimKnobSize;
 
-  // Mix on top, Solo beneath, stacked vertically between Input and Output
-  {
-    const int stackCenterX = midColX + midColW / 2;
-    const int stackTopY = row1CenterY - (trimLabelH + trimKnobSize) / 2;
-
-    auto mixArea =
-        juce::Rectangle<int>(stackCenterX - 40, stackTopY, 80, trimLabelH + trimKnobSize);
-    highBandMixLabel_.setBounds(mixArea.removeFromTop(trimLabelH));
-    highBandMixSlider_.setBounds(mixArea.withSizeKeepingCentre(trimKnobSize, trimKnobSize));
-
-    const int soloY = row1Y + fullRowH - 28;
-    auto soloArea = juce::Rectangle<int>(stackCenterX - 20, soloY, 40, 28);
-    highBandSoloButton_.setBounds(soloArea);
-  }
-
-  // File loaders: anchor IR at row 2 bottom, NAM above with gap
+  // File loaders, top to bottom in signal-flow order (NAM 1, NAM 2, IR),
+  // bottom-aligned with row 2
   const int row2Bottom = row2Y + fullRowH;
+  const int loaderButtonRowH = 28;
+  const int loaderLcdH = 30;
+  const int innerGap = 3;
+  const int loaderH = loaderButtonRowH + innerGap + loaderLcdH;
+  const int numLoaders = octob::kNumNamSlots + 1;
+  const int minStripClearance = 12;
+  const int loaderGap = juce::jmin(
+      16, (row2Bottom - stripBottom - minStripClearance - numLoaders * loaderH) / (numLoaders - 1));
+  const int firstLoaderY = row2Bottom - numLoaders * loaderH - (numLoaders - 1) * loaderGap;
 
-  const int buttonH = 28;
-  const int lcdH2 = 32;
-  const int innerGap = 2;
-  const int singleLoaderH = buttonH + innerGap + lcdH2;
-  const int loaderGap = 15;
-
-  const int irY = row2Bottom - singleLoaderH;
-  const int namY = irY - loaderGap - singleLoaderH;
-
-  // NAM file loader
+  auto loaderArea = [&](int index)
   {
-    auto namSection = juce::Rectangle<int>(rightX, namY, rightW, singleLoaderH);
-    auto namButtonRow = namSection.removeFromTop(buttonH);
-    namLoadButton_.setBounds(namButtonRow.removeFromLeft(36).reduced(2));
-    namClearButton_.setBounds(namButtonRow.removeFromLeft(48).reduced(2));
-    namPrevButton_.setBounds(namButtonRow.removeFromLeft(28).reduced(2));
-    namNextButton_.setBounds(namButtonRow.removeFromLeft(28).reduced(2));
-    namCalibrateButton_.setBounds(namButtonRow.removeFromLeft(44).reduced(2));
-    namQualityToggle_.setBounds(namButtonRow.removeFromRight(48).withSizeKeepingCentre(44, 28));
-    namSection.removeFromTop(innerGap);
-    namLCDDisplay_.setBounds(namSection.reduced(2, 0));
+    return juce::Rectangle<int>(rightX, firstLoaderY + index * (loaderH + loaderGap), rightW,
+                                loaderH);
+  };
+  auto placeButton = [](juce::Rectangle<int>& row, juce::Button& button, int width)
+  { button.setBounds(row.removeFromLeft(width).reduced(2, 1)); };
+
+  for (const auto slot : octob::kNamSlots)
+  {
+    auto& controls = namControls(slot);
+    auto section = loaderArea(static_cast<int>(slot));
+    auto buttonRow = section.removeFromTop(loaderButtonRowH);
+    placeButton(buttonRow, controls.loadButton, 36);
+    placeButton(buttonRow, controls.clearButton, 48);
+    placeButton(buttonRow, controls.prevButton, 28);
+    placeButton(buttonRow, controls.nextButton, 28);
+    placeButton(buttonRow, controls.calibrateButton, 44);
+    controls.qualityToggle.setBounds(
+        buttonRow.removeFromRight(48).withSizeKeepingCentre(44, loaderButtonRowH));
+    section.removeFromTop(innerGap);
+    controls.lcdDisplay.setBounds(section.reduced(2, 0));
+
+    controls.calibrationPanel->setBounds(0, 0, kDesignWidth, kDesignHeight);
   }
 
-  namCalibrationPanel_.setBounds(0, 0, kDesignWidth, kDesignHeight);
-
-  // IR file loader
   {
-    auto irSection = juce::Rectangle<int>(rightX, irY, rightW, singleLoaderH);
-    auto irButtonRow = irSection.removeFromTop(buttonH);
-    irLoadButton_.setBounds(irButtonRow.removeFromLeft(36).reduced(2));
-    irClearButton_.setBounds(irButtonRow.removeFromLeft(48).reduced(2));
-    irPrevButton_.setBounds(irButtonRow.removeFromLeft(28).reduced(2));
-    irNextButton_.setBounds(irButtonRow.removeFromLeft(28).reduced(2));
-    irSection.removeFromTop(innerGap);
-    irLCDDisplay_.setBounds(irSection.reduced(2, 0));
+    auto section = loaderArea(octob::kNumNamSlots);
+    auto buttonRow = section.removeFromTop(loaderButtonRowH);
+    placeButton(buttonRow, irLoadButton_, 36);
+    placeButton(buttonRow, irClearButton_, 48);
+    placeButton(buttonRow, irPrevButton_, 28);
+    placeButton(buttonRow, irNextButton_, 28);
+    section.removeFromTop(innerGap);
+    irLCDDisplay_.setBounds(section.reduced(2, 0));
   }
 
   // Apply scale transform to all children
@@ -699,55 +732,6 @@ void OctoBassEditor::resized()
     if (dynamic_cast<juce::ResizableCornerComponent*>(child) == nullptr)
       child->setTransform(xform);
   }
-}
-
-// --- NAM file loader handlers ---
-
-void OctoBassEditor::namLoadClicked()
-{
-  auto chooser = std::make_shared<juce::FileChooser>(
-      "Select NAM model file",
-      audioProcessor.getBrowseStartFolder(OctoBassProcessor::FileSlot::NamModel), "*.nam");
-
-  auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
-
-  // SafePointer: some hosts destroy the editor while the OS dialog is open
-  chooser->launchAsync(
-      flags,
-      [safeThis = juce::Component::SafePointer(this), chooser](const juce::FileChooser& fc)
-      {
-        if (safeThis == nullptr)
-        {
-          DBG("Editor destroyed while NAM chooser was open, dropping result");
-          return;
-        }
-        auto file = fc.getResult();
-        if (!file.existsAsFile())
-        {
-          DBG("NAM chooser closed without a file");
-          return;
-        }
-        juce::String error;
-        const bool loaded = safeThis->audioProcessor.loadPickedFile(
-            OctoBassProcessor::FileSlot::NamModel, file, error);
-        safeThis->showNamLoadResult(file, loaded, error);
-      });
-}
-
-void OctoBassEditor::namClearClicked()
-{
-  audioProcessor.clearNamModel();
-  namLCDDisplay_.setText("No NAM loaded");
-}
-
-void OctoBassEditor::namPrevClicked()
-{
-  cycleNamFile(-1);
-}
-
-void OctoBassEditor::namNextClicked()
-{
-  cycleNamFile(1);
 }
 
 // Neighbouring file (wrapping) of the same type in the directory of currentPath,
@@ -785,30 +769,79 @@ static juce::File adjacentFile(const juce::String& currentPath, const juce::Stri
   return files[(currentIndex + direction + files.size()) % files.size()];
 }
 
-void OctoBassEditor::showNamLoadResult(const juce::File& file, bool loaded,
+// --- NAM file loader handlers ---
+
+void OctoBassEditor::namLoadClicked(octob::NamSlot slot)
+{
+  const auto fileSlot = OctoBassProcessor::fileSlotFor(slot);
+  auto chooser = std::make_shared<juce::FileChooser>(
+      "Select " + OctoBassProcessor::getNamSlotName(slot) + " model file",
+      audioProcessor.getBrowseStartFolder(fileSlot), "*.nam");
+
+  auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
+
+  // SafePointer: some hosts destroy the editor while the OS dialog is open
+  chooser->launchAsync(flags,
+                       [safeThis = juce::Component::SafePointer(this), chooser, slot,
+                        fileSlot](const juce::FileChooser& fc)
+                       {
+                         if (safeThis == nullptr)
+                         {
+                           DBG("Editor destroyed while NAM chooser was open, dropping result");
+                           return;
+                         }
+                         auto file = fc.getResult();
+                         if (!file.existsAsFile())
+                         {
+                           DBG("NAM chooser closed without a file");
+                           return;
+                         }
+                         juce::String error;
+                         const bool loaded =
+                             safeThis->audioProcessor.loadPickedFile(fileSlot, file, error);
+                         safeThis->showNamLoadResult(slot, file, loaded, error);
+                       });
+}
+
+void OctoBassEditor::namClearClicked(octob::NamSlot slot)
+{
+  audioProcessor.clearNamModel(slot);
+  showNamPath(slot, {});
+}
+
+void OctoBassEditor::showNamPath(octob::NamSlot slot, const juce::String& path)
+{
+  auto& controls = namControls(slot);
+  controls.shownPath = path;
+  controls.lcdDisplay.setText(path.isEmpty()
+                                  ? "No " + OctoBassProcessor::getNamSlotName(slot) + " loaded"
+                                  : juce::File(path).getFileName());
+}
+
+void OctoBassEditor::showNamLoadResult(octob::NamSlot slot, const juce::File& file, bool loaded,
                                        const juce::String& error)
 {
   if (loaded)
   {
-    namLCDDisplay_.setText(file.getFileName());
+    showNamPath(slot, file.getFullPathName());
+    return;
   }
-  else
-  {
-    juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
-                                           "Failed to Load NAM Model", error, "OK");
-    namLCDDisplay_.setText("Failed to load NAM");
-  }
+
+  const auto slotName = OctoBassProcessor::getNamSlotName(slot);
+  juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
+                                         "Failed to Load " + slotName + " Model", error, "OK");
+  namControls(slot).lcdDisplay.setText("Failed to load " + slotName);
 }
 
-void OctoBassEditor::cycleNamFile(int direction)
+void OctoBassEditor::cycleNamFile(octob::NamSlot slot, int direction)
 {
-  auto next = adjacentFile(audioProcessor.getCurrentNamModelPath(), "*.nam", direction);
+  auto next = adjacentFile(audioProcessor.getCurrentNamModelPath(slot), "*.nam", direction);
   if (next == juce::File())
     return;
 
   juce::String error;
-  const bool loaded = audioProcessor.loadNamModel(next.getFullPathName(), error);
-  showNamLoadResult(next, loaded, error);
+  const bool loaded = audioProcessor.loadNamModel(slot, next.getFullPathName(), error);
+  showNamLoadResult(slot, next, loaded, error);
 }
 
 // --- IR file loader handlers ---
@@ -847,17 +880,13 @@ void OctoBassEditor::irLoadClicked()
 void OctoBassEditor::irClearClicked()
 {
   audioProcessor.clearImpulseResponse();
-  irLCDDisplay_.setText("No IR loaded");
+  showIRPath({});
 }
 
-void OctoBassEditor::irPrevClicked()
+void OctoBassEditor::showIRPath(const juce::String& path)
 {
-  cycleIRFile(-1);
-}
-
-void OctoBassEditor::irNextClicked()
-{
-  cycleIRFile(1);
+  shownIRPath_ = path;
+  irLCDDisplay_.setText(path.isEmpty() ? "No IR loaded" : juce::File(path).getFileName());
 }
 
 void OctoBassEditor::showIRLoadResult(const juce::File& file, bool loaded,
@@ -865,14 +894,13 @@ void OctoBassEditor::showIRLoadResult(const juce::File& file, bool loaded,
 {
   if (loaded)
   {
-    irLCDDisplay_.setText(file.getFileName());
+    showIRPath(file.getFullPathName());
+    return;
   }
-  else
-  {
-    juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Failed to Load IR",
-                                           error, "OK");
-    irLCDDisplay_.setText("Failed to load IR");
-  }
+
+  juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Failed to Load IR", error,
+                                         "OK");
+  irLCDDisplay_.setText("Failed to load IR");
 }
 
 void OctoBassEditor::cycleIRFile(int direction)

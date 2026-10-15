@@ -191,6 +191,19 @@
       }
     },
     {
+      "name": "test-octobass-core-windows",
+      "displayName": "OctoBASS Core Tests (Windows, no ASan)",
+      "inherits": "_dev-base",
+      "binaryDir": "${sourceDir}/build/test-octobass-core-windows",
+      "cacheVariables": {
+        "BUILD_OCTOBIR": "OFF",
+        "BUILD_OCTOBIR_JUCE": "OFF",
+        "BUILD_OCTOBIR_VCV": "OFF",
+        "BUILD_OCTOBASS_JUCE": "OFF",
+        "BUILD_OCTOBASS_CORE_TESTS": "ON"
+      }
+    },
+    {
       "name": "test-octobass-juce-windows",
       "displayName": "OctoBASS JUCE Tests (Windows, no ASan)",
       "inherits": "_dev-base",
@@ -219,6 +232,7 @@
     { "name": "test-octobir-core-windows", "configurePreset": "test-octobir-core-windows", "jobs": 0 },
     { "name": "test-octobir-juce-windows", "configurePreset": "test-octobir-juce-windows", "jobs": 0 },
     { "name": "test-octobir-vcv-windows", "configurePreset": "test-octobir-vcv-windows", "jobs": 0 },
+    { "name": "test-octobass-core-windows", "configurePreset": "test-octobass-core-windows", "jobs": 0 },
     { "name": "test-octobass-juce-windows", "configurePreset": "test-octobass-juce-windows", "jobs": 0 }
   ]
 }

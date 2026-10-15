@@ -77,23 +77,36 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
   juce::Slider highBandMixSlider_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> highBandMixAttachment_;
 
-  // NAM file loader
-  juce::TextButton namLoadButton_;
-  juce::TextButton namClearButton_;
-  juce::TextButton namPrevButton_;
-  juce::TextButton namNextButton_;
-  LCDDisplay namLCDDisplay_;
-  PopupToggleButton namQualityToggle_;
-  std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> namQualityAttachment_;
-  int lastNamQualityLevels_ = -1;
-  void updateNamQualityToggle();
+  // One loader per NAM slot, stacked in signal-flow order above the IR loader
+  struct NamSlotControls
+  {
+    juce::TextButton loadButton;
+    juce::TextButton clearButton;
+    juce::TextButton prevButton;
+    juce::TextButton nextButton;
+    juce::TextButton calibrateButton;
+    PopupToggleButton qualityToggle;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> qualityAttachment;
+    LCDDisplay lcdDisplay;
+    std::unique_ptr<NamCalibrationPanel> calibrationPanel;
 
-  // NAM calibration modal
-  juce::TextButton namCalibrateButton_;
-  NamCalibrationPanel namCalibrationPanel_{audioProcessor.getAPVTS()};
-  octob::NamModelMetadata lastNamMetadata_;
-  bool lastNamLoaded_ = false;
-  void updateNamCalibrationControls();
+    juce::String shownPath;
+    int lastQualityLevels = -1;
+    octob::NamModelMetadata lastMetadata;
+    bool lastLoaded = false;
+  };
+  std::array<NamSlotControls, octob::kNumNamSlots> namSlots_;
+  NamSlotControls& namControls(octob::NamSlot slot) { return namSlots_[static_cast<size_t>(slot)]; }
+
+  void setUpNamSlot(octob::NamSlot slot);
+  void updateNamQualityToggle(octob::NamSlot slot);
+  void updateNamCalibrationControls(octob::NamSlot slot);
+  void namLoadClicked(octob::NamSlot slot);
+  void namClearClicked(octob::NamSlot slot);
+  void cycleNamFile(octob::NamSlot slot, int direction);
+  void showNamPath(octob::NamSlot slot, const juce::String& path);
+  void showNamLoadResult(octob::NamSlot slot, const juce::File& file, bool loaded,
+                         const juce::String& error);
 
   // IR file loader
   juce::TextButton irLoadButton_;
@@ -101,20 +114,17 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
   juce::TextButton irPrevButton_;
   juce::TextButton irNextButton_;
   LCDDisplay irLCDDisplay_;
+  juce::String shownIRPath_;
 
-  // File loader helpers
-  void namLoadClicked();
-  void namClearClicked();
-  void namPrevClicked();
-  void namNextClicked();
   void irLoadClicked();
   void irClearClicked();
-  void irPrevClicked();
-  void irNextClicked();
-  void showNamLoadResult(const juce::File& file, bool loaded, const juce::String& error);
-  void showIRLoadResult(const juce::File& file, bool loaded, const juce::String& error);
-  void cycleNamFile(int direction);
   void cycleIRFile(int direction);
+  void showIRPath(const juce::String& path);
+  void showIRLoadResult(const juce::File& file, bool loaded, const juce::String& error);
+
+  // Files can also change outside this editor (host state restore), so the
+  // displays follow the processor rather than only this editor's actions
+  void syncLoadedFileDisplays();
 
   // Cached parameter handles so the 30 Hz timer and the EQ display callbacks
   // avoid per-tick string lookups

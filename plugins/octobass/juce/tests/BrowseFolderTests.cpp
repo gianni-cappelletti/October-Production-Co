@@ -74,7 +74,7 @@ class OctoBassBrowseFolderTest : public ::testing::Test
 TEST_F(OctoBassBrowseFolderTest, FirstEverBrowse_OpensHomeFolder)
 {
   auto instance = newInstance();
-  EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::NamModel), homeFolder());
+  EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::Nam1), homeFolder());
   EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::ImpulseResponse), homeFolder());
 }
 
@@ -85,12 +85,12 @@ TEST_F(OctoBassBrowseFolderTest, FreshInstanceInNewSession_OpensFoldersPickedInP
   {
     auto previousSession = newInstance();
     previousSession->prepareToPlay(44100.0, 512);
-    ASSERT_TRUE(pick(*previousSession, FileSlot::NamModel, copyInto(kSourceNam, captures)));
+    ASSERT_TRUE(pick(*previousSession, FileSlot::Nam1, copyInto(kSourceNam, captures)));
     ASSERT_TRUE(pick(*previousSession, FileSlot::ImpulseResponse, copyInto(kSourceIR, cabinets)));
   }
 
   auto freshInstance = newInstance();
-  EXPECT_EQ(freshInstance->getBrowseStartFolder(FileSlot::NamModel), captures);
+  EXPECT_EQ(freshInstance->getBrowseStartFolder(FileSlot::Nam1), captures);
   EXPECT_EQ(freshInstance->getBrowseStartFolder(FileSlot::ImpulseResponse), cabinets);
 }
 
@@ -100,7 +100,7 @@ TEST_F(OctoBassBrowseFolderTest, NamAndIRSlots_DoNotShareRememberedFolders)
   {
     auto previousSession = newInstance();
     previousSession->prepareToPlay(44100.0, 512);
-    ASSERT_TRUE(pick(*previousSession, FileSlot::NamModel, copyInto(kSourceNam, captures)));
+    ASSERT_TRUE(pick(*previousSession, FileSlot::Nam1, copyInto(kSourceNam, captures)));
   }
 
   EXPECT_EQ(newInstance()->getBrowseStartFolder(FileSlot::ImpulseResponse), homeFolder());
@@ -116,10 +116,10 @@ TEST_F(OctoBassBrowseFolderTest,
   instanceA->prepareToPlay(44100.0, 512);
   instanceB->prepareToPlay(44100.0, 512);
 
-  ASSERT_TRUE(pick(*instanceA, FileSlot::NamModel, copyInto(kSourceNam, ampCaptures)));
-  ASSERT_TRUE(pick(*instanceB, FileSlot::NamModel, copyInto(kSourceNam, pedalCaptures)));
+  ASSERT_TRUE(pick(*instanceA, FileSlot::Nam1, copyInto(kSourceNam, ampCaptures)));
+  ASSERT_TRUE(pick(*instanceB, FileSlot::Nam1, copyInto(kSourceNam, pedalCaptures)));
 
-  EXPECT_EQ(instanceA->getBrowseStartFolder(FileSlot::NamModel), ampCaptures);
+  EXPECT_EQ(instanceA->getBrowseStartFolder(FileSlot::Nam1), ampCaptures);
 }
 
 TEST_F(OctoBassBrowseFolderTest, ClearedNamSlot_OpensRememberedFolder)
@@ -127,11 +127,11 @@ TEST_F(OctoBassBrowseFolderTest, ClearedNamSlot_OpensRememberedFolder)
   const auto captures = makeFolder("NAM Captures");
   auto instance = newInstance();
   instance->prepareToPlay(44100.0, 512);
-  ASSERT_TRUE(pick(*instance, FileSlot::NamModel, copyInto(kSourceNam, captures)));
+  ASSERT_TRUE(pick(*instance, FileSlot::Nam1, copyInto(kSourceNam, captures)));
 
-  instance->clearNamModel();
+  instance->clearNamModel(octob::NamSlot::First);
 
-  EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::NamModel), captures);
+  EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::Nam1), captures);
 }
 
 TEST_F(OctoBassBrowseFolderTest, PickedNamModelThatFailsToLoad_StillRemembersItsFolder)
@@ -142,10 +142,10 @@ TEST_F(OctoBassBrowseFolderTest, PickedNamModelThatFailsToLoad_StillRemembersIts
   {
     auto previousSession = newInstance();
     previousSession->prepareToPlay(44100.0, 512);
-    EXPECT_FALSE(pick(*previousSession, FileSlot::NamModel, brokenModel));
+    EXPECT_FALSE(pick(*previousSession, FileSlot::Nam1, brokenModel));
   }
 
-  EXPECT_EQ(newInstance()->getBrowseStartFolder(FileSlot::NamModel), downloads);
+  EXPECT_EQ(newInstance()->getBrowseStartFolder(FileSlot::Nam1), downloads);
 }
 
 TEST_F(OctoBassBrowseFolderTest, RestoringAProject_DoesNotChangeRememberedFolders)
@@ -156,7 +156,7 @@ TEST_F(OctoBassBrowseFolderTest, RestoringAProject_DoesNotChangeRememberedFolder
   {
     auto previousSession = newInstance();
     previousSession->prepareToPlay(44100.0, 512);
-    ASSERT_TRUE(pick(*previousSession, FileSlot::NamModel, copyInto(kSourceNam, captures)));
+    ASSERT_TRUE(pick(*previousSession, FileSlot::Nam1, copyInto(kSourceNam, captures)));
     ASSERT_TRUE(pick(*previousSession, FileSlot::ImpulseResponse, copyInto(kSourceIR, cabinets)));
   }
 
@@ -166,7 +166,7 @@ TEST_F(OctoBassBrowseFolderTest, RestoringAProject_DoesNotChangeRememberedFolder
     collaboratorInstance->prepareToPlay(44100.0, 512);
     juce::String error;
     ASSERT_TRUE(collaboratorInstance->loadNamModel(
-        copyInto(kSourceNam, collaboratorFolder).getFullPathName(), error));
+        octob::NamSlot::First, copyInto(kSourceNam, collaboratorFolder).getFullPathName(), error));
     ASSERT_TRUE(collaboratorInstance->loadImpulseResponse(
         copyInto(kSourceIR, collaboratorFolder).getFullPathName(), error));
     collaboratorInstance->getStateInformation(projectState);
@@ -177,13 +177,13 @@ TEST_F(OctoBassBrowseFolderTest, RestoringAProject_DoesNotChangeRememberedFolder
   restoredInstance->setStateInformation(projectState.getData(),
                                         static_cast<int>(projectState.getSize()));
   restoredInstance->handleUpdateNowIfNeeded();
-  ASSERT_TRUE(
-      restoredInstance->getCurrentNamModelPath().startsWith(collaboratorFolder.getFullPathName()));
+  ASSERT_TRUE(restoredInstance->getCurrentNamModelPath(octob::NamSlot::First)
+                  .startsWith(collaboratorFolder.getFullPathName()));
   ASSERT_TRUE(
       restoredInstance->getCurrentIRPath().startsWith(collaboratorFolder.getFullPathName()));
 
   auto freshInstance = newInstance();
-  EXPECT_EQ(freshInstance->getBrowseStartFolder(FileSlot::NamModel), captures);
+  EXPECT_EQ(freshInstance->getBrowseStartFolder(FileSlot::Nam1), captures);
   EXPECT_EQ(freshInstance->getBrowseStartFolder(FileSlot::ImpulseResponse), cabinets);
 }
 
@@ -195,13 +195,67 @@ TEST_F(OctoBassBrowseFolderTest, TwoLiveInstancesPickingDifferentSlots_BothPicks
   auto instanceB = newInstance();
   instanceA->prepareToPlay(44100.0, 512);
   instanceB->prepareToPlay(44100.0, 512);
-  EXPECT_EQ(instanceA->getBrowseStartFolder(FileSlot::NamModel), homeFolder());
+  EXPECT_EQ(instanceA->getBrowseStartFolder(FileSlot::Nam1), homeFolder());
   EXPECT_EQ(instanceB->getBrowseStartFolder(FileSlot::ImpulseResponse), homeFolder());
 
-  ASSERT_TRUE(pick(*instanceA, FileSlot::NamModel, copyInto(kSourceNam, captures)));
+  ASSERT_TRUE(pick(*instanceA, FileSlot::Nam1, copyInto(kSourceNam, captures)));
   ASSERT_TRUE(pick(*instanceB, FileSlot::ImpulseResponse, copyInto(kSourceIR, cabinets)));
 
   auto freshInstance = newInstance();
-  EXPECT_EQ(freshInstance->getBrowseStartFolder(FileSlot::NamModel), captures);
+  EXPECT_EQ(freshInstance->getBrowseStartFolder(FileSlot::Nam1), captures);
   EXPECT_EQ(freshInstance->getBrowseStartFolder(FileSlot::ImpulseResponse), cabinets);
+}
+
+TEST_F(OctoBassBrowseFolderTest, EachNamSlot_RemembersItsOwnFolder)
+{
+  const auto pedalCaptures = makeFolder("Pedal Captures");
+  const auto ampCaptures = makeFolder("Amp Captures");
+  {
+    auto previousSession = newInstance();
+    previousSession->prepareToPlay(44100.0, 512);
+    ASSERT_TRUE(pick(*previousSession, FileSlot::Nam1, copyInto(kSourceNam, pedalCaptures)));
+    ASSERT_TRUE(pick(*previousSession, FileSlot::Nam2, copyInto(kSourceNam, ampCaptures)));
+  }
+
+  auto freshInstance = newInstance();
+  EXPECT_EQ(freshInstance->getBrowseStartFolder(FileSlot::Nam1), pedalCaptures);
+  EXPECT_EQ(freshInstance->getBrowseStartFolder(FileSlot::Nam2), ampCaptures);
+}
+
+TEST_F(OctoBassBrowseFolderTest, NamSlotNeverPickedFrom_OpensTheOtherNamSlotsFolder)
+{
+  const auto captures = makeFolder("NAM Captures");
+  {
+    auto previousSession = newInstance();
+    previousSession->prepareToPlay(44100.0, 512);
+    ASSERT_TRUE(pick(*previousSession, FileSlot::Nam1, copyInto(kSourceNam, captures)));
+  }
+  EXPECT_EQ(newInstance()->getBrowseStartFolder(FileSlot::Nam2), captures);
+  EXPECT_EQ(newInstance()->getBrowseStartFolder(FileSlot::ImpulseResponse), homeFolder());
+}
+
+TEST_F(OctoBassBrowseFolderTest, FirstNamSlotNeverPickedFrom_OpensTheSecondNamSlotsFolder)
+{
+  const auto captures = makeFolder("NAM Captures");
+  {
+    auto previousSession = newInstance();
+    previousSession->prepareToPlay(44100.0, 512);
+    ASSERT_TRUE(pick(*previousSession, FileSlot::Nam2, copyInto(kSourceNam, captures)));
+  }
+  EXPECT_EQ(newInstance()->getBrowseStartFolder(FileSlot::Nam1), captures);
+}
+
+TEST_F(OctoBassBrowseFolderTest, LoadedSecondNamModel_OpensItsFolder)
+{
+  const auto pedalCaptures = makeFolder("Pedal Captures");
+  const auto ampCaptures = makeFolder("Amp Captures");
+  auto instance = newInstance();
+  instance->prepareToPlay(44100.0, 512);
+  ASSERT_TRUE(pick(*instance, FileSlot::Nam1, copyInto(kSourceNam, pedalCaptures)));
+
+  juce::String error;
+  ASSERT_TRUE(instance->loadNamModel(octob::NamSlot::Second,
+                                     copyInto(kSourceNam, ampCaptures).getFullPathName(), error));
+
+  EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::Nam2), ampCaptures);
 }

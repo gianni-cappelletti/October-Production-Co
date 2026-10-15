@@ -22,6 +22,7 @@ add_executable(octobass-core-tests
   BassProcessorTests.cpp
   BassProcessorAudioTests.cpp
   NamProcessorTests.cpp
+  NamChainTests.cpp
 )
 
 target_link_libraries(octobass-core-tests

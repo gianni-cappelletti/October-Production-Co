@@ -1,0 +1,7 @@
+{
+  "version": "0.5.4",
+  "architecture": "Linear",
+  "config": {"receptive_field": 1, "bias": false},
+  "weights": [0.25],
+  "sample_rate": 44100
+}
