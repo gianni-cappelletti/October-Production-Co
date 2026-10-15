@@ -4,6 +4,20 @@
 
 #include "LCDPainting.h"
 
+namespace
+{
+
+// FontOptions() carries a default style, which withTypeface() asserts against;
+// falls back to the default font if an embedded typeface failed to load
+juce::FontOptions fontOptionsFor(const juce::Typeface::Ptr& typeface, float height)
+{
+  if (typeface == nullptr)
+    return juce::FontOptions(height);
+  return juce::FontOptions(typeface).withHeight(height);
+}
+
+}  // namespace
+
 OctoberLookAndFeel::OctoberLookAndFeel()
 {
   cutiveMonoTypeface_ = juce::Typeface::createSystemTypefaceFor(
@@ -215,7 +229,7 @@ void OctoberLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& but
   }
 
   auto height = juce::jmin(13.0f, (float)button.getHeight() * 0.6f);
-  g.setFont(juce::Font(juce::FontOptions().withTypeface(cutiveMonoTypeface_).withHeight(height)));
+  g.setFont(juce::Font(fontOptionsFor(cutiveMonoTypeface_, height)));
   g.setColour(button
                   .findColour(button.getToggleState() ? juce::TextButton::textColourOnId
                                                       : juce::TextButton::textColourOffId)
@@ -321,7 +335,7 @@ void OctoberLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton&
   }
 
   g.setColour(juce::Colours::white.withMultipliedAlpha(alpha * 0.9f));
-  g.setFont(juce::Font(juce::FontOptions().withTypeface(cutiveMonoTypeface_).withHeight(13.0f)));
+  g.setFont(juce::Font(fontOptionsFor(cutiveMonoTypeface_, 13.0f)));
   g.drawFittedText(button.getButtonText(),
                    button.getLocalBounds().withTrimmedLeft(static_cast<int>(ledWidth)),
                    juce::Justification::centred, 1);
@@ -476,7 +490,6 @@ juce::Font OctoberLookAndFeel::getLabelFont(juce::Label& label)
   auto f = LookAndFeel_V4::getLabelFont(label);
   bool isSliderTextBox = dynamic_cast<juce::Slider*>(label.getParentComponent()) != nullptr;
   if (isSliderTextBox)
-    return juce::Font(juce::FontOptions().withTypeface(lcdTypeface_).withHeight(8.0f));
-  return juce::Font(
-      juce::FontOptions().withTypeface(cutiveMonoTypeface_).withHeight(f.getHeight()));
+    return juce::Font(fontOptionsFor(lcdTypeface_, 8.0f));
+  return juce::Font(fontOptionsFor(cutiveMonoTypeface_, f.getHeight()));
 }

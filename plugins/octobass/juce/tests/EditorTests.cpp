@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <vector>
 
+#include "LCDTestSupport.h"
 #include "PluginEditor.h"
 
 using octob::NamSlot;
@@ -57,6 +59,46 @@ LCDDisplay* displayShowing(juce::Component& editor, const juce::String& text)
       return display;
   return nullptr;
 }
+
+std::vector<LCDDisplay*> displaysTopToBottom(juce::Component& editor)
+{
+  auto displays = visibleChildrenOfType<LCDDisplay>(editor);
+  std::sort(displays.begin(), displays.end(), [](auto* a, auto* b)
+            { return a->getBoundsInParent().getY() < b->getBoundsInParent().getY(); });
+  return displays;
+}
+
+PopupToggleButton* onSwitchFor(juce::Component& editor, const juce::String& slotName)
+{
+  for (auto* button : visibleChildrenOfType<PopupToggleButton>(editor))
+    if (screenReaderName(*button) == slotName + " On")
+      return button;
+  return nullptr;
+}
+
+void setParam(OctoBassProcessor& processor, const char* paramId, float value)
+{
+  auto* param = processor.getAPVTS().getParameter(paramId);
+  ASSERT_NE(param, nullptr) << paramId;
+  param->setValueNotifyingHost(value);
+}
+
+struct HostGestureRecorder : juce::AudioProcessorListener
+{
+  void audioProcessorParameterChanged(juce::AudioProcessor*, int, float) override {}
+  void audioProcessorChanged(juce::AudioProcessor*, const ChangeDetails&) override {}
+  void audioProcessorParameterChangeGestureBegin(juce::AudioProcessor*, int index) override
+  {
+    begun.push_back(index);
+  }
+  void audioProcessorParameterChangeGestureEnd(juce::AudioProcessor*, int index) override
+  {
+    ended.push_back(index);
+  }
+
+  std::vector<int> begun;
+  std::vector<int> ended;
+};
 
 }  // namespace
 
@@ -173,4 +215,95 @@ TEST_F(OctoBassEditorTest, ClearingASlotOnlyEmptiesThatSlotsDisplay)
   EXPECT_TRUE(processor.isNamModelLoaded(NamSlot::First));
   EXPECT_NE(displayShowing(*editor, kSlot1Model.getFileName()), nullptr);
   EXPECT_EQ(displayShowing(*editor, kSlot2Model.getFileName()), nullptr);
+}
+
+TEST_F(OctoBassEditorTest, EachNamSlotHasAnOnSwitchThatWorksWithoutAModel)
+{
+  auto editor = openEditor();
+  ASSERT_NE(editor, nullptr);
+
+  for (const juce::String slotName : {"NAM 1", "NAM 2"})
+  {
+    auto* onSwitch = onSwitchFor(*editor, slotName);
+    ASSERT_NE(onSwitch, nullptr) << "No switch announced as '" << slotName << " On'";
+    EXPECT_TRUE(onSwitch->isEnabled()) << slotName << " can be switched before a model is loaded";
+    EXPECT_TRUE(onSwitch->getToggleState()) << slotName << " starts on";
+    ASSERT_TRUE(onSwitch->popupTextProvider != nullptr);
+    EXPECT_EQ(onSwitch->popupTextProvider(), "On");
+  }
+}
+
+TEST_F(OctoBassEditorTest, FlippingAnOnSwitchSwitchesOnlyThatSlotAsOneHostGesture)
+{
+  auto editor = openEditor();
+  ASSERT_NE(editor, nullptr);
+  auto* slot2Switch = onSwitchFor(*editor, "NAM 2");
+  ASSERT_NE(slot2Switch, nullptr);
+
+  HostGestureRecorder host;
+  processor.addListener(&host);
+  // A click toggles the state with a synchronous click notification; triggerClick
+  // would post the same thing to the message queue
+  slot2Switch->setToggleState(false, juce::sendNotificationSync);
+  processor.removeListener(&host);
+
+  EXPECT_LT(processor.getAPVTS().getRawParameterValue("nam2On")->load(), 0.5f);
+  EXPECT_GE(processor.getAPVTS().getRawParameterValue("namOn")->load(), 0.5f);
+  EXPECT_EQ(slot2Switch->popupTextProvider(), "Off");
+
+  // Hosts learn a MIDI mapping from the last parameter touched in a gesture
+  const int slot2OnIndex = processor.getAPVTS().getParameter("nam2On")->getParameterIndex();
+  EXPECT_EQ(host.begun, std::vector<int>{slot2OnIndex});
+  EXPECT_EQ(host.ended, std::vector<int>{slot2OnIndex});
+}
+
+TEST_F(OctoBassEditorTest, SwitchingASlotOffFromTheHostDimsOnlyThatSlotsDisplay)
+{
+  juce::String err;
+  ASSERT_TRUE(processor.loadNamModel(NamSlot::First, kSlot1Model.getFullPathName(), err)) << err;
+  ASSERT_TRUE(processor.loadNamModel(NamSlot::Second, kSlot2Model.getFullPathName(), err)) << err;
+  ASSERT_TRUE(processor.loadImpulseResponse(kImpulseResponse.getFullPathName(), err)) << err;
+
+  auto editor = openEditor();
+  ASSERT_NE(editor, nullptr);
+  const auto displays = displaysTopToBottom(*editor);
+  ASSERT_EQ(displays.size(), 3u);
+  auto* slot1Display = displays[0];
+  for (auto* display : displays)
+    EXPECT_TRUE(lcd_test::looksLit(lcd_test::renderedBacklight(*display)))
+        << "'" << screenReaderName(*display) << "' must be lit while its slot is on";
+
+  // Automation and host-mapped MIDI arrive as parameter changes
+  setParam(processor, "namOn", 0.0f);
+
+  const auto dimmed = lcd_test::renderedBacklight(*slot1Display);
+  EXPECT_TRUE(lcd_test::looksDimmed(dimmed));
+  EXPECT_GE(lcd_test::contrastRatio(kLCDInkColour, dimmed), 4.5)
+      << "WCAG 2.1 SC 1.4.3: the file name must stay readable while the slot is off";
+  EXPECT_TRUE(slot1Display->isEnabled()) << "A switched-off slot can still load a model";
+  auto* slot1Switch = onSwitchFor(*editor, "NAM 1");
+  ASSERT_NE(slot1Switch, nullptr);
+  EXPECT_FALSE(slot1Switch->getToggleState());
+  EXPECT_TRUE(lcd_test::looksLit(lcd_test::renderedBacklight(*displays[1])));
+  EXPECT_TRUE(lcd_test::looksLit(lcd_test::renderedBacklight(*displays[2])))
+      << "The IR display has no on switch and never dims";
+
+  setParam(processor, "namOn", 1.0f);
+  EXPECT_TRUE(lcd_test::looksLit(lcd_test::renderedBacklight(*slot1Display)));
+}
+
+TEST_F(OctoBassEditorTest, SlotThatIsAlreadyOffOpensDimmedEvenWhenEmpty)
+{
+  setParam(processor, "nam2On", 0.0f);
+
+  auto editor = openEditor();
+  ASSERT_NE(editor, nullptr);
+  const auto displays = displaysTopToBottom(*editor);
+  ASSERT_EQ(displays.size(), 3u);
+
+  EXPECT_TRUE(lcd_test::looksLit(lcd_test::renderedBacklight(*displays[0])));
+  EXPECT_TRUE(lcd_test::looksDimmed(lcd_test::renderedBacklight(*displays[1])));
+  auto* slot2Switch = onSwitchFor(*editor, "NAM 2");
+  ASSERT_NE(slot2Switch, nullptr);
+  EXPECT_FALSE(slot2Switch->getToggleState());
 }

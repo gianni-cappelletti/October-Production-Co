@@ -226,14 +226,20 @@ void drawToggleButton(NVGcontext* vg, float w, float h, const char* label, bool 
   nvgText(vg, (w + ledW) * 0.5f, h * 0.5f, label, nullptr);
 }
 
-void drawLCDBackground(NVGcontext* vg, float x, float y, float w, float h)
+// Same values as kLCDBacklightColour / kLCDDimBacklightColour in juce-ui-shared.
+// The dimmed backlight keeps the 0x1c1c30 ink at 5.0:1 contrast (WCAG 2.1 SC 1.4.3)
+NVGcolor lcdBacklightColour(bool backlit)
+{
+  return backlit ? nvgRGB(0xF0, 0x88, 0x30) : nvgRGB(0xB4, 0x82, 0x5C);
+}
+
+void drawLCDBackground(NVGcontext* vg, float x, float y, float w, float h, bool backlit = true)
 {
   const float cr = 3.0f;
 
-  // Orange fill
   nvgBeginPath(vg);
   nvgRoundedRect(vg, x, y, w, h, cr);
-  nvgFillColor(vg, nvgRGB(0xF0, 0x88, 0x30));
+  nvgFillColor(vg, lcdBacklightColour(backlit));
   nvgFill(vg);
 
   // Dark border
@@ -590,9 +596,19 @@ struct IrFileDisplay : OpaqueWidget
 
   IrFileDisplay(bool ir2 = false) : isIR2(ir2), text("<No IR selected>") {}
 
+  // The module browser preview has no module and shows the display lit
+  bool isSlotEnabled() const
+  {
+    if (module == nullptr)
+      return true;
+    const auto enableParam =
+        isIR2 ? OpcVcvIr::ParamId::IrBEnableParam : OpcVcvIr::ParamId::IrAEnableParam;
+    return module->params[static_cast<int>(enableParam)].getValue() > 0.5f;
+  }
+
   void draw(const DrawArgs& args) override
   {
-    drawLCDBackground(args.vg, 0.f, 0.f, box.size.x, box.size.y);
+    drawLCDBackground(args.vg, 0.f, 0.f, box.size.x, box.size.y, isSlotEnabled());
 
     int fontId = ensureFont(args.vg, "PressStart2P", lcdFontPath);
     if (fontId >= 0)

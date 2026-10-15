@@ -85,9 +85,12 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
     juce::TextButton prevButton;
     juce::TextButton nextButton;
     juce::TextButton calibrateButton;
+    PopupToggleButton onSwitch;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> onAttachment;
     PopupToggleButton qualityToggle;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> qualityAttachment;
     LCDDisplay lcdDisplay;
+    std::unique_ptr<juce::ParameterAttachment> backlightAttachment;
     std::unique_ptr<NamCalibrationPanel> calibrationPanel;
 
     juce::String shownPath;

@@ -91,6 +91,7 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
   LCDDisplay ir1LCDDisplay_;
   juce::ToggleButton ir1EnableButton_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ir1EnableAttachment_;
+  std::unique_ptr<juce::ParameterAttachment> ir1BacklightAttachment_;
 
   juce::Slider irATrimSlider_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> irATrimAttachment_;
@@ -102,6 +103,7 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
   LCDDisplay ir2LCDDisplay_;
   juce::ToggleButton ir2EnableButton_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ir2EnableAttachment_;
+  std::unique_ptr<juce::ParameterAttachment> ir2BacklightAttachment_;
 
   juce::Slider irBTrimSlider_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> irBTrimAttachment_;
@@ -148,6 +150,9 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
   juce::Slider outputGainSlider_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputGainAttachment_;
 
+  // The display follows the parameter, so automation and host-mapped MIDI dim it too
+  std::unique_ptr<juce::ParameterAttachment> attachBacklight(LCDDisplay& display,
+                                                             const juce::String& enableParamId);
   void loadButton1Clicked();
   void loadButton2Clicked();
   void clearButton1Clicked();

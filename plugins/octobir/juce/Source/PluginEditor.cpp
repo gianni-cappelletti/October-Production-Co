@@ -16,7 +16,7 @@ void LCDMeterPanel::paint(juce::Graphics& g)
   drawLCDBackground(g, getLocalBounds().toFloat().reduced(1.0f));
 
   if (typeface_ != nullptr)
-    g.setFont(juce::Font(juce::FontOptions().withTypeface(typeface_).withHeight(9.0f)));
+    g.setFont(juce::Font(juce::FontOptions(typeface_).withHeight(9.0f)));
   else
     g.setFont(juce::Font(
         juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 9.0f, juce::Font::plain)));
@@ -197,7 +197,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   nextButton1_.onClick = [this] { nextButton1Clicked(); };
 
   addAndMakeVisible(ir1LCDDisplay_);
-  ir1LCDDisplay_.setTextColour(juce::Colour(0xff1c1c30));
+  ir1LCDDisplay_.setTextColour(kLCDInkColour);
   ir1LCDDisplay_.setOnClick([this] { loadButton1Clicked(); });
   ir1LCDDisplay_.setText(audioProcessor.getCurrentIR1Path().isEmpty()
                              ? "No IR loaded"
@@ -208,6 +208,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   ir1EnableButton_.setButtonText("ENABLE");
   ir1EnableAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "irAEnable", ir1EnableButton_);
+  ir1BacklightAttachment_ = attachBacklight(ir1LCDDisplay_, "irAEnable");
 
   addAndMakeVisible(loadButton2_);
   loadButton2_.setPaintingIsUnclipped(true);
@@ -234,7 +235,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   nextButton2_.onClick = [this] { nextButton2Clicked(); };
 
   addAndMakeVisible(ir2LCDDisplay_);
-  ir2LCDDisplay_.setTextColour(juce::Colour(0xff1c1c30));
+  ir2LCDDisplay_.setTextColour(kLCDInkColour);
   ir2LCDDisplay_.setOnClick([this] { loadButton2Clicked(); });
   ir2LCDDisplay_.setText(audioProcessor.getCurrentIR2Path().isEmpty()
                              ? "No IR loaded"
@@ -245,6 +246,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   ir2EnableButton_.setButtonText("ENABLE");
   ir2EnableAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "irBEnable", ir2EnableButton_);
+  ir2BacklightAttachment_ = attachBacklight(ir2LCDDisplay_, "irBEnable");
 
   addAndMakeVisible(meterPanel_);
 
@@ -543,6 +545,21 @@ void OctobIREditor::resized()
     if (dynamic_cast<juce::ResizableCornerComponent*>(child) == nullptr)
       child->setTransform(xform);
   }
+}
+
+std::unique_ptr<juce::ParameterAttachment> OctobIREditor::attachBacklight(
+    LCDDisplay& display, const juce::String& enableParamId)
+{
+  auto attachment = std::make_unique<juce::ParameterAttachment>(
+      *audioProcessor.getAPVTS().getParameter(enableParamId),
+      [&display, enableParamId](float value)
+      {
+        const bool enabled = value >= 0.5f;
+        DBG(enableParamId + (enabled ? " on, display lit" : " off, display dimmed"));
+        display.setBacklit(enabled);
+      });
+  attachment->sendInitialUpdate();
+  return attachment;
 }
 
 void OctobIREditor::timerCallback()

@@ -27,6 +27,7 @@ add_executable(octobass-plugin-tests
 target_include_directories(octobass-plugin-tests
     PRIVATE
         ../Source
+        ${CMAKE_SOURCE_DIR}/libs/juce-ui-shared/testing
 )
 
 target_include_directories(octobass-plugin-tests

@@ -54,6 +54,13 @@ float paramValue(OctoBassProcessor& proc, const char* paramId)
   return value != nullptr ? value->load() : 0.0f;
 }
 
+// Restoring a session rebuilds file paths in the platform's native form
+// (backslashes on Windows), so paths are compared as files rather than strings
+juce::String nativePath(const juce::String& path)
+{
+  return juce::File(path).getFullPathName();
+}
+
 void loadModel(OctoBassProcessor& proc, NamSlot slot, const juce::String& path)
 {
   juce::String err;
@@ -198,8 +205,9 @@ TEST(OctoBassNamSlotTest, SavedSessionRestoresBothSlotsAndTheirSettings)
   restored.prepareToPlay(kSampleRate, kBlockSize);
   restoreState(restored, saveState(original));
 
-  EXPECT_EQ(restored.getCurrentNamModelPath(NamSlot::First), kA1Model);
-  EXPECT_EQ(restored.getCurrentNamModelPath(NamSlot::Second), kCalibrationModel);
+  EXPECT_EQ(nativePath(restored.getCurrentNamModelPath(NamSlot::First)), nativePath(kA1Model));
+  EXPECT_EQ(nativePath(restored.getCurrentNamModelPath(NamSlot::Second)),
+            nativePath(kCalibrationModel));
   EXPECT_LT(paramValue(restored, kSlot1Params.on), 0.5f);
   EXPECT_GE(paramValue(restored, kSlot2Params.on), 0.5f);
   EXPECT_NEAR(paramValue(restored, kSlot2Params.quality), 0.25f, 0.02f);
@@ -225,7 +233,7 @@ TEST(OctoBassNamSlotTest, SessionFromBeforeTheSecondSlotLoadsIntoTheFirstSlot)
   proc.prepareToPlay(kSampleRate, kBlockSize);
   restoreState(proc, stateFromTree(legacy));
 
-  EXPECT_EQ(proc.getCurrentNamModelPath(NamSlot::First), kA1Model);
+  EXPECT_EQ(nativePath(proc.getCurrentNamModelPath(NamSlot::First)), nativePath(kA1Model));
   EXPECT_FALSE(proc.isNamModelLoaded(NamSlot::Second));
   EXPECT_NEAR(paramValue(proc, kSlot1Params.quality), 0.0f, 0.001f);
   EXPECT_GE(paramValue(proc, kSlot1Params.on), 0.5f) << "Older sessions never switched a slot off";
@@ -252,7 +260,7 @@ TEST(OctoBassNamSlotTest, RestoringASessionEmptiesTheSlotsItDoesNotUse)
 
   EXPECT_FALSE(proc.isNamModelLoaded(NamSlot::First));
   EXPECT_TRUE(proc.getCurrentNamModelPath(NamSlot::First).isEmpty());
-  EXPECT_EQ(proc.getCurrentNamModelPath(NamSlot::Second), kA2Model);
+  EXPECT_EQ(nativePath(proc.getCurrentNamModelPath(NamSlot::Second)), nativePath(kA2Model));
   EXPECT_TRUE(proc.getCurrentIRPath().isEmpty());
 }
 
@@ -270,7 +278,7 @@ TEST(OctoBassNamSlotTest, RestoringASessionWhoseModelFileIsGoneEmptiesThatSlot)
 
   restoreState(proc, stateFromTree(saved));
 
-  EXPECT_EQ(proc.getCurrentNamModelPath(NamSlot::First), kA1Model);
+  EXPECT_EQ(nativePath(proc.getCurrentNamModelPath(NamSlot::First)), nativePath(kA1Model));
   EXPECT_FALSE(proc.isNamModelLoaded(NamSlot::Second));
 }
 
@@ -329,4 +337,44 @@ TEST(OctoBassNamSlotTest, SecondSlotQualityReachesItsModel)
   for (size_t i = 0; i < fullQuality.size(); ++i)
     maxDiff = std::max(maxDiff, std::abs(fullQuality[i] - liteQuality[i]));
   EXPECT_GT(maxDiff, 1e-4f) << "nam2Quality must reach the model in slot 2";
+}
+
+TEST(OctoBassNamSlotTest, OnSwitchIsAnOnOffControlHostsCanMapMidiTo)
+{
+  OctoBassProcessor proc;
+  for (const auto& slot : kAllSlotParams)
+  {
+    auto* param = proc.getAPVTS().getParameter(slot.on);
+    ASSERT_NE(param, nullptr) << slot.on;
+    EXPECT_TRUE(param->isAutomatable()) << slot.on;
+    EXPECT_TRUE(param->isBoolean()) << slot.on;
+    EXPECT_TRUE(param->isDiscrete()) << slot.on;
+    EXPECT_EQ(param->getNumSteps(), 2) << slot.on;
+    EXPECT_EQ(param->getText(0.0f, 100), "Off") << slot.on;
+    EXPECT_EQ(param->getText(1.0f, 100), "On") << slot.on;
+  }
+}
+
+TEST(OctoBassNamSlotTest, FootswitchCcFrom64UpSwitchesASlotOnAndBelow64SwitchesItOff)
+{
+  for (const auto slot : {NamSlot::First, NamSlot::Second})
+  {
+    const auto& ids = kAllSlotParams[static_cast<size_t>(slot)];
+    // Hosts hand a mapped MIDI CC to the parameter as value / 127
+    const auto measure = [&](int ccValue)
+    {
+      OctoBassProcessor proc;
+      proc.prepareToPlay(kSampleRate, kBlockSize);
+      loadModel(proc, slot, kCalibrationModel);
+      proc.getAPVTS().getParameter(ids.on)->setValueNotifyingHost(static_cast<float>(ccValue) /
+                                                                  127.0f);
+      return renderGainDb(proc);
+    };
+
+    const double offDb = measure(0);
+    // Default Normalized output: -18 - (-21.5) = +3.5 dB while on
+    EXPECT_NEAR(measure(63) - offDb, 0.0, 0.05) << ids.on << " CC 63 must leave the slot off";
+    EXPECT_NEAR(measure(64) - offDb, 3.5, 0.15) << ids.on << " CC 64 must switch the slot on";
+    EXPECT_NEAR(measure(127) - offDb, 3.5, 0.15) << ids.on << " CC 127 must switch the slot on";
+  }
 }

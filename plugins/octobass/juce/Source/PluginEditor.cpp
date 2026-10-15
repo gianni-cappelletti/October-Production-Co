@@ -377,6 +377,16 @@ void OctoBassEditor::setUpNamSlot(octob::NamSlot slot)
     controls.calibrationPanel->grabKeyboardFocus();
   };
 
+  const auto& ids = OctoBassProcessor::getNamSlotIds(slot);
+
+  addAndMakeVisible(controls.onSwitch);
+  controls.onSwitch.setComponentID("metalToggle");
+  controls.onSwitch.setTitle(slotName + " On");
+  controls.onSwitch.popupTextProvider = [&controls]() -> juce::String
+  { return controls.onSwitch.getToggleState() ? "On" : "Off"; };
+  controls.onAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+      audioProcessor.getAPVTS(), ids.on, controls.onSwitch);
+
   addAndMakeVisible(controls.qualityToggle);
   controls.qualityToggle.setComponentID("metalToggle");
   controls.qualityToggle.setTitle(slotName + " Quality");
@@ -391,13 +401,23 @@ void OctoBassEditor::setUpNamSlot(octob::NamSlot slot)
   // nam::ContainerModel::SetSlimmableSize
   controls.qualityAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-          audioProcessor.getAPVTS(), OctoBassProcessor::getNamSlotIds(slot).quality,
-          controls.qualityToggle);
+          audioProcessor.getAPVTS(), ids.quality, controls.qualityToggle);
 
   addAndMakeVisible(controls.lcdDisplay);
   controls.lcdDisplay.setTextColour(kLCDInkColour);
   controls.lcdDisplay.setOnClick([this, slot] { namLoadClicked(slot); });
   showNamPath(slot, audioProcessor.getCurrentNamModelPath(slot));
+  // Follows the parameter rather than the switch so automation and
+  // host-mapped MIDI dim the display too
+  controls.backlightAttachment = std::make_unique<juce::ParameterAttachment>(
+      *audioProcessor.getAPVTS().getParameter(ids.on),
+      [&controls, slotName](float value)
+      {
+        const bool on = value >= 0.5f;
+        DBG(slotName + (on ? " switched on" : " switched off"));
+        controls.lcdDisplay.setBacklit(on);
+      });
+  controls.backlightAttachment->sendInitialUpdate();
 
   controls.calibrationPanel =
       std::make_unique<NamCalibrationPanel>(audioProcessor.getAPVTS(), slot);
@@ -706,6 +726,8 @@ void OctoBassEditor::resized()
     placeButton(buttonRow, controls.nextButton, 28);
     placeButton(buttonRow, controls.calibrateButton, 44);
     controls.qualityToggle.setBounds(
+        buttonRow.removeFromRight(48).withSizeKeepingCentre(44, loaderButtonRowH));
+    controls.onSwitch.setBounds(
         buttonRow.removeFromRight(48).withSizeKeepingCentre(44, loaderButtonRowH));
     section.removeFromTop(innerGap);
     controls.lcdDisplay.setBounds(section.reduced(2, 0));
