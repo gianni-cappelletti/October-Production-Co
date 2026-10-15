@@ -6,11 +6,6 @@
 #include <octobass-core/NamProcessor.hpp>
 #include <octobass-core/Types.hpp>
 
-// Modal overlay with one NAM slot's calibration settings, mirroring the NAM Gateway
-// plugin: an input-calibration toggle with its reference level in dBu, and
-// the output mode (Raw / Normalized / Calibrated). Covers the whole editor
-// with a scrim; clicking outside the panel, the close button, or Escape
-// dismisses it via onDismiss.
 class NamCalibrationPanel : public juce::Component
 {
  public:

@@ -56,8 +56,6 @@ class OctoBassProcessor : public juce::AudioProcessor,
 
   juce::AudioProcessorValueTreeState& getAPVTS() { return apvts_; }
 
-  // Parameter IDs and saved-state key of one NAM slot. Slot 1 keeps the
-  // pre-2.3.0 IDs so existing sessions and automation still resolve.
   struct NamSlotIds
   {
     const char* quality;
@@ -69,7 +67,6 @@ class OctoBassProcessor : public juce::AudioProcessor,
   };
   static const NamSlotIds& getNamSlotIds(octob::NamSlot slot);
 
-  // User-facing slot name ("NAM 1"), shared by host parameter names and the UI
   static juce::String getNamSlotName(octob::NamSlot slot);
 
   // NAM model management
@@ -92,7 +89,6 @@ class OctoBassProcessor : public juce::AudioProcessor,
   bool isIRLoaded() const;
   juce::String getCurrentIRPath() const;
 
-  // File browser support, message thread only
   static FileSlot fileSlotFor(octob::NamSlot slot);
   juce::File getBrowseStartFolder(FileSlot slot) const;
   bool loadPickedFile(FileSlot slot, const juce::File& file, juce::String& errorMessage);

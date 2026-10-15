@@ -7,8 +7,6 @@
 namespace
 {
 
-// FontOptions() carries a default style, which withTypeface() asserts against;
-// falls back to the default font if an embedded typeface failed to load
 juce::FontOptions fontOptionsFor(const juce::Typeface::Ptr& typeface, float height)
 {
   if (typeface == nullptr)

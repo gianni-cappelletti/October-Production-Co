@@ -60,7 +60,6 @@ constexpr float MaxHighOutputGainDb = 24.0f;
 // High band wet/dry blend
 constexpr float DefaultHighBandMix = 1.0f;
 
-// Serial NAM slots in the high band, in signal-flow order
 enum class NamSlot : int
 {
   First = 0,

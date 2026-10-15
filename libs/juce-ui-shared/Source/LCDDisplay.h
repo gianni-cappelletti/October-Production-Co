@@ -28,7 +28,6 @@ class LCDDisplay : public juce::Component
     repaint();
   }
 
-  // An unlit display stays clickable and readable; only the backlight dims
   void setBacklit(bool backlit)
   {
     if (backlit == backlit_)

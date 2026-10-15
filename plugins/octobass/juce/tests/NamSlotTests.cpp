@@ -17,7 +17,6 @@ namespace
 const juce::String kDataDir = TEST_DATA_DIR;
 const juce::String kA1Model = kDataDir + "/INPUT_octobass_hm2_a1.nam";
 const juce::String kA2Model = kDataDir + "/INPUT_HM2-W OctoBASS distortion 2_a2.nam";
-// Identity Linear model with input_level_dbu 18.0, output_level_dbu 14.0, loudness -21.5
 const juce::String kCalibrationModel = kDataDir + "/INPUT_calibration_linear.nam";
 const juce::String kImpulseResponse = kDataDir + "/INPUT_ir_a.wav";
 
@@ -31,7 +30,6 @@ struct SlotParamIds
   const char* hostNamePrefix;
 };
 
-// Slot 1 keeps the IDs that 2.2.0 sessions and automation already refer to
 constexpr SlotParamIds kSlot1Params{
     "namQuality", "namCalibrateInput", "namInputCalibrationLevel", "namOutputMode", "namOn",
     "NAM 1"};
@@ -54,8 +52,6 @@ float paramValue(OctoBassProcessor& proc, const char* paramId)
   return value != nullptr ? value->load() : 0.0f;
 }
 
-// Restoring a session rebuilds file paths in the platform's native form
-// (backslashes on Windows), so paths are compared as files rather than strings
 juce::String nativePath(const juce::String& path)
 {
   return juce::File(path).getFullPathName();
@@ -82,8 +78,6 @@ juce::MemoryBlock stateFromTree(const juce::ValueTree& tree)
   return state;
 }
 
-// Hosts call setStateInformation and the plugin finishes loading files on the
-// message thread; flushing the async update makes that deterministic
 void restoreState(OctoBassProcessor& proc, const juce::MemoryBlock& state)
 {
   proc.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
@@ -93,8 +87,6 @@ void restoreState(OctoBassProcessor& proc, const juce::MemoryBlock& state)
 constexpr double kSampleRate = 44100.0;
 constexpr int kBlockSize = 512;
 
-// RMS level change of a 2kHz sine (above the crossover, so it runs through
-// the NAM slots) pushed through processBlock, measured after settling
 double renderGainDb(OctoBassProcessor& proc)
 {
   constexpr int kNumBlocks = 16;
@@ -221,7 +213,6 @@ TEST(OctoBassNamSlotTest, SavedSessionRestoresBothSlotsAndTheirSettings)
 
 TEST(OctoBassNamSlotTest, SessionFromBeforeTheSecondSlotLoadsIntoTheFirstSlot)
 {
-  // Shape of a 2.2.0 session: one model path and slot 1's parameter IDs
   juce::ValueTree legacy("OctoBassParams");
   legacy.setProperty("namModelPath", kA1Model, nullptr);
   juce::ValueTree quality("PARAM");
@@ -298,7 +289,6 @@ TEST(OctoBassNamSlotTest, SecondSlotSettingsReachTheAudio)
   const auto calibrated = static_cast<float>(octob::NamOutputMode::Calibrated);
   const double rawDb = measure(raw, true);
 
-  // Calibrated at the default 12 dBu input level: 14 - 12 = +2 dB
   EXPECT_NEAR(measure(calibrated, true) - rawDb, 2.0, 0.15);
   EXPECT_NEAR(measure(calibrated, false) - rawDb, 0.0, 0.05)
       << "Switching slot 2 off must remove its calibration gain";
@@ -315,7 +305,6 @@ TEST(OctoBassNamSlotTest, FirstSlotOnSwitchReachesTheAudio)
     return renderGainDb(proc);
   };
 
-  // Default Normalized output: -18 - (-21.5) = +3.5 dB while on
   EXPECT_NEAR(measure(true) - measure(false), 3.5, 0.15);
 }
 
@@ -360,7 +349,6 @@ TEST(OctoBassNamSlotTest, FootswitchCcFrom64UpSwitchesASlotOnAndBelow64SwitchesI
   for (const auto slot : {NamSlot::First, NamSlot::Second})
   {
     const auto& ids = kAllSlotParams[static_cast<size_t>(slot)];
-    // Hosts hand a mapped MIDI CC to the parameter as value / 127
     const auto measure = [&](int ccValue)
     {
       OctoBassProcessor proc;
@@ -372,7 +360,6 @@ TEST(OctoBassNamSlotTest, FootswitchCcFrom64UpSwitchesASlotOnAndBelow64SwitchesI
     };
 
     const double offDb = measure(0);
-    // Default Normalized output: -18 - (-21.5) = +3.5 dB while on
     EXPECT_NEAR(measure(63) - offDb, 0.0, 0.05) << ids.on << " CC 63 must leave the slot off";
     EXPECT_NEAR(measure(64) - offDb, 3.5, 0.15) << ids.on << " CC 64 must switch the slot on";
     EXPECT_NEAR(measure(127) - offDb, 3.5, 0.15) << ids.on << " CC 127 must switch the slot on";

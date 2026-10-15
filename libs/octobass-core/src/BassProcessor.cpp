@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <utility>
 
 namespace octob
 {
@@ -81,7 +82,7 @@ bool BassProcessor::loadImpulseResponse(const std::string& filepath, std::string
 {
   if (irProcessor_.loadImpulseResponse1(filepath, errorMessage))
   {
-    currentIRPath_ = filepath;
+    setCurrentIRPath(filepath);
     stageDelayBuffer(irProcessor_.getLatencySamples());
     return true;
   }
@@ -91,7 +92,7 @@ bool BassProcessor::loadImpulseResponse(const std::string& filepath, std::string
 void BassProcessor::clearImpulseResponse()
 {
   irProcessor_.clearImpulseResponse1();
-  currentIRPath_.clear();
+  setCurrentIRPath({});
 
   // The audio thread sees the IR latency drop to zero and skips the delay
   // path on its own; the delay buffer must not be freed here while that
@@ -109,24 +110,25 @@ bool BassProcessor::isIRLoaded() const
 
 std::string BassProcessor::getCurrentIRPath() const
 {
+  const std::lock_guard<std::mutex> lock(irPathMutex_);
   return currentIRPath_;
+}
+
+void BassProcessor::setCurrentIRPath(std::string path)
+{
+  const std::lock_guard<std::mutex> lock(irPathMutex_);
+  currentIRPath_ = std::move(path);
 }
 
 bool BassProcessor::loadNamModel(NamSlot slot, const std::string& filepath,
                                  std::string& errorMessage)
 {
-  if (namSlot(slot).loadModel(filepath, errorMessage))
-  {
-    namModelPaths_[slotIndex(slot)] = filepath;
-    return true;
-  }
-  return false;
+  return namSlot(slot).loadModel(filepath, errorMessage);
 }
 
 void BassProcessor::clearNamModel(NamSlot slot)
 {
   namSlot(slot).clearModel();
-  namModelPaths_[slotIndex(slot)].clear();
 }
 
 bool BassProcessor::isNamModelLoaded(NamSlot slot) const
@@ -136,7 +138,7 @@ bool BassProcessor::isNamModelLoaded(NamSlot slot) const
 
 std::string BassProcessor::getCurrentNamModelPath(NamSlot slot) const
 {
-  return namModelPaths_[slotIndex(slot)];
+  return namSlot(slot).getCurrentModelPath();
 }
 
 void BassProcessor::setNamQuality(NamSlot slot, float quality)
@@ -291,13 +293,10 @@ void BassProcessor::processMono(const Sample* input, Sample* output, FrameCount 
     std::copy(highBandBuffer_.data(), highBandBuffer_.data() + numFrames,
               dryHighBandBuffer_.data());
 
-  // High band chain: InputGain -> NAM slot 1 -> NAM slot 2 -> IR -> OutputGain
-
   // 1. Apply input gain to high band
   for (FrameCount i = 0; i < numFrames; ++i)
     highBandBuffer_[i] *= highInputGainLinear_;
 
-  // 2. NAM slots in series (each passes through when empty or switched off)
   for (auto& nam : namSlots_)
     nam.process(highBandBuffer_.data(), highBandBuffer_.data(), numFrames);
 

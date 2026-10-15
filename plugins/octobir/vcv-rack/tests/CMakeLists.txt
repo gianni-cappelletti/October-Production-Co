@@ -37,7 +37,6 @@ target_compile_definitions(octobir-vcv-tests
     PRIVATE
         OCTOBIR_VCV_HEADLESS_TEST=1
         TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data"
-        # Rack plugins ship built with MinGW, which has no secure-CRT deprecations
         $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
 )
 

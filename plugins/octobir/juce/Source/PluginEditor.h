@@ -150,7 +150,6 @@ class OctobIREditor : public juce::AudioProcessorEditor, private juce::Timer
   juce::Slider outputGainSlider_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputGainAttachment_;
 
-  // The display follows the parameter, so automation and host-mapped MIDI dim it too
   std::unique_ptr<juce::ParameterAttachment> attachBacklight(LCDDisplay& display,
                                                              const juce::String& enableParamId);
   void loadButton1Clicked();

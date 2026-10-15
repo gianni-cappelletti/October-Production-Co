@@ -10,8 +10,6 @@
 #include <mutex>
 #include <string>
 
-// Plugin-wide memory of the folder each IR slot last picked a file from,
-// persisted through Rack's settingsToJson/settingsFromJson plugin callbacks.
 struct IrBrowseFolders
 {
   std::mutex mutex;
@@ -28,7 +26,6 @@ inline IrBrowseFolders& irBrowseFolders()
 inline std::string userHomeFolder()
 {
 #ifdef _WIN32
-  // The narrow getenv returns the ANSI code page, Rack paths must be UTF-8
   const wchar_t* home = _wgetenv(L"USERPROFILE");
   if (home != nullptr)
     return rack::string::UTF16toUTF8(home);
@@ -100,9 +97,6 @@ inline std::string folderOfLoadedFile(const std::string& loadedFilePath)
   return rack::system::isDirectory(folder) ? folder : "";
 }
 
-// Start folder, first match wins: folder of this slot's loaded file, this
-// slot's remembered folder, folder of the other slot's loaded file, the other
-// slot's remembered folder, the user's home folder
 inline std::string resolveIRBrowseStartFolder(bool ir2, const std::string& loadedFilePath,
                                               const std::string& otherSlotLoadedFilePath)
 {

@@ -77,7 +77,6 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
   juce::Slider highBandMixSlider_;
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> highBandMixAttachment_;
 
-  // One loader per NAM slot, stacked in signal-flow order above the IR loader
   struct NamSlotControls
   {
     juce::TextButton loadButton;
@@ -108,8 +107,7 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
   void namClearClicked(octob::NamSlot slot);
   void cycleNamFile(octob::NamSlot slot, int direction);
   void showNamPath(octob::NamSlot slot, const juce::String& path);
-  void showNamLoadResult(octob::NamSlot slot, const juce::File& file, bool loaded,
-                         const juce::String& error);
+  void showNamLoadResult(octob::NamSlot slot, bool loaded, const juce::String& error);
 
   // IR file loader
   juce::TextButton irLoadButton_;
@@ -123,10 +121,8 @@ class OctoBassEditor : public juce::AudioProcessorEditor, private juce::Timer
   void irClearClicked();
   void cycleIRFile(int direction);
   void showIRPath(const juce::String& path);
-  void showIRLoadResult(const juce::File& file, bool loaded, const juce::String& error);
+  void showIRLoadResult(bool loaded, const juce::String& error);
 
-  // Files can also change outside this editor (host state restore), so the
-  // displays follow the processor rather than only this editor's actions
   void syncLoadedFileDisplays();
 
   // Cached parameter handles so the 30 Hz timer and the EQ display callbacks

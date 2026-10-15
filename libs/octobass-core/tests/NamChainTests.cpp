@@ -19,12 +19,10 @@ constexpr size_t kBlockSize = 512;
 constexpr size_t kNumBlocks = 16;
 constexpr size_t kSettledSample = 8 * kBlockSize;
 
-// Level change of the quarter-gain fixture model: 20 * log10(0.25)
 constexpr float kQuarterGainDb = -12.0411998f;
 
 const std::string kDistortionModel = std::string(TEST_DATA_DIR) + "/INPUT_octobass_hm2_a1.nam";
 const std::string kQuarterGainModel = std::string(TEST_DATA_DIR) + "/INPUT_linear_quarter_gain.nam";
-// Identity Linear model with input_level_dbu 18.0, output_level_dbu 14.0, loudness -21.5
 const std::string kCalibrationModel = std::string(TEST_DATA_DIR) + "/INPUT_calibration_linear.nam";
 const std::string kSlimmableModel =
     std::string(TEST_DATA_DIR) + "/INPUT_HM2-W OctoBASS distortion 2_a2.nam";
@@ -43,8 +41,6 @@ void load(BassProcessor& proc, NamSlot slot, const std::string& path)
   ASSERT_TRUE(proc.loadNamModel(slot, path, err)) << "Failed to load '" << path << "': " << err;
 }
 
-// 1kHz and 2kHz sit well above the default 250Hz crossover, so these tones
-// run through the high band and therefore through both NAM slots
 std::vector<float> generateSine(float freqHz, float amplitude = 0.3f)
 {
   std::vector<float> buf(kNumBlocks * kBlockSize);
@@ -143,10 +139,6 @@ TEST(NamChainTest, ModelMetadataBelongsToItsSlot)
 
 TEST(NamChainTest, SecondSlotProcessesTheFirstSlotsOutput)
 {
-  // A distortion model and a plain x0.25 model do not commute, so the order
-  // they run in is audible. Each chain is compared against the same
-  // distortion model with the x0.25 applied by a known gain stage instead:
-  // the high output gain (after the NAM slots) or the high input gain (before)
   const auto input = generateSine(1000.0f);
 
   auto distortionThenQuarter = makeProcessor();
@@ -188,7 +180,6 @@ TEST(NamChainTest, EachSlotKeepsItsOwnCalibration)
   load(*uncalibrated, NamSlot::Second, kCalibrationModel);
   const double baselineDb = settledGainDb(*uncalibrated, kToneHz);
 
-  // Slot 2 Calibrated at the default 12 dBu level: 14 - 12 = +2 dB
   auto secondCalibrated = makeProcessor();
   load(*secondCalibrated, NamSlot::First, kCalibrationModel);
   load(*secondCalibrated, NamSlot::Second, kCalibrationModel);
@@ -196,9 +187,6 @@ TEST(NamChainTest, EachSlotKeepsItsOwnCalibration)
   EXPECT_NEAR(settledGainDb(*secondCalibrated, kToneHz) - baselineDb, 2.0, 0.15)
       << "Slot 2's output mode must not be applied to slot 1";
 
-  // Slot 1 input calibration at 24 dBu: 24 - 18 = +6 dB. Slot 2 keeps its own
-  // 12 dBu level, so its Calibrated output stays +2 dB (a shared level would
-  // turn it into 14 - 24 = -10 dB)
   auto bothCalibrated = makeProcessor();
   load(*bothCalibrated, NamSlot::First, kCalibrationModel);
   load(*bothCalibrated, NamSlot::Second, kCalibrationModel);

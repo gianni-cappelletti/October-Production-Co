@@ -54,8 +54,6 @@ std::unique_ptr<juce::AudioParameterChoice> makeNamOutputModeParameter(const juc
       static_cast<int>(octob::NamOutputMode::Normalized));
 }
 
-// "On" rather than "Bypass" so a footswitch sending CC 127 for down maps
-// straight onto the slot being engaged
 std::unique_ptr<juce::AudioParameterBool> makeNamOnParameter(const juce::ParameterID& id,
                                                              const juce::String& slotName)
 {
@@ -313,15 +311,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout OctoBassProcessor::createPar
   const auto& slot1 = getNamSlotIds(NamSlot::First);
   const auto slot1Name = getNamSlotName(NamSlot::First);
 
-  // Slot 1 quality predates version hints; its calibration params arrived in
-  // 2.2.0. The hints keep host-facing parameter order stable for sessions
-  // saved with older builds.
   layout.add(makeNamQualityParameter({slot1.quality, 0}, slot1Name));
   layout.add(makeNamCalibrateInputParameter({slot1.calibrateInput, 2}, slot1Name));
   layout.add(makeNamInputLevelParameter({slot1.inputCalibrationLevel, 2}, slot1Name));
   layout.add(makeNamOutputModeParameter({slot1.outputMode, 2}, slot1Name));
 
-  // New in 2.3.0, added after every older parameter
   layout.add(makeNamOnParameter({slot1.on, 3}, slot1Name));
 
   const auto& slot2 = getNamSlotIds(NamSlot::Second);
@@ -667,8 +661,6 @@ void OctoBassProcessor::handleAsyncUpdate()
     return file;
   };
 
-  // Every file slot ends up matching the restored state: a slot the state
-  // does not use, or whose file cannot be loaded any more, is emptied
   juce::String err;
   if (const auto irFile = restorableFile(state.getProperty("irPath").toString(), "wav");
       irFile == juce::File() || !loadImpulseResponse(irFile.getFullPathName(), err))
@@ -697,8 +689,6 @@ void OctoBassProcessor::handleAsyncUpdate()
 
 namespace
 {
-// Each NAM slot remembers its own folder; one that has never been picked from
-// falls back to the other NAM slot's folder
 BrowseFolderMemory::Slot toBrowseSlot(OctoBassProcessor::FileSlot slot)
 {
   switch (slot)

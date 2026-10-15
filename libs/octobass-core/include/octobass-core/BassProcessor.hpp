@@ -32,8 +32,6 @@ class BassProcessor
   bool isIRLoaded() const;
   std::string getCurrentIRPath() const;
 
-  // NAM slots run in series (First, then Second) between the high input
-  // gain and the IR; an empty or switched-off slot passes audio through
   bool loadNamModel(NamSlot slot, const std::string& filepath, std::string& errorMessage);
   void clearNamModel(NamSlot slot);
   bool isNamModelLoaded(NamSlot slot) const;
@@ -43,12 +41,8 @@ class BassProcessor
   // Message thread only -- not real-time safe.
   void setNamQuality(NamSlot slot, float quality);
 
-  // Discrete quality levels of the slot's model: 0 = no model,
-  // 1 = no quality options, >1 = selectable levels. Message thread only.
   int getNamQualityLevels(NamSlot slot) const;
 
-  // NAM calibration and on/off (see NamProcessor). Setters are real-time
-  // safe and callable per block; the metadata query is message thread only.
   void setNamCalibrateInput(NamSlot slot, bool enabled);
   void setNamInputCalibrationLevel(NamSlot slot, float levelDbu);
   void setNamOutputMode(NamSlot slot, int mode);
@@ -152,12 +146,13 @@ class BassProcessor
   float highOutputGainLinear_;
   float outputGainLinear_;
 
+  mutable std::mutex irPathMutex_;
   std::string currentIRPath_;
-  std::array<std::string, kNumNamSlots> namModelPaths_;
 
   NamProcessor& namSlot(NamSlot slot) { return namSlots_[slotIndex(slot)]; }
   const NamProcessor& namSlot(NamSlot slot) const { return namSlots_[slotIndex(slot)]; }
   static size_t slotIndex(NamSlot slot) { return static_cast<size_t>(slot); }
+  void setCurrentIRPath(std::string path);
 
   void stageDelayBuffer(int latencySamples);
 

@@ -2,9 +2,6 @@
 
 #include <juce_data_structures/juce_data_structures.h>
 
-// Remembers, per file slot, the folder a file was last picked from in the file
-// browser. Shared by every plugin instance and DAW session for the current user
-// through a small settings file, so it never lives in a project's saved state.
 class BrowseFolderMemory
 {
  public:
@@ -18,9 +15,6 @@ class BrowseFolderMemory
 
   [[nodiscard]] static juce::File getDefaultSettingsFile(const juce::String& pluginName);
 
-  // Start folder, first match wins: folder of this slot's loaded file, this
-  // slot's remembered folder, folder of the file loaded in the same-kind slot,
-  // the same-kind slot's remembered folder, the user's home folder
   [[nodiscard]] juce::File getStartFolder(const Slot& slot, const juce::File& loadedFile,
                                           const juce::File& sameKindLoadedFile) const;
   void rememberPickedFile(const Slot& slot, const juce::File& pickedFile);

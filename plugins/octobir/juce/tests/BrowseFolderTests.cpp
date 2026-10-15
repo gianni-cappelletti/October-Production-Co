@@ -78,16 +78,12 @@ class OctobIRBrowseFolderTest : public ::testing::Test
   juce::File root_;
 };
 
-// Rule 5: nothing loaded, nothing remembered
-
 TEST_F(OctobIRBrowseFolderTest, FirstEverBrowse_OpensHomeFolder)
 {
   auto instance = newInstance();
   EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::IR1), homeFolder());
   EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::IR2), homeFolder());
 }
-
-// Rule 2: last folder used for this slot, across instances and sessions
 
 TEST_F(OctobIRBrowseFolderTest, FreshInstanceInNewSession_OpensFolderPickedInPreviousSession)
 {
@@ -140,8 +136,6 @@ TEST_F(OctobIRBrowseFolderTest, MissingRememberedFolder_FallsBackToHome_AndRetur
   EXPECT_EQ(newInstance()->getBrowseStartFolder(FileSlot::IR1), externalDrive);
 }
 
-// Rule 1: folder of the file loaded in this slot
-
 TEST_F(OctobIRBrowseFolderTest, LoadedFile_OpensItsFolderEvenIfAnotherInstancePickedElsewhereLater)
 {
   const auto celestion = makeFolder("Celestion");
@@ -184,8 +178,6 @@ TEST_F(OctobIRBrowseFolderTest, LoadedFilesFolderMissing_FallsBackToRememberedFo
 
   EXPECT_EQ(instanceA->getBrowseStartFolder(FileSlot::IR1), mesa);
 }
-
-// Rule 3: folder of the file loaded in the other slot, only if this slot was never used
 
 TEST_F(OctobIRBrowseFolderTest, NeverUsedSlot_OpensFolderOfTheIRRestoredInTheOtherSlot)
 {
@@ -259,8 +251,6 @@ TEST_F(OctobIRBrowseFolderTest,
   EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::IR2), celestion);
 }
 
-// Rule 4: other slot of the same kind, only if this slot was never used
-
 TEST_F(OctobIRBrowseFolderTest, NeverUsedSlot_OpensFolderRememberedForOtherIRSlot)
 {
   const auto celestion = makeFolder("Celestion");
@@ -301,8 +291,6 @@ TEST_F(OctobIRBrowseFolderTest, UsedSlotWithMissingFolder_DoesNotBorrowOtherSlot
 
   EXPECT_EQ(newInstance()->getBrowseStartFolder(FileSlot::IR2), homeFolder());
 }
-
-// What updates the remembered folder
 
 TEST_F(OctobIRBrowseFolderTest, PickedFileThatFailsToLoad_StillRemembersItsFolder)
 {
@@ -359,8 +347,6 @@ TEST_F(OctobIRBrowseFolderTest, SwappingIRs_DoesNotChangeRememberedFolders)
   EXPECT_EQ(freshInstance->getBrowseStartFolder(FileSlot::IR2), mesa);
 }
 
-// Storage robustness
-
 TEST_F(OctobIRBrowseFolderTest, TwoLiveInstancesPickingDifferentSlots_BothPicksAreRemembered)
 {
   const auto celestion = makeFolder("Celestion");
@@ -384,8 +370,6 @@ TEST_F(OctobIRBrowseFolderTest, FolderWithSpacesAndNonAsciiCharacters_IsRemember
       makeFolder(juce::CharPointer_UTF8("Bass IRs \xc3\xbc 8\xc3\x97"
                                         "10 'vintage'"));
   {
-    // Load result is not asserted: the WAV loader cannot open non-ASCII paths on
-    // Windows, and the folder is remembered whether or not the file loads
     auto previousSession = newInstance();
     pick(*previousSession, FileSlot::IR1, copyIRInto(ampeg));
   }

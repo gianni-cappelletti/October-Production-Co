@@ -226,8 +226,6 @@ void drawToggleButton(NVGcontext* vg, float w, float h, const char* label, bool 
   nvgText(vg, (w + ledW) * 0.5f, h * 0.5f, label, nullptr);
 }
 
-// Same values as kLCDBacklightColour / kLCDDimBacklightColour in juce-ui-shared.
-// The dimmed backlight keeps the 0x1c1c30 ink at 5.0:1 contrast (WCAG 2.1 SC 1.4.3)
 NVGcolor lcdBacklightColour(bool backlit)
 {
   return backlit ? nvgRGB(0xF0, 0x88, 0x30) : nvgRGB(0xB4, 0x82, 0x5C);
@@ -596,7 +594,6 @@ struct IrFileDisplay : OpaqueWidget
 
   IrFileDisplay(bool ir2 = false) : isIR2(ir2), text("<No IR selected>") {}
 
-  // The module browser preview has no module and shows the display lit
   bool isSlotEnabled() const
   {
     if (module == nullptr)

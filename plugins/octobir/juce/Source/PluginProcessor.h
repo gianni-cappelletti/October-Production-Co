@@ -7,8 +7,6 @@
 
 #include "BrowseFolderMemory.h"
 
-// AsyncUpdater is public so tests can flush deferred work deterministically
-// with handleUpdateNowIfNeeded() instead of pumping the message loop
 class OctobIRProcessor : public juce::AudioProcessor, public juce::AsyncUpdater
 {
  public:
@@ -56,7 +54,6 @@ class OctobIRProcessor : public juce::AudioProcessor, public juce::AsyncUpdater
   juce::String getCurrentIR1Path() const { return currentIR1Path_; }
   juce::String getCurrentIR2Path() const { return currentIR2Path_; }
 
-  // File browser support, message thread only
   juce::File getBrowseStartFolder(FileSlot slot) const;
   bool loadPickedFile(FileSlot slot, const juce::File& file, juce::String& errorMessage);
 

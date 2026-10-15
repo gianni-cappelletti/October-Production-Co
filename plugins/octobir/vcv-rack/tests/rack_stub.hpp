@@ -62,7 +62,7 @@ inline json_t* json_string(const char* s)
   return j;
 }
 
-inline json_t* json_integer(long long /*value*/)
+inline json_t* json_integer(long long)
 {
   return new json_t{JSON_INTEGER_T};
 }
@@ -154,7 +154,6 @@ struct SampleRateChangeEvent
   float sampleRate = 44100.f;
 };
 
-// Mirrors Rack's UTF-8 std::string path semantics (src/system.cpp)
 namespace system
 {
 

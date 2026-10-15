@@ -493,10 +493,8 @@ TEST_F(NamCalibrationTest, SwitchingSlotOffAndOnIsClickFree)
 {
   std::string err;
   ASSERT_TRUE(proc.loadModel(calibrationModelPath, err)) << err;
-  proc.setOutputMode(NamOutputMode::Normalized);  // +3.5 dB while switched on
+  proc.setOutputMode(NamOutputMode::Normalized);
 
-  // DC through the identity model: any step in the output is a step in the
-  // on/off transition itself
   const std::vector<float> input(kNumBlocks * kBlockSize, 0.1f);
   std::vector<float> output(input.size());
   const auto processBlock = [&](size_t block)
@@ -517,7 +515,6 @@ TEST_F(NamCalibrationTest, SwitchingSlotOffAndOnIsClickFree)
   EXPECT_NEAR(switchedOffLevel, 0.1f, 1.0e-6f);
   EXPECT_NEAR(output.back(), 0.1f * std::pow(10.0f, 3.5f / 20.0f), 1.0e-4f);
 
-  // A hard switch would jump by ~0.05 in one sample
   float maxDelta = 0.0f;
   for (size_t i = 1; i < output.size(); ++i)
     maxDelta = std::max(maxDelta, std::abs(output[i] - output[i - 1]));
@@ -537,7 +534,6 @@ TEST_F(NamProcessorTest, SwitchingBackOnSoundsAsIfNeverSwitchedOff)
   constexpr size_t kNumBlocks = 16;
   constexpr size_t kSwitchOffBlock = 2;
   constexpr size_t kSwitchOnBlock = 10;
-  // The on/off crossfade finishes inside the block it starts in
   constexpr size_t kFirstSettledBlock = kSwitchOnBlock + 1;
 
   const auto input = generateSine(1000.0f, 44100.0f, kNumBlocks * kBlockSize);
@@ -559,4 +555,53 @@ TEST_F(NamProcessorTest, SwitchingBackOnSoundsAsIfNeverSwitchedOff)
   for (size_t i = kFirstSettledBlock * kBlockSize; i < input.size(); ++i)
     ASSERT_NEAR(output[i], reference[i], 1.0e-6f)
         << "The model must keep running while switched off, at sample " << i;
+}
+
+TEST_F(NamProcessorTest, LoadAfterAnUnprocessedClearReportsTheNewModel)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(a1ModelPath, err)) << err;
+  std::vector<float> block(kBlockSize, 0.0f);
+  proc.process(block.data(), block.data(), kBlockSize);
+
+  proc.clearModel();
+  ASSERT_TRUE(proc.loadModel(wavenetModelPath, err)) << err;
+
+  EXPECT_TRUE(proc.isModelLoaded());
+  EXPECT_EQ(proc.getCurrentModelPath(), wavenetModelPath);
+
+  proc.process(block.data(), block.data(), kBlockSize);
+  EXPECT_TRUE(proc.isModelLoaded());
+  EXPECT_EQ(proc.getCurrentModelPath(), wavenetModelPath);
+}
+
+TEST_F(NamCalibrationTest, EmptyBlockDuringTheOnOffFadeKeepsItClickFree)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(calibrationModelPath, err)) << err;
+  proc.setOutputMode(NamOutputMode::Normalized);
+
+  constexpr size_t kPartialBlock = 64;
+  const std::vector<float> input(kNumBlocks * kBlockSize, 0.1f);
+  std::vector<float> output(input.size());
+  size_t written = 0;
+  const auto processNext = [&](size_t numFrames)
+  {
+    proc.process(input.data() + written, output.data() + written, numFrames);
+    written += numFrames;
+  };
+
+  processNext(kBlockSize);
+  processNext(kBlockSize);
+  proc.setEnabled(false);
+  processNext(kPartialBlock);
+  processNext(0);
+  while (written < input.size())
+    processNext(std::min<size_t>(kBlockSize, input.size() - written));
+
+  float maxDelta = 0.0f;
+  for (size_t i = 1; i < output.size(); ++i)
+    maxDelta = std::max(maxDelta, std::abs(output[i] - output[i - 1]));
+  EXPECT_LT(maxDelta, 0.005f);
+  EXPECT_NEAR(output.back(), 0.1f, 1.0e-6f);
 }

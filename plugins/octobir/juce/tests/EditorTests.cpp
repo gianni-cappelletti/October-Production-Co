@@ -37,7 +37,6 @@ class OctobIREditorTest : public ::testing::Test
     return std::unique_ptr<juce::AudioProcessorEditor>(processor.createEditor());
   }
 
-  // Automation and host-mapped MIDI arrive as parameter changes
   void setEnabledFromHost(const char* paramId, bool enabled)
   {
     auto* param = processor.getAPVTS().getParameter(paramId);

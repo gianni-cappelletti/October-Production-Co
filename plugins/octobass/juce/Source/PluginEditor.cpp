@@ -277,7 +277,6 @@ OctoBassEditor::OctoBassEditor(OctoBassProcessor& p) : AudioProcessorEditor(&p),
   logoImage_ =
       juce::ImageCache::getFromMemory(BinaryData::OctoberLogo_png, BinaryData::OctoberLogo_pngSize);
 
-  // Added last so the modals overlay every other child when shown
   for (auto& controls : namSlots_)
     addChildComponent(*controls.calibrationPanel);
 
@@ -326,8 +325,6 @@ void OctoBassEditor::timerCallback()
   graphicEQDisplay_.setHighCut(eqHighCutActiveParam_.value->load() >= 0.5f,
                                eqHighCutFreqParam_.value->load());
 
-  // Models can also arrive outside this editor (host state restore), so the
-  // slot controls are polled rather than tied to the load callbacks
   for (const auto slot : octob::kNamSlots)
   {
     updateNamQualityToggle(slot);
@@ -396,9 +393,6 @@ void OctoBassEditor::setUpNamSlot(octob::NamSlot slot)
       return "No quality options available";
     return controls.qualityToggle.getToggleState() ? "Full" : "Lite";
   };
-  // ButtonAttachment maps the continuous quality parameter to the switch
-  // with a 0.5 threshold, matching the submodel selection threshold in
-  // nam::ContainerModel::SetSlimmableSize
   controls.qualityAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
           audioProcessor.getAPVTS(), ids.quality, controls.qualityToggle);
@@ -407,8 +401,6 @@ void OctoBassEditor::setUpNamSlot(octob::NamSlot slot)
   controls.lcdDisplay.setTextColour(kLCDInkColour);
   controls.lcdDisplay.setOnClick([this, slot] { namLoadClicked(slot); });
   showNamPath(slot, audioProcessor.getCurrentNamModelPath(slot));
-  // Follows the parameter rather than the switch so automation and
-  // host-mapped MIDI dim the display too
   controls.backlightAttachment = std::make_unique<juce::ParameterAttachment>(
       *audioProcessor.getAPVTS().getParameter(ids.on),
       [&controls, slotName](float value)
@@ -670,8 +662,6 @@ void OctoBassEditor::resized()
   }
 
   // === RIGHT ZONE ===
-  // Row 1 is a compact strip of trim knobs (Input, Mix, Output) plus Solo,
-  // labels aligned with the other zones' row 1 labels
   const int stripX = rightX + 20;
   const int stripW = kDesignWidth - pad - stripX;
   const int stripColW = stripW / 4;
@@ -694,8 +684,6 @@ void OctoBassEditor::resized()
       stripColumn(3).withY(stripKnobY).withHeight(trimKnobSize).withSizeKeepingCentre(40, 28));
   const int stripBottom = stripKnobY + trimKnobSize;
 
-  // File loaders, top to bottom in signal-flow order (NAM 1, NAM 2, IR),
-  // bottom-aligned with row 2
   const int row2Bottom = row2Y + fullRowH;
   const int loaderButtonRowH = 28;
   const int loaderLcdH = 30;
@@ -791,8 +779,6 @@ static juce::File adjacentFile(const juce::String& currentPath, const juce::Stri
   return files[(currentIndex + direction + files.size()) % files.size()];
 }
 
-// --- NAM file loader handlers ---
-
 void OctoBassEditor::namLoadClicked(octob::NamSlot slot)
 {
   const auto fileSlot = OctoBassProcessor::fileSlotFor(slot);
@@ -802,7 +788,6 @@ void OctoBassEditor::namLoadClicked(octob::NamSlot slot)
 
   auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
-  // SafePointer: some hosts destroy the editor while the OS dialog is open
   chooser->launchAsync(flags,
                        [safeThis = juce::Component::SafePointer(this), chooser, slot,
                         fileSlot](const juce::FileChooser& fc)
@@ -821,7 +806,7 @@ void OctoBassEditor::namLoadClicked(octob::NamSlot slot)
                          juce::String error;
                          const bool loaded =
                              safeThis->audioProcessor.loadPickedFile(fileSlot, file, error);
-                         safeThis->showNamLoadResult(slot, file, loaded, error);
+                         safeThis->showNamLoadResult(slot, loaded, error);
                        });
 }
 
@@ -840,19 +825,13 @@ void OctoBassEditor::showNamPath(octob::NamSlot slot, const juce::String& path)
                                   : juce::File(path).getFileName());
 }
 
-void OctoBassEditor::showNamLoadResult(octob::NamSlot slot, const juce::File& file, bool loaded,
-                                       const juce::String& error)
+void OctoBassEditor::showNamLoadResult(octob::NamSlot slot, bool loaded, const juce::String& error)
 {
-  if (loaded)
-  {
-    showNamPath(slot, file.getFullPathName());
-    return;
-  }
-
-  const auto slotName = OctoBassProcessor::getNamSlotName(slot);
-  juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
-                                         "Failed to Load " + slotName + " Model", error, "OK");
-  namControls(slot).lcdDisplay.setText("Failed to load " + slotName);
+  showNamPath(slot, audioProcessor.getCurrentNamModelPath(slot));
+  if (!loaded)
+    juce::AlertWindow::showMessageBoxAsync(
+        juce::AlertWindow::WarningIcon,
+        "Failed to Load " + OctoBassProcessor::getNamSlotName(slot) + " Model", error, "OK");
 }
 
 void OctoBassEditor::cycleNamFile(octob::NamSlot slot, int direction)
@@ -863,7 +842,7 @@ void OctoBassEditor::cycleNamFile(octob::NamSlot slot, int direction)
 
   juce::String error;
   const bool loaded = audioProcessor.loadNamModel(slot, next.getFullPathName(), error);
-  showNamLoadResult(slot, next, loaded, error);
+  showNamLoadResult(slot, loaded, error);
 }
 
 // --- IR file loader handlers ---
@@ -895,7 +874,7 @@ void OctoBassEditor::irLoadClicked()
         juce::String error;
         const bool loaded = safeThis->audioProcessor.loadPickedFile(
             OctoBassProcessor::FileSlot::ImpulseResponse, file, error);
-        safeThis->showIRLoadResult(file, loaded, error);
+        safeThis->showIRLoadResult(loaded, error);
       });
 }
 
@@ -911,18 +890,12 @@ void OctoBassEditor::showIRPath(const juce::String& path)
   irLCDDisplay_.setText(path.isEmpty() ? "No IR loaded" : juce::File(path).getFileName());
 }
 
-void OctoBassEditor::showIRLoadResult(const juce::File& file, bool loaded,
-                                      const juce::String& error)
+void OctoBassEditor::showIRLoadResult(bool loaded, const juce::String& error)
 {
-  if (loaded)
-  {
-    showIRPath(file.getFullPathName());
-    return;
-  }
-
-  juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Failed to Load IR", error,
-                                         "OK");
-  irLCDDisplay_.setText("Failed to load IR");
+  showIRPath(audioProcessor.getCurrentIRPath());
+  if (!loaded)
+    juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Failed to Load IR",
+                                           error, "OK");
 }
 
 void OctoBassEditor::cycleIRFile(int direction)
@@ -933,5 +906,5 @@ void OctoBassEditor::cycleIRFile(int direction)
 
   juce::String error;
   const bool loaded = audioProcessor.loadImpulseResponse(next.getFullPathName(), error);
-  showIRLoadResult(next, loaded, error);
+  showIRLoadResult(loaded, error);
 }

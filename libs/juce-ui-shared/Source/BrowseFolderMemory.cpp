@@ -119,8 +119,6 @@ void BrowseFolderMemory::rememberPickedFile(const Slot& slot, const juce::File& 
     return;
   }
 
-  // Serializes the read-modify-write across processes so a concurrent save from
-  // another plugin instance cannot drop this slot's value or vice versa
   juce::InterProcessLock lock(
       "OctoberProductionCo_" +
       juce::String::toHexString(settingsFile_.getFullPathName().hashCode64()));

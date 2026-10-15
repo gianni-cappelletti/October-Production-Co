@@ -44,8 +44,6 @@ std::vector<ComponentType*> visibleChildrenOfType(juce::Component& editor)
   return matches;
 }
 
-// getAccessibilityHandler() needs an on-screen window, so the handler a screen
-// reader would query is built directly
 juce::String screenReaderName(juce::Component& component)
 {
   const auto handler = component.createAccessibilityHandler();
@@ -129,7 +127,6 @@ TEST_F(OctoBassEditorTest, ControlsNeverOverlapOrLeaveTheWindowAtAnySize)
 
     for (size_t i = 0; i < controls.size(); ++i)
     {
-      // Scaled bounds are rounded outward, so neighbours may share an edge pixel
       const auto bounds = controls[i]->getBoundsInParent().reduced(1);
       EXPECT_TRUE(editor->getLocalBounds().contains(bounds))
           << "'" << screenReaderName(*controls[i]) << "' leaves the window at scale " << scale;
@@ -208,7 +205,6 @@ TEST_F(OctoBassEditorTest, ClearingASlotOnlyEmptiesThatSlotsDisplay)
   ASSERT_NE(clearSlot2, nullptr) << "No clear button announced for NAM slot 2";
   ASSERT_TRUE(clearSlot2->onClick != nullptr);
 
-  // triggerClick posts to the message queue; onClick is the same handler, run synchronously
   clearSlot2->onClick();
 
   EXPECT_FALSE(processor.isNamModelLoaded(NamSlot::Second));
@@ -242,8 +238,6 @@ TEST_F(OctoBassEditorTest, FlippingAnOnSwitchSwitchesOnlyThatSlotAsOneHostGestur
 
   HostGestureRecorder host;
   processor.addListener(&host);
-  // A click toggles the state with a synchronous click notification; triggerClick
-  // would post the same thing to the message queue
   slot2Switch->setToggleState(false, juce::sendNotificationSync);
   processor.removeListener(&host);
 
@@ -251,7 +245,6 @@ TEST_F(OctoBassEditorTest, FlippingAnOnSwitchSwitchesOnlyThatSlotAsOneHostGestur
   EXPECT_GE(processor.getAPVTS().getRawParameterValue("namOn")->load(), 0.5f);
   EXPECT_EQ(slot2Switch->popupTextProvider(), "Off");
 
-  // Hosts learn a MIDI mapping from the last parameter touched in a gesture
   const int slot2OnIndex = processor.getAPVTS().getParameter("nam2On")->getParameterIndex();
   EXPECT_EQ(host.begun, std::vector<int>{slot2OnIndex});
   EXPECT_EQ(host.ended, std::vector<int>{slot2OnIndex});
@@ -273,7 +266,6 @@ TEST_F(OctoBassEditorTest, SwitchingASlotOffFromTheHostDimsOnlyThatSlotsDisplay)
     EXPECT_TRUE(lcd_test::looksLit(lcd_test::renderedBacklight(*display)))
         << "'" << screenReaderName(*display) << "' must be lit while its slot is on";
 
-  // Automation and host-mapped MIDI arrive as parameter changes
   setParam(processor, "namOn", 0.0f);
 
   const auto dimmed = lcd_test::renderedBacklight(*slot1Display);

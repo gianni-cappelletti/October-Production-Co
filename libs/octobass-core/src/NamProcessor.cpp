@@ -130,7 +130,6 @@ float gainSmoothingCoeff(double sampleRate)
   return 1.0f - std::exp(-1.0f / (static_cast<float>(sampleRate) * kSmoothMs * 0.001f));
 }
 
-// Per-sample step of the linear on/off crossfade
 float onOffFadeStep(double sampleRate)
 {
   constexpr float kOnOffFadeMs = 10.0f;
@@ -203,7 +202,6 @@ struct NamProcessor::Impl
 
   std::atomic<bool> enabled{true};
 
-  // Model share of the on/off crossfade (1 = on, 0 = off), audio thread only
   float currentWetMix = 1.0f;
   float wetMixStep = onOffFadeStep(44100.0);
   std::vector<float> dryBuffer;
@@ -282,7 +280,6 @@ struct NamProcessor::Impl
     }
   }
 
-  // Runs the model with its calibration gains; requires a loaded model
   void runModel(const float* input, float* output, size_t numFrames)
   {
     const float inputTarget = calibrationInputTargetLinear();
@@ -291,8 +288,6 @@ struct NamProcessor::Impl
     float outputGain = currentOutputGainLinear;
 
 #ifdef NAM_SAMPLE_FLOAT
-    // NAM_SAMPLE is float: keep the zero-copy path whenever calibration is
-    // fully settled at unity
     if (inputTarget == 1.0f && outputTarget == 1.0f && inputGain == 1.0f && outputGain == 1.0f)
     {
       NAM_SAMPLE* inPtr = const_cast<NAM_SAMPLE*>(input);
@@ -302,8 +297,6 @@ struct NamProcessor::Impl
     }
 #endif
 
-    // Staged path: the pre-model gain ramp lands in inputBuffer (which also
-    // covers the float/double conversion when NAM_SAMPLE is double)
     auto& inBuf = inputBuffer;
     const float coeff = gainSmoothCoeff;
 
@@ -335,8 +328,6 @@ struct NamProcessor::Impl
     }
 #endif
 
-    // Snap once the asymptotic ramp is within rounding of its target so the
-    // zero-copy path can re-engage after a return to unity
     constexpr float kSnapEpsilon = 1.0e-6f;
     if (std::abs(inputGain - inputTarget) < kSnapEpsilon)
       inputGain = inputTarget;
@@ -346,8 +337,6 @@ struct NamProcessor::Impl
     currentOutputGainLinear = outputGain;
   }
 
-  // Crossfades the model output already in `output` against dryBuffer
-  // toward the on/off target, snapping once the fade completes
   void blendWithDry(float* output, size_t numFrames, float wetTarget)
   {
     if (currentWetMix == wetTarget && wetTarget == 0.0f)
@@ -426,8 +415,6 @@ bool NamProcessor::loadModel(const std::string& filepath, std::string& errorMess
       impl_->retiredModel.reset();
       impl_->pendingModel = std::move(newModel);
       impl_->pendingModelPath = filepath;
-      // A staged model supersedes a clear the audio thread has not consumed
-      // yet; otherwise the queries would keep reporting the slot as empty
       impl_->pendingClear.store(false, std::memory_order_release);
       impl_->hasPendingModel.store(true, std::memory_order_release);
     }
@@ -571,12 +558,13 @@ void NamProcessor::process(const float* input, float* output, size_t numFrames)
 {
   impl_->consumePending();
 
+  if (numFrames == 0)
+    return;
+
   const float wetTarget = impl_->enabled.load(std::memory_order_relaxed) ? 1.0f : 0.0f;
 
-  if (!impl_->model || numFrames == 0)
+  if (!impl_->model)
   {
-    // Nothing to fade from: a model loaded into a switched-off slot must
-    // not fade in on its first block
     impl_->currentWetMix = wetTarget;
     if (input != output)
     {
@@ -585,7 +573,6 @@ void NamProcessor::process(const float* input, float* output, size_t numFrames)
     return;
   }
 
-  // The dry copy is taken before the model runs because output may alias input
   const bool fullyOn = impl_->currentWetMix == 1.0f && wetTarget == 1.0f;
   if (!fullyOn)
     std::copy(input, input + numFrames, impl_->dryBuffer.begin());

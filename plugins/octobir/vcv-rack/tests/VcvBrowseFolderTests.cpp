@@ -89,8 +89,6 @@ class VcvBrowseFolderTest : public ::testing::Test
   fs::path root_;
 };
 
-// Rule 5: nothing loaded, nothing remembered
-
 TEST_F(VcvBrowseFolderTest, FirstEverBrowse_OpensHomeFolder)
 {
   OpcVcvIr module;
@@ -111,8 +109,6 @@ TEST_F(VcvBrowseFolderTest, FirstEverBrowse_WithNonAsciiUserProfile_OpensHomeFol
   EXPECT_TRUE(isFolder(startFolder, nonAsciiHome));
 }
 #endif
-
-// Rule 2: last folder used for this slot, across modules and Rack sessions
 
 TEST_F(VcvBrowseFolderTest, NewModuleInSameRackSession_OpensFolderPickedInAnotherModule)
 {
@@ -176,8 +172,6 @@ TEST_F(VcvBrowseFolderTest, MissingRememberedFolder_FallsBackToHome_AndReturnsWh
   EXPECT_TRUE(isFolder(OpcVcvIr().getBrowseStartFolder(false), externalDrive));
 }
 
-// Rule 1: folder of the file loaded in this slot
-
 TEST_F(VcvBrowseFolderTest, LoadedFile_OpensItsFolderEvenIfAnotherModulePickedElsewhereLater)
 {
   const fs::path celestion = makeFolder("Celestion");
@@ -205,8 +199,6 @@ TEST_F(VcvBrowseFolderTest, LoadedFilesFolderMissing_FallsBackToRememberedFolder
 
   EXPECT_TRUE(isFolder(moduleA.getBrowseStartFolder(false), mesa));
 }
-
-// Rule 3: folder of the file loaded in the other slot, only if this slot was never used
 
 TEST_F(VcvBrowseFolderTest, NeverUsedSlot_OpensFolderOfTheIRRestoredInTheOtherSlot)
 {
@@ -268,8 +260,6 @@ TEST_F(VcvBrowseFolderTest, OtherSlotsLoadedIRFolderMissing_FallsBackToOtherSlot
   EXPECT_TRUE(isFolder(module.getBrowseStartFolder(true), celestion));
 }
 
-// Rule 4: other IR slot, only if this slot was never used
-
 TEST_F(VcvBrowseFolderTest, NeverUsedSlot_OpensFolderRememberedForOtherIRSlot)
 {
   const fs::path celestion = makeFolder("Celestion");
@@ -310,8 +300,6 @@ TEST_F(VcvBrowseFolderTest, UsedSlotWithMissingFolder_DoesNotBorrowOtherSlotsFol
 
   EXPECT_TRUE(isFolder(OpcVcvIr().getBrowseStartFolder(true), homeFolder()));
 }
-
-// What updates the remembered folder
 
 TEST_F(VcvBrowseFolderTest, PickedFileThatFailsToLoad_StillRemembersItsFolder)
 {
@@ -362,8 +350,6 @@ TEST_F(VcvBrowseFolderTest, SwappingIRs_DoesNotChangeRememberedFolders)
   EXPECT_TRUE(isFolder(newModule.getBrowseStartFolder(false), celestion));
   EXPECT_TRUE(isFolder(newModule.getBrowseStartFolder(true), mesa));
 }
-
-// Storage robustness
 
 TEST_F(VcvBrowseFolderTest, FolderWithSpacesAndNonAsciiCharacters_IsRemembered)
 {
