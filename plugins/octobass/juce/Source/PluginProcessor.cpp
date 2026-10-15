@@ -713,6 +713,11 @@ BrowseFolderMemory::Slot toBrowseSlot(OctoBassProcessor::FileSlot slot)
   return {"IR", {}};
 }
 
+juce::File loadedFileAt(const juce::String& path)
+{
+  return juce::File::isAbsolutePath(path) ? juce::File(path) : juce::File();
+}
+
 std::optional<octob::NamSlot> namSlotFor(OctoBassProcessor::FileSlot slot)
 {
   switch (slot)
@@ -746,10 +751,15 @@ OctoBassProcessor::FileSlot OctoBassProcessor::fileSlotFor(octob::NamSlot slot)
 juce::File OctoBassProcessor::getBrowseStartFolder(FileSlot slot) const
 {
   const auto namSlot = namSlotFor(slot);
-  const auto loadedPath = namSlot ? getCurrentNamModelPath(*namSlot) : getCurrentIRPath();
-  const auto loadedFile =
-      juce::File::isAbsolutePath(loadedPath) ? juce::File(loadedPath) : juce::File();
-  return browseFolderMemory_.getStartFolder(toBrowseSlot(slot), loadedFile);
+  if (!namSlot)
+    return browseFolderMemory_.getStartFolder(toBrowseSlot(slot), loadedFileAt(getCurrentIRPath()),
+                                              {});
+
+  const auto otherNamSlot =
+      *namSlot == octob::NamSlot::First ? octob::NamSlot::Second : octob::NamSlot::First;
+  return browseFolderMemory_.getStartFolder(toBrowseSlot(slot),
+                                            loadedFileAt(getCurrentNamModelPath(*namSlot)),
+                                            loadedFileAt(getCurrentNamModelPath(otherNamSlot)));
 }
 
 bool OctoBassProcessor::loadPickedFile(FileSlot slot, const juce::File& file,

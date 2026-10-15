@@ -487,10 +487,12 @@ BrowseFolderMemory::Slot toBrowseSlot(OctobIRProcessor::FileSlot slot)
 
 juce::File OctobIRProcessor::getBrowseStartFolder(FileSlot slot) const
 {
-  const auto& loadedPath = slot == FileSlot::IR1 ? currentIR1Path_ : currentIR2Path_;
-  const auto loadedFile =
-      juce::File::isAbsolutePath(loadedPath) ? juce::File(loadedPath) : juce::File();
-  return browseFolderMemory_.getStartFolder(toBrowseSlot(slot), loadedFile);
+  const auto loadedFileAt = [](const juce::String& path)
+  { return juce::File::isAbsolutePath(path) ? juce::File(path) : juce::File(); };
+  const bool isIR1 = slot == FileSlot::IR1;
+  return browseFolderMemory_.getStartFolder(
+      toBrowseSlot(slot), loadedFileAt(isIR1 ? currentIR1Path_ : currentIR2Path_),
+      loadedFileAt(isIR1 ? currentIR2Path_ : currentIR1Path_));
 }
 
 bool OctobIRProcessor::loadPickedFile(FileSlot slot, const juce::File& file,

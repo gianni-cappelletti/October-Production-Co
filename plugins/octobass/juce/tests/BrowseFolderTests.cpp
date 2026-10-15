@@ -259,3 +259,86 @@ TEST_F(OctoBassBrowseFolderTest, LoadedSecondNamModel_OpensItsFolder)
 
   EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::Nam2), ampCaptures);
 }
+
+TEST_F(OctoBassBrowseFolderTest, NamSlotNeverPickedFrom_OpensFolderOfTheModelRestoredInTheOtherSlot)
+{
+  const auto collaboratorFolder = makeFolder("Collaborator");
+  juce::MemoryBlock projectState;
+  {
+    auto collaboratorInstance = newInstance();
+    collaboratorInstance->prepareToPlay(44100.0, 512);
+    juce::String error;
+    ASSERT_TRUE(collaboratorInstance->loadNamModel(
+        octob::NamSlot::First, copyInto(kSourceNam, collaboratorFolder).getFullPathName(), error));
+    collaboratorInstance->getStateInformation(projectState);
+  }
+
+  auto restoredInstance = newInstance();
+  restoredInstance->prepareToPlay(44100.0, 512);
+  restoredInstance->setStateInformation(projectState.getData(),
+                                        static_cast<int>(projectState.getSize()));
+  restoredInstance->handleUpdateNowIfNeeded();
+  ASSERT_TRUE(restoredInstance->isNamModelLoaded(octob::NamSlot::First));
+
+  EXPECT_EQ(restoredInstance->getBrowseStartFolder(FileSlot::Nam2), collaboratorFolder);
+  EXPECT_EQ(restoredInstance->getBrowseStartFolder(FileSlot::ImpulseResponse), homeFolder())
+      << "The IR slot never borrows a NAM slot's folder";
+}
+
+TEST_F(OctoBassBrowseFolderTest, NamSlotNeverPickedFrom_PrefersOtherSlotsLoadedModelOverItsMemory)
+{
+  const auto oldCaptures = makeFolder("Old Captures");
+  const auto ampCaptures = makeFolder("Amp Captures");
+  {
+    auto previousSession = newInstance();
+    previousSession->prepareToPlay(44100.0, 512);
+    ASSERT_TRUE(pick(*previousSession, FileSlot::Nam2, copyInto(kSourceNam, oldCaptures)));
+  }
+
+  auto instance = newInstance();
+  instance->prepareToPlay(44100.0, 512);
+  juce::String error;
+  ASSERT_TRUE(instance->loadNamModel(octob::NamSlot::Second,
+                                     copyInto(kSourceNam, ampCaptures).getFullPathName(), error));
+
+  EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::Nam1), ampCaptures);
+}
+
+TEST_F(OctoBassBrowseFolderTest, NamSlotPickedFromBefore_KeepsItsOwnFolderWhenTheOtherSlotIsLoaded)
+{
+  const auto pedalCaptures = makeFolder("Pedal Captures");
+  const auto ampCaptures = makeFolder("Amp Captures");
+  {
+    auto previousSession = newInstance();
+    previousSession->prepareToPlay(44100.0, 512);
+    ASSERT_TRUE(pick(*previousSession, FileSlot::Nam2, copyInto(kSourceNam, ampCaptures)));
+  }
+
+  auto instance = newInstance();
+  instance->prepareToPlay(44100.0, 512);
+  juce::String error;
+  ASSERT_TRUE(instance->loadNamModel(octob::NamSlot::First,
+                                     copyInto(kSourceNam, pedalCaptures).getFullPathName(), error));
+
+  EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::Nam2), ampCaptures);
+}
+
+TEST_F(OctoBassBrowseFolderTest, OtherSlotsLoadedModelFolderMissing_OpensOtherSlotsRememberedFolder)
+{
+  const auto captures = makeFolder("NAM Captures");
+  const auto movedAway = makeFolder("Moved Away");
+  {
+    auto previousSession = newInstance();
+    previousSession->prepareToPlay(44100.0, 512);
+    ASSERT_TRUE(pick(*previousSession, FileSlot::Nam1, copyInto(kSourceNam, captures)));
+  }
+
+  auto instance = newInstance();
+  instance->prepareToPlay(44100.0, 512);
+  juce::String error;
+  ASSERT_TRUE(instance->loadNamModel(octob::NamSlot::First,
+                                     copyInto(kSourceNam, movedAway).getFullPathName(), error));
+  ASSERT_TRUE(movedAway.deleteRecursively());
+
+  EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::Nam2), captures);
+}

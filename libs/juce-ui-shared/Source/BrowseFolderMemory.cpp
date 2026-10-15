@@ -26,6 +26,15 @@ juce::File existingFolder(const juce::String& path)
   return folder.isDirectory() ? folder : juce::File();
 }
 
+juce::File folderOfLoadedFile(const juce::File& loadedFile)
+{
+  if (loadedFile == juce::File())
+    return {};
+
+  const auto folder = loadedFile.getParentDirectory();
+  return folder.isDirectory() ? folder : juce::File();
+}
+
 juce::File homeFolder()
 {
   return juce::File::getSpecialLocation(juce::File::userHomeDirectory);
@@ -45,12 +54,13 @@ juce::File BrowseFolderMemory::getDefaultSettingsFile(const juce::String& plugin
   return appData.getChildFile("October Production Co").getChildFile(pluginName + ".settings");
 }
 
-juce::File BrowseFolderMemory::getStartFolder(const Slot& slot, const juce::File& loadedFile) const
+juce::File BrowseFolderMemory::getStartFolder(const Slot& slot, const juce::File& loadedFile,
+                                              const juce::File& sameKindLoadedFile) const
 {
-  if (loadedFile != juce::File() && loadedFile.getParentDirectory().isDirectory())
+  if (auto folder = folderOfLoadedFile(loadedFile); folder != juce::File())
   {
     DBG("Browse " + slot.id + ": opening folder of loaded file " + loadedFile.getFullPathName());
-    return loadedFile.getParentDirectory();
+    return folder;
   }
 
   auto options = settingsOptions();
@@ -70,15 +80,25 @@ juce::File BrowseFolderMemory::getStartFolder(const Slot& slot, const juce::File
     return homeFolder();
   }
 
-  if (slot.sameKindSlotId.isNotEmpty())
+  if (slot.sameKindSlotId.isEmpty())
   {
-    const auto siblingPath = settings.getValue(folderKey(slot.sameKindSlotId));
-    if (auto folder = existingFolder(siblingPath); folder != juce::File())
-    {
-      DBG("Browse " + slot.id + ": opening folder remembered for " + slot.sameKindSlotId + " " +
-          siblingPath);
-      return folder;
-    }
+    DBG("Browse " + slot.id + ": no usable folder remembered, opening home");
+    return homeFolder();
+  }
+
+  if (auto folder = folderOfLoadedFile(sameKindLoadedFile); folder != juce::File())
+  {
+    DBG("Browse " + slot.id + ": opening folder of file loaded in " + slot.sameKindSlotId + " " +
+        sameKindLoadedFile.getFullPathName());
+    return folder;
+  }
+
+  const auto siblingPath = settings.getValue(folderKey(slot.sameKindSlotId));
+  if (auto folder = existingFolder(siblingPath); folder != juce::File())
+  {
+    DBG("Browse " + slot.id + ": opening folder remembered for " + slot.sameKindSlotId + " " +
+        siblingPath);
+    return folder;
   }
 
   DBG("Browse " + slot.id + ": no usable folder remembered, opening home");

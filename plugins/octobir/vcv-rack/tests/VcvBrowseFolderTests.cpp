@@ -89,7 +89,7 @@ class VcvBrowseFolderTest : public ::testing::Test
   fs::path root_;
 };
 
-// Rule 4: nothing loaded, nothing remembered
+// Rule 5: nothing loaded, nothing remembered
 
 TEST_F(VcvBrowseFolderTest, FirstEverBrowse_OpensHomeFolder)
 {
@@ -206,7 +206,69 @@ TEST_F(VcvBrowseFolderTest, LoadedFilesFolderMissing_FallsBackToRememberedFolder
   EXPECT_TRUE(isFolder(moduleA.getBrowseStartFolder(false), mesa));
 }
 
-// Rule 3: other IR slot, only if this slot was never used
+// Rule 3: folder of the file loaded in the other slot, only if this slot was never used
+
+TEST_F(VcvBrowseFolderTest, NeverUsedSlot_OpensFolderOfTheIRRestoredInTheOtherSlot)
+{
+  const fs::path collaboratorFolder = makeFolder("Collaborator");
+  const std::string collaboratorIR = copyIRInto(collaboratorFolder);
+  json_t* patchState = json_object();
+  json_object_set_new(patchState, "ir1Path", json_string(collaboratorIR.c_str()));
+  OpcVcvIr restoredModule;
+  restoredModule.dataFromJson(patchState);
+  json_decref(patchState);
+  ASSERT_EQ(restoredModule.getLoadedFilePath(false), collaboratorIR);
+
+  EXPECT_TRUE(isFolder(restoredModule.getBrowseStartFolder(true), collaboratorFolder));
+}
+
+TEST_F(VcvBrowseFolderTest, NeverUsedSlot_PrefersOtherSlotsLoadedIROverItsRememberedFolder)
+{
+  const fs::path celestion = makeFolder("Celestion");
+  const fs::path mesa = makeFolder("Mesa");
+  {
+    OpcVcvIr previousModule;
+    previousModule.loadPickedFile(true, copyIRInto(celestion));
+  }
+
+  OpcVcvIr module;
+  module.loadIR2(copyIRInto(mesa));
+
+  EXPECT_TRUE(isFolder(module.getBrowseStartFolder(false), mesa));
+}
+
+TEST_F(VcvBrowseFolderTest, UsedSlot_KeepsItsOwnFolderWhenTheOtherSlotHasAnIRLoaded)
+{
+  const fs::path celestion = makeFolder("Celestion");
+  const fs::path mesa = makeFolder("Mesa");
+  {
+    OpcVcvIr previousModule;
+    previousModule.loadPickedFile(true, copyIRInto(celestion));
+  }
+
+  OpcVcvIr module;
+  module.loadIR(copyIRInto(mesa));
+
+  EXPECT_TRUE(isFolder(module.getBrowseStartFolder(true), celestion));
+}
+
+TEST_F(VcvBrowseFolderTest, OtherSlotsLoadedIRFolderMissing_FallsBackToOtherSlotsRememberedFolder)
+{
+  const fs::path celestion = makeFolder("Celestion");
+  const fs::path movedAway = makeFolder("Moved Away");
+  {
+    OpcVcvIr previousModule;
+    previousModule.loadPickedFile(false, copyIRInto(celestion));
+  }
+
+  OpcVcvIr module;
+  module.loadIR(copyIRInto(movedAway));
+  fs::remove_all(movedAway);
+
+  EXPECT_TRUE(isFolder(module.getBrowseStartFolder(true), celestion));
+}
+
+// Rule 4: other IR slot, only if this slot was never used
 
 TEST_F(VcvBrowseFolderTest, NeverUsedSlot_OpensFolderRememberedForOtherIRSlot)
 {

@@ -91,18 +91,28 @@ inline void rememberPickedIRFolder(bool ir2, const std::string& filePath)
   INFO("Remembered IR %s browse folder %s", ir2 ? "B" : "A", folder.c_str());
 }
 
-inline std::string resolveIRBrowseStartFolder(bool ir2, const std::string& loadedFilePath)
+inline std::string folderOfLoadedFile(const std::string& loadedFilePath)
+{
+  if (loadedFilePath.empty())
+    return "";
+
+  std::string folder = rack::system::getDirectory(loadedFilePath);
+  return rack::system::isDirectory(folder) ? folder : "";
+}
+
+// Start folder, first match wins: folder of this slot's loaded file, this
+// slot's remembered folder, folder of the other slot's loaded file, the other
+// slot's remembered folder, the user's home folder
+inline std::string resolveIRBrowseStartFolder(bool ir2, const std::string& loadedFilePath,
+                                              const std::string& otherSlotLoadedFilePath)
 {
   const char* slotName = ir2 ? "B" : "A";
 
-  if (!loadedFilePath.empty())
+  std::string loadedFolder = folderOfLoadedFile(loadedFilePath);
+  if (!loadedFolder.empty())
   {
-    const std::string loadedFolder = rack::system::getDirectory(loadedFilePath);
-    if (rack::system::isDirectory(loadedFolder))
-    {
-      INFO("Browse IR %s: opening folder of loaded file %s", slotName, loadedFolder.c_str());
-      return loadedFolder;
-    }
+    INFO("Browse IR %s: opening folder of loaded file %s", slotName, loadedFolder.c_str());
+    return loadedFolder;
   }
 
   IrBrowseFolders& folders = irBrowseFolders();
@@ -120,6 +130,14 @@ inline std::string resolveIRBrowseStartFolder(bool ir2, const std::string& loade
     INFO("Browse IR %s: remembered folder %s is missing, opening home", slotName,
          slotFolder.c_str());
     return userHomeFolder();
+  }
+
+  std::string otherSlotLoadedFolder = folderOfLoadedFile(otherSlotLoadedFilePath);
+  if (!otherSlotLoadedFolder.empty())
+  {
+    INFO("Browse IR %s: opening folder of the file loaded in the other slot %s", slotName,
+         otherSlotLoadedFolder.c_str());
+    return otherSlotLoadedFolder;
   }
 
   if (!otherSlotFolder.empty() && rack::system::isDirectory(otherSlotFolder))

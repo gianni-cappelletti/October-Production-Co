@@ -78,7 +78,7 @@ class OctobIRBrowseFolderTest : public ::testing::Test
   juce::File root_;
 };
 
-// Rule 4: nothing loaded, nothing remembered
+// Rule 5: nothing loaded, nothing remembered
 
 TEST_F(OctobIRBrowseFolderTest, FirstEverBrowse_OpensHomeFolder)
 {
@@ -185,7 +185,81 @@ TEST_F(OctobIRBrowseFolderTest, LoadedFilesFolderMissing_FallsBackToRememberedFo
   EXPECT_EQ(instanceA->getBrowseStartFolder(FileSlot::IR1), mesa);
 }
 
-// Rule 3: other slot of the same kind, only if this slot was never used
+// Rule 3: folder of the file loaded in the other slot, only if this slot was never used
+
+TEST_F(OctobIRBrowseFolderTest, NeverUsedSlot_OpensFolderOfTheIRRestoredInTheOtherSlot)
+{
+  const auto collaboratorFolder = makeFolder("Collaborator");
+  juce::MemoryBlock projectState;
+  {
+    auto collaboratorInstance = newInstance();
+    juce::String error;
+    ASSERT_TRUE(collaboratorInstance->loadImpulseResponse1(
+        copyIRInto(collaboratorFolder).getFullPathName(), error));
+    collaboratorInstance->getStateInformation(projectState);
+  }
+
+  auto restoredInstance = newInstance();
+  restoredInstance->setStateInformation(projectState.getData(),
+                                        static_cast<int>(projectState.getSize()));
+  restoredInstance->handleUpdateNowIfNeeded();
+  ASSERT_TRUE(
+      restoredInstance->getCurrentIR1Path().startsWith(collaboratorFolder.getFullPathName()));
+
+  EXPECT_EQ(restoredInstance->getBrowseStartFolder(FileSlot::IR2), collaboratorFolder);
+}
+
+TEST_F(OctobIRBrowseFolderTest, NeverUsedSlot_PrefersOtherSlotsLoadedIROverItsRememberedFolder)
+{
+  const auto celestion = makeFolder("Celestion");
+  const auto mesa = makeFolder("Mesa");
+  {
+    auto previousSession = newInstance();
+    ASSERT_TRUE(pick(*previousSession, FileSlot::IR2, copyIRInto(celestion)));
+  }
+
+  auto instance = newInstance();
+  juce::String error;
+  ASSERT_TRUE(instance->loadImpulseResponse2(copyIRInto(mesa).getFullPathName(), error));
+
+  EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::IR1), mesa);
+}
+
+TEST_F(OctobIRBrowseFolderTest, UsedSlot_KeepsItsOwnFolderWhenTheOtherSlotHasAnIRLoaded)
+{
+  const auto celestion = makeFolder("Celestion");
+  const auto mesa = makeFolder("Mesa");
+  {
+    auto previousSession = newInstance();
+    ASSERT_TRUE(pick(*previousSession, FileSlot::IR2, copyIRInto(celestion)));
+  }
+
+  auto instance = newInstance();
+  juce::String error;
+  ASSERT_TRUE(instance->loadImpulseResponse1(copyIRInto(mesa).getFullPathName(), error));
+
+  EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::IR2), celestion);
+}
+
+TEST_F(OctobIRBrowseFolderTest,
+       OtherSlotsLoadedIRFolderMissing_FallsBackToOtherSlotsRememberedFolder)
+{
+  const auto celestion = makeFolder("Celestion");
+  const auto movedAway = makeFolder("Moved Away");
+  {
+    auto previousSession = newInstance();
+    ASSERT_TRUE(pick(*previousSession, FileSlot::IR1, copyIRInto(celestion)));
+  }
+
+  auto instance = newInstance();
+  juce::String error;
+  ASSERT_TRUE(instance->loadImpulseResponse1(copyIRInto(movedAway).getFullPathName(), error));
+  ASSERT_TRUE(movedAway.deleteRecursively());
+
+  EXPECT_EQ(instance->getBrowseStartFolder(FileSlot::IR2), celestion);
+}
+
+// Rule 4: other slot of the same kind, only if this slot was never used
 
 TEST_F(OctobIRBrowseFolderTest, NeverUsedSlot_OpensFolderRememberedForOtherIRSlot)
 {

@@ -181,7 +181,7 @@ struct OpcVcvIr final : Module
 
   std::string getBrowseStartFolder(bool ir2) const
   {
-    return resolveIRBrowseStartFolder(ir2, getLoadedFilePath(ir2));
+    return resolveIRBrowseStartFolder(ir2, getLoadedFilePath(ir2), getLoadedFilePath(!ir2));
   }
 
   void loadPickedFile(bool ir2, const std::string& file_path)
