@@ -243,10 +243,15 @@ struct NamProcessor::Impl
 
   void resetModel()
   {
-    if (model && maxBlockSize > 0)
-    {
+    if (maxBlockSize <= 0)
+      return;
+
+    if (model)
       model->ResetAndPrewarm(sampleRate, maxBlockSize);
-    }
+
+    const std::lock_guard<std::mutex> lock(swapMutex);
+    if (hasPendingModel.load(std::memory_order_acquire) && pendingModel)
+      pendingModel->ResetAndPrewarm(sampleRate, maxBlockSize);
   }
 
   void consumePending()

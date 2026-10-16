@@ -27,6 +27,7 @@ set(NAM_SOURCES
     ${NAM_DIR}/NAM/convnet.cpp
     ${NAM_DIR}/NAM/dsp.cpp
     ${NAM_DIR}/NAM/get_dsp.cpp
+    ${NAM_DIR}/NAM/linear.cpp
     ${NAM_DIR}/NAM/lstm.cpp
     ${NAM_DIR}/NAM/ring_buffer.cpp
     ${NAM_DIR}/NAM/util.cpp
@@ -58,6 +59,11 @@ target_compile_definitions(octobass-core
         NAM_USE_INLINE_GEMM
 )
 
+option(OCTOBASS_NAM_A2_FAST "Use the NAM core specialised path for A2-shaped WaveNet models" OFF)
+if(OCTOBASS_NAM_A2_FAST)
+    target_compile_definitions(octobass-core PRIVATE NAM_ENABLE_A2_FAST)
+endif()
+
 target_link_libraries(octobass-core
     PUBLIC
         octobir-core
@@ -69,6 +75,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
         PROPERTIES
         COMPILE_FLAGS "-Wno-unused-parameter -Wno-error -ffast-math"
     )
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_compile_options(octobass-core PRIVATE
+        "SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/src/UndefineGlibcDeviceMacros.h")
 endif()
 
 if(APPLE)
@@ -89,4 +100,9 @@ set_target_properties(octobass-core PROPERTIES
 option(BUILD_OCTOBASS_CORE_TESTS "Build octobass-core unit tests" OFF)
 if(BUILD_OCTOBASS_CORE_TESTS)
     add_subdirectory(tests)
+endif()
+
+option(BUILD_OCTOBASS_CORE_BENCH "Build the octobass-core real-time load benchmark" OFF)
+if(BUILD_OCTOBASS_CORE_BENCH)
+    add_subdirectory(bench)
 endif()
