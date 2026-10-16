@@ -162,7 +162,23 @@ def check_quality_levers(page: Page):
               " ".join(classes(lever)))
 
 
-DIVIDER_Y_CSS = 360 * 1.3
+DIVIDER_Y_CSS = 305 * 1.3
+
+
+def check_lower_readouts_align_with_ir(page: Page):
+    centres = page.evaluate(
+        """() => {
+             const centre = e => e.offsetTop + e.offsetHeight / 2;
+             const pedal = '.mod-pedal-octobass';
+             return {
+               ir: centre(document.querySelector(`${pedal} .opc-file[mod-parameter-uri$="#cabinetIr"]`)),
+               output: centre(document.querySelector(`${pedal} .opc-value-low-level`)),
+               gate: centre(document.querySelector(`${pedal} .opc-value-gate`)),
+             };
+           }""")
+    for name in ["output", "gate"]:
+        check(f"{name} readout lines up with the IR slot", abs(centres[name] - centres["ir"]) <= 2,
+              f"{centres[name]} vs {centres['ir']}")
 
 
 def check_power_row(page: Page):
@@ -190,7 +206,8 @@ def check_pedal_size(page: Page):
     size = page.evaluate(
         """() => { const p = document.querySelector('.mod-pedal-octobass');
                    return [p.offsetWidth, p.offsetHeight]; }""")
-    check("pedal is scaled up", size[0] >= 950 and size[1] >= 560, f"{size[0]}x{size[1]}")
+    check("pedal is scaled up", size[0] >= 950 and size[1] >= 500, f"{size[0]}x{size[1]}")
+    check("pedal is no taller than its content needs", size[1] <= 520, f"{size[0]}x{size[1]}")
 
 
 def list_visible(page: Page, parameter):
@@ -263,6 +280,7 @@ def main():
         check_right_zone(page)
         check_quality_levers(page)
         check_power_row(page)
+        check_lower_readouts_align_with_ir(page)
         check_sprite_frames(page)
         check_file_list_dismissal(page)
         check_bypass(page)

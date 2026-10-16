@@ -6,9 +6,9 @@
 .mod-pedal-octobass {
     position: absolute;
     width: 988px;
-    height: 585px;
+    height: 513.5px;
     background-image: url(/resources/background.png{{{ns}}});
-    background-size: 988px 585px;
+    background-size: 988px 513.5px;
     background-repeat: no-repeat;
     border-radius: 3.9px;
 }
@@ -33,7 +33,7 @@
 .mod-pedal-octobass .opc-version {
     position: absolute;
     left: 41.6px;
-    top: 558.35px;
+    top: 486.85px;
     width: 143px;
     height: 13px;
     font-family: 'Courier New', monospace !important;
@@ -88,7 +88,7 @@
 
 .mod-pedal-octobass .opc-low-level {
     left: 35.1px;
-    top: 284.7px;
+    top: 253.5px;
     width: 112px;
     height: 88px;
     background-image: url(/resources/knob.png{{{ns}}});
@@ -97,7 +97,7 @@
 
 .mod-pedal-octobass .opc-value-low-level {
     left: 35.1px;
-    top: 373.1px;
+    top: 341.9px;
     width: 111.8px;
     height: 28.6px;
 }
@@ -119,8 +119,8 @@
 }
 
 .mod-pedal-octobass .opc-gate {
-    left: 327.13px;
-    top: 284.7px;
+    left: 332.12px;
+    top: 253.5px;
     width: 112px;
     height: 88px;
     background-image: url(/resources/knob.png{{{ns}}});
@@ -128,8 +128,8 @@
 }
 
 .mod-pedal-octobass .opc-value-gate {
-    left: 327.13px;
-    top: 373.1px;
+    left: 332.12px;
+    top: 341.9px;
     width: 111.8px;
     height: 28.6px;
 }
@@ -218,7 +218,7 @@
 
 .mod-pedal-octobass .opc-bypass {
     left: 213.2px;
-    top: 486.2px;
+    top: 414.7px;
     width: 94px;
     height: 104px;
     background-image: url(/resources/footswitch.png{{{ns}}});
@@ -235,7 +235,7 @@
 
 .mod-pedal-octobass .opc-nam1-on {
     left: 447.2px;
-    top: 486.2px;
+    top: 414.7px;
     width: 94px;
     height: 104px;
     background-image: url(/resources/footswitch.png{{{ns}}});
@@ -252,7 +252,7 @@
 
 .mod-pedal-octobass .opc-nam2-on {
     left: 681.2px;
-    top: 486.2px;
+    top: 414.7px;
     width: 94px;
     height: 104px;
     background-image: url(/resources/footswitch.png{{{ns}}});
