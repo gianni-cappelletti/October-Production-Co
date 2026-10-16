@@ -1,0 +1,231 @@
+@prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
+@prefix pset: <http://lv2plug.in/ns/ext/presets#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#preset-default>
+    a pset:Preset ;
+    lv2:appliesTo <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass> ;
+    rdfs:label "Default" ;
+    lv2:port [
+        lv2:symbol "crossover" ;
+        pset:value 250.0
+    ] , [
+        lv2:symbol "squash" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "compression_mode" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "low_level" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "high_input_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "high_output_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "output_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "dry_wet" ;
+        pset:value 100.0
+    ] , [
+        lv2:symbol "gate" ;
+        pset:value -96.0
+    ] , [
+        lv2:symbol "high_blend" ;
+        pset:value 100.0
+    ] , [
+        lv2:symbol "low_solo" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "high_solo" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_low_cut" ;
+        pset:value 1.0
+    ] , [
+        lv2:symbol "eq_low_cut_freq" ;
+        pset:value 20.0
+    ] , [
+        lv2:symbol "eq_high_cut" ;
+        pset:value 1.0
+    ] , [
+        lv2:symbol "eq_high_cut_freq" ;
+        pset:value 20000.0
+    ] , [
+        lv2:symbol "eq_node1_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node1_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node1_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node2_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node2_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node2_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node3_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node3_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node3_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node4_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node4_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node4_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node5_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node5_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node5_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node6_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node6_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node6_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node7_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node7_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node7_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node8_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node8_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node8_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node9_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node9_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node9_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node10_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node10_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node10_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node11_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node11_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node11_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node12_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node12_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node12_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node13_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node13_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node13_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node14_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node14_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node14_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node15_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node15_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node15_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node16_active" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "eq_node16_freq" ;
+        pset:value 1000.0
+    ] , [
+        lv2:symbol "eq_node16_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "nam1_on" ;
+        pset:value 1.0
+    ] , [
+        lv2:symbol "nam1_quality" ;
+        pset:value 49.0
+    ] , [
+        lv2:symbol "nam1_calibrate_input" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "nam1_input_level" ;
+        pset:value 12.0
+    ] , [
+        lv2:symbol "nam1_output_mode" ;
+        pset:value 1.0
+    ] , [
+        lv2:symbol "nam2_on" ;
+        pset:value 1.0
+    ] , [
+        lv2:symbol "nam2_quality" ;
+        pset:value 49.0
+    ] , [
+        lv2:symbol "nam2_calibrate_input" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "nam2_input_level" ;
+        pset:value 12.0
+    ] , [
+        lv2:symbol "nam2_output_mode" ;
+        pset:value 1.0
+    ] .

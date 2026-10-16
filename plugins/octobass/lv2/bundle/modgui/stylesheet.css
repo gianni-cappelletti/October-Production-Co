@@ -1,0 +1,314 @@
+@font-face {
+    font-family: 'OPC LCD';
+    src: url(/resources/PressStart2P-Regular.ttf{{{ns}}});
+}
+
+.mod-pedal-octobass {
+    position: absolute;
+    width: 760px;
+    height: 412px;
+    background-image: url(/resources/background.png{{{ns}}});
+    background-size: 760px 412px;
+    background-repeat: no-repeat;
+    border-radius: 3px;
+}
+
+.mod-pedal-octobass .mod-drag-handle {
+    position: absolute;
+    left: 15px;
+    top: 25px;
+    width: 640px;
+    height: 46px;
+    cursor: move;
+    z-index: 10;
+}
+
+.mod-pedal-octobass .opc-widget {
+    position: absolute;
+    cursor: pointer;
+    background-repeat: no-repeat;
+    z-index: 20;
+}
+
+.mod-pedal-octobass .opc-version {
+    position: absolute;
+    left: 32px;
+    top: 391.5px;
+    width: 110px;
+    height: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 8px;
+    line-height: 10px;
+    color: #555555;
+}
+
+.mod-pedal-octobass .opc-value {
+    position: absolute;
+    font-family: 'OPC LCD', monospace;
+    font-size: 9px;
+    line-height: 22px;
+    text-align: center;
+    color: #1c1c30;
+    white-space: nowrap;
+    overflow: hidden;
+    z-index: 20;
+}
+
+.mod-pedal-octobass .opc-squash {
+    left: 27px;
+    top: 97px;
+    width: 86px;
+    height: 68px;
+    background-image: url(/resources/knob.png{{{ns}}});
+    background-size: 5590px 68px;
+}
+
+.mod-pedal-octobass .opc-value-squash {
+    left: 27px;
+    top: 165px;
+    width: 86px;
+    height: 22px;
+}
+
+.mod-pedal-octobass .opc-compression-mode {
+    left: 137px;
+    top: 97px;
+    width: 86px;
+    height: 68px;
+    background-image: url(/resources/knob-mode.png{{{ns}}});
+    background-size: 344px 68px;
+}
+
+.mod-pedal-octobass .opc-value-compression-mode {
+    left: 137px;
+    top: 165px;
+    width: 86px;
+    height: 22px;
+}
+
+.mod-pedal-octobass .opc-low-level {
+    left: 27px;
+    top: 271px;
+    width: 86px;
+    height: 68px;
+    background-image: url(/resources/knob.png{{{ns}}});
+    background-size: 5590px 68px;
+}
+
+.mod-pedal-octobass .opc-value-low-level {
+    left: 27px;
+    top: 339px;
+    width: 86px;
+    height: 22px;
+}
+
+.mod-pedal-octobass .opc-low-solo {
+    left: 154px;
+    top: 286px;
+    width: 52px;
+    height: 44px;
+    background-image: url(/resources/solo.png{{{ns}}});
+    background-size: 104px 44px;
+}
+
+.mod-pedal-octobass .opc-low-solo.off {
+    background-position: 0 0;
+}
+
+.mod-pedal-octobass .opc-low-solo.on {
+    background-position: -52px 0;
+}
+
+.mod-pedal-octobass .opc-crossover {
+    left: 279.48px;
+    top: 97px;
+    width: 86px;
+    height: 68px;
+    background-image: url(/resources/knob.png{{{ns}}});
+    background-size: 5590px 68px;
+}
+
+.mod-pedal-octobass .opc-value-crossover {
+    left: 279.48px;
+    top: 165px;
+    width: 86px;
+    height: 22px;
+}
+
+.mod-pedal-octobass .opc-gate {
+    left: 251.64px;
+    top: 271px;
+    width: 86px;
+    height: 68px;
+    background-image: url(/resources/knob.png{{{ns}}});
+    background-size: 5590px 68px;
+}
+
+.mod-pedal-octobass .opc-value-gate {
+    left: 251.64px;
+    top: 339px;
+    width: 86px;
+    height: 22px;
+}
+
+.mod-pedal-octobass .opc-high-input-gain {
+    left: 442.25px;
+    top: 97px;
+    width: 28px;
+    height: 28px;
+    background-image: url(/resources/knob-trim.png{{{ns}}});
+    background-size: 1820px 28px;
+}
+
+.mod-pedal-octobass .opc-high-blend {
+    left: 524.75px;
+    top: 97px;
+    width: 28px;
+    height: 28px;
+    background-image: url(/resources/knob-trim.png{{{ns}}});
+    background-size: 1820px 28px;
+}
+
+.mod-pedal-octobass .opc-high-output-gain {
+    left: 607.25px;
+    top: 97px;
+    width: 28px;
+    height: 28px;
+    background-image: url(/resources/knob-trim.png{{{ns}}});
+    background-size: 1820px 28px;
+}
+
+.mod-pedal-octobass .opc-high-solo {
+    left: 675.75px;
+    top: 89px;
+    width: 56px;
+    height: 44px;
+    background-image: url(/resources/solo.png{{{ns}}});
+    background-size: 112px 44px;
+}
+
+.mod-pedal-octobass .opc-high-solo.off {
+    background-position: 0 0;
+}
+
+.mod-pedal-octobass .opc-high-solo.on {
+    background-position: -56px 0;
+}
+
+.mod-pedal-octobass .opc-nam1-on {
+    left: 643px;
+    top: 138px;
+    width: 60px;
+    height: 44px;
+    background-image: url(/resources/toggle.png{{{ns}}});
+    background-size: 120px 44px;
+}
+
+.mod-pedal-octobass .opc-nam1-on.off {
+    background-position: 0 0;
+}
+
+.mod-pedal-octobass .opc-nam1-on.on {
+    background-position: -60px 0;
+}
+
+.mod-pedal-octobass .opc-nam2-on {
+    left: 643px;
+    top: 215px;
+    width: 60px;
+    height: 44px;
+    background-image: url(/resources/toggle.png{{{ns}}});
+    background-size: 120px 44px;
+}
+
+.mod-pedal-octobass .opc-nam2-on.off {
+    background-position: 0 0;
+}
+
+.mod-pedal-octobass .opc-nam2-on.on {
+    background-position: -60px 0;
+}
+
+.mod-pedal-octobass .opc-bypass {
+    left: 665px;
+    top: 26px;
+    width: 80px;
+    height: 44px;
+    background-image: url(/resources/bypass.png{{{ns}}});
+    background-size: 160px 44px;
+}
+
+.mod-pedal-octobass .opc-bypass.on {
+    background-position: 0 0;
+}
+
+.mod-pedal-octobass .opc-bypass.off {
+    background-position: -80px 0;
+}
+
+.mod-pedal-octobass .opc-file[mod-parameter-uri$="#nam1Model"] {
+    left: 397px;
+    top: 177px;
+    width: 346px;
+    height: 30px;
+}
+
+.mod-pedal-octobass .opc-file[mod-parameter-uri$="#nam2Model"] {
+    left: 397px;
+    top: 254px;
+    width: 346px;
+    height: 30px;
+}
+
+.mod-pedal-octobass .opc-file[mod-parameter-uri$="#cabinetIr"] {
+    left: 397px;
+    top: 331px;
+    width: 346px;
+    height: 30px;
+}
+
+.mod-pedal-octobass .opc-file {
+    position: absolute;
+    z-index: 30;
+    font-family: 'OPC LCD', monospace;
+    font-size: 10px;
+    color: #1c1c30;
+    cursor: pointer;
+}
+
+.mod-pedal-octobass .opc-file .mod-enumerated-selected {
+    padding: 0 8px;
+    line-height: 30px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mod-pedal-octobass .opc-file .mod-enumerated-list {
+    display: none;
+    position: absolute;
+    top: 32px;
+    left: 0;
+    width: 100%;
+    max-height: 220px;
+    overflow: auto;
+    background: #2c2c2c;
+    border: 1px solid #181818;
+    color: #ffffff;
+    font-family: 'OPC LCD', monospace;
+    font-size: 9px;
+}
+
+.mod-pedal-octobass .opc-file .mod-enumerated-list > div {
+    padding: 6px 8px;
+}
+
+.mod-pedal-octobass .opc-file .mod-enumerated-list > div:hover {
+    background: #e07030;
+    color: #1c1c30;
+}
+
+.mod-pedal-octobass .opc-file .mod-enumerated-list > div.selected {
+    background: #F08830;
+    color: #1c1c30;
+}

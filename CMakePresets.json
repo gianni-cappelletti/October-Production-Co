@@ -138,6 +138,48 @@
       }
     },
     {
+      "name": "test-octobass-lv2",
+      "displayName": "OctoBASS LV2 Tests",
+      "inherits": ["_dev-base", "_asan"],
+      "binaryDir": "${sourceDir}/build/test-octobass-lv2",
+      "cacheVariables": {
+        "BUILD_OCTOBIR": "OFF",
+        "BUILD_OCTOBIR_JUCE": "OFF",
+        "BUILD_OCTOBIR_VCV": "OFF",
+        "BUILD_OCTOBASS_JUCE": "OFF",
+        "BUILD_OCTOBASS_LV2": "ON",
+        "BUILD_OCTOBASS_LV2_TESTS": "ON",
+        "OCTOBASS_NAM_A2_FAST": "ON"
+      }
+    },
+    {
+      "name": "release-octobass-lv2",
+      "displayName": "OctoBASS LV2 Release",
+      "binaryDir": "${sourceDir}/build/release-octobass-lv2",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_OCTOBIR": "OFF",
+        "BUILD_OCTOBIR_JUCE": "OFF",
+        "BUILD_OCTOBIR_VCV": "OFF",
+        "BUILD_OCTOBASS_JUCE": "OFF",
+        "BUILD_OCTOBASS_LV2": "ON",
+        "OCTOBASS_NAM_A2_FAST": "ON"
+      }
+    },
+    {
+      "name": "bench-octobass-core",
+      "displayName": "OctoBASS Core Benchmark",
+      "binaryDir": "${sourceDir}/build/bench-octobass-core",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_OCTOBIR": "OFF",
+        "BUILD_OCTOBIR_JUCE": "OFF",
+        "BUILD_OCTOBIR_VCV": "OFF",
+        "BUILD_OCTOBASS_JUCE": "OFF",
+        "BUILD_OCTOBASS_CORE_BENCH": "ON"
+      }
+    },
+    {
       "name": "test-octobass-juce",
       "displayName": "OctoBASS JUCE Tests",
       "inherits": ["_dev-base", "_asan"],
@@ -229,6 +271,7 @@
     { "name": "test-octobir-vcv", "configurePreset": "test-octobir-vcv", "jobs": 0 },
     { "name": "test-octobass-core", "configurePreset": "test-octobass-core", "jobs": 0 },
     { "name": "test-octobass-juce", "configurePreset": "test-octobass-juce", "jobs": 0 },
+    { "name": "test-octobass-lv2", "configurePreset": "test-octobass-lv2", "jobs": 0 },
     { "name": "test-octobir-core-windows", "configurePreset": "test-octobir-core-windows", "jobs": 0 },
     { "name": "test-octobir-juce-windows", "configurePreset": "test-octobir-juce-windows", "jobs": 0 },
     { "name": "test-octobir-vcv-windows", "configurePreset": "test-octobir-vcv-windows", "jobs": 0 },

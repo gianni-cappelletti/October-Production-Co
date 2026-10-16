@@ -83,3 +83,12 @@ To release a VCV Rack update:
     - First time: create an issue at [VCVRack/library](https://github.com/VCVRack/library) with the plugin slug and the **wrapper repo** as the source URL.
     - Updates: comment in the plugin's thread with the new version and the wrapper commit hash.
 4. **Users download** via VCV Rack's built-in Plugin Manager.
+
+#### MOD Audio Distribution (OctoBASS Only)
+
+MOD devices install plugins built by [mod-plugin-builder](https://github.com/mod-audio/mod-plugin-builder). The package recipe is `installers/mod/octobass-lv2/octobass-lv2.mk`; it builds this monorepo at a pinned commit.
+
+1. **Cut the monorepo release** as above.
+2. **Regenerate bundle data** if ports or the UI changed: `make octobass-lv2-ttl`, `make octobass-lv2-modgui`. The LV2 version and the faceplate version text come from `VERSION` at build time.
+3. **Build and validate** in the `mpb:moddwarf-new` container (see [plugins/octobass/lv2/README.md](../../plugins/octobass/lv2/README.md)).
+4. **Submit:** open a pull request to mod-plugin-builder adding `plugins/package/octobass-lv2/octobass-lv2.mk` with `OCTOBASS_LV2_VERSION` set to the release commit, then post a publish request on the [MOD forum](https://forum.mod.audio/).

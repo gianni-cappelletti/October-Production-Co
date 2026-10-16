@@ -32,6 +32,7 @@ option(BUILD_OCTOBIR_JUCE "Build OctobIR JUCE plugin" ON)
 option(BUILD_OCTOBIR_VCV "Build OctobIR VCV plugin" ON)
 option(BUILD_OCTOBASS "Build OctoBASS plugin" ON)
 option(BUILD_OCTOBASS_JUCE "Build OctoBASS JUCE plugin" ON)
+option(BUILD_OCTOBASS_LV2 "Build OctoBASS LV2 plugin (MOD Audio)" OFF)
 
 # Test selection
 option(BUILD_OCTOBIR_CORE_TESTS "Build OctobIR core library tests" OFF)
@@ -39,16 +40,19 @@ option(BUILD_OCTOBIR_JUCE_TESTS "Build OctobIR JUCE plugin tests" OFF)
 option(BUILD_OCTOBIR_VCV_TESTS "Build OctobIR VCV plugin tests" OFF)
 option(BUILD_OCTOBASS_JUCE_TESTS "Build OctoBASS JUCE plugin tests" OFF)
 option(BUILD_OCTOBASS_CORE_TESTS "Build OctoBASS core library tests" OFF)
+option(BUILD_OCTOBASS_LV2_TESTS "Build OctoBASS LV2 plugin tests" OFF)
+option(BUILD_OCTOBASS_LV2_MODGUI_RENDERER "Build the OctoBASS modgui asset renderer" OFF)
 
 # JUCE framework (shared by all JUCE plugins and their tests)
 if(BUILD_OCTOBIR_JUCE OR BUILD_OCTOBASS_JUCE OR
-   BUILD_OCTOBIR_JUCE_TESTS OR BUILD_OCTOBASS_JUCE_TESTS)
+   BUILD_OCTOBIR_JUCE_TESTS OR BUILD_OCTOBASS_JUCE_TESTS OR BUILD_OCTOBASS_LV2_MODGUI_RENDERER)
     add_subdirectory(third_party/JUCE)
     add_subdirectory(libs/juce-ui-shared)
 endif()
 
 # octobir-core is used by both OctobIR and OctoBASS (IR convolution in high-freq chain)
-if(BUILD_OCTOBIR OR BUILD_OCTOBASS OR BUILD_OCTOBIR_CORE_TESTS OR BUILD_OCTOBASS_CORE_TESTS)
+if(BUILD_OCTOBIR OR BUILD_OCTOBASS OR BUILD_OCTOBIR_CORE_TESTS OR BUILD_OCTOBASS_CORE_TESTS OR
+   BUILD_OCTOBASS_LV2 OR BUILD_OCTOBASS_LV2_TESTS)
     add_subdirectory(libs/octobir-core)
 endif()
 
@@ -62,10 +66,15 @@ if(BUILD_OCTOBIR_VCV OR BUILD_OCTOBIR_VCV_TESTS)
 endif()
 
 # OctoBASS
-if(BUILD_OCTOBASS OR BUILD_OCTOBASS_JUCE OR BUILD_OCTOBASS_CORE_TESTS)
+if(BUILD_OCTOBASS OR BUILD_OCTOBASS_JUCE OR BUILD_OCTOBASS_LV2 OR BUILD_OCTOBASS_CORE_TESTS OR
+   BUILD_OCTOBASS_LV2_TESTS)
     add_subdirectory(libs/octobass-core)
 endif()
 
 if(BUILD_OCTOBASS_JUCE OR BUILD_OCTOBASS_JUCE_TESTS)
     add_subdirectory(plugins/octobass/juce)
+endif()
+
+if(BUILD_OCTOBASS_LV2 OR BUILD_OCTOBASS_LV2_TESTS OR BUILD_OCTOBASS_LV2_MODGUI_RENDERER)
+    add_subdirectory(plugins/octobass/lv2)
 endif()
