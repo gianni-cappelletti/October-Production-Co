@@ -22,7 +22,7 @@ Native LV2 wrapper around `octobass-core` for MOD Audio devices (Dwarf, Duo X) a
 | File parameters | `#nam1Model`, `#nam2Model` (`mod:fileTypes "nammodel"`), `#cabinetIr` (`mod:fileTypes "cabsim"`, `.wav`) |
 | Required features | `urid:map`, `work:schedule` |
 | Extensions | `work:interface`, `state:interface` |
-| Default NAM quality | 49% (slim submodel of slimmable models) |
+| NAM quality | 0-100%, default 49%. Below 50% selects the slim submodel of slimmable (A2) models; 50% and above selects the full-size submodel |
 | Version | Generated from `VERSION`: `lv2:minorVersion` = 2 x (MAJOR x 100 + MINOR), `lv2:microVersion` = 2 x PATCH (2.3.0 is 406.0) |
 
 - Percent ports use 0-100; the core receives 0-1.
@@ -70,6 +70,14 @@ Requires Docker (Colima on macOS). The simulator image runs JACK (dummy driver),
 | `make mod-sim-check` | Headless Chromium checks against a running `mod-sim`: layout, readout formats, fonts, Solo exclusivity, bypass, knob drag, file loading. Screenshots in `build/mod-sim/` |
 | `make mod-sim-valgrind` | LV2 tests under valgrind (Linux arm64) |
 | `make mod-sim-cpu` | Times OctoBASS and MOD's Neural Amp Modeler (mod-plugin-builder commit) in the same LV2 host |
+
+Estimated Dwarf CPU at 128 frames (bundled A2 captures, cabinet IR loaded):
+
+| Configuration | Estimate |
+|---------------|----------|
+| 1 NAM slot, quality < 50% | 19-28% |
+| 2 NAM slots, quality < 50% | 31-45% |
+| 1 NAM slot, quality >= 50% | Likely exceeds the CPU budget |
 
 Dwarf CPU estimate: `OctoBASS % / NAM nano % x Dwarf NAM nano %`. MOD forum reports for the Dwarf at 128 frames: NAM nano 36-42%, feather 66-76%. `make_timing_models.py` derives nano/feather/standard WaveNet models with random weights for timing only.
 

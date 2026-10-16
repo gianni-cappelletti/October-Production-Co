@@ -65,7 +65,7 @@
     ] ;
     mod:brand "OPC" ;
     mod:label "OctoBASS" ;
-    rdfs:comment "Bass amp and tone shaper: graphic EQ, crossover split, compressed low band, two serial NAM slots and a cabinet IR on the high band." ;
+    rdfs:comment "Bass amp and tone shaper: graphic EQ, crossover split, compressed low band, two serial NAM slots and a cabinet IR on the high band. NAM Quality below 50% runs the slim model; 50% and above runs the full-size model, which is likely too heavy for a MOD Dwarf." ;
     lv2:requiredFeature urid:map, work:schedule ;
     lv2:optionalFeature lv2:hardRTCapable, log:log, opts:options, bufsz:boundedBlockLength, state:threadSafeRestore ;
     lv2:extensionData work:interface, state:interface ;

@@ -14,21 +14,21 @@ namespace
 {
 
 constexpr float RenderScale = 2.0f;
+constexpr float DisplayScale = 1.3f;
+constexpr float PixelScale = RenderScale * DisplayScale;
 constexpr float PedalWidth = 760.0f;
-constexpr float PedalHeight = 412.0f;
+constexpr float PedalHeight = 360.0f;
 constexpr float Pad = 15.0f;
-constexpr float HeaderY = 25.0f;
-constexpr float HeaderHeight = 46.0f;
 constexpr float LineSlope = 86.4f / 540.0f;
-constexpr float LeftLineTopX = 273.92f;
-constexpr float RightLineTopX = 413.92f;
+constexpr float LeftLineTopX = 265.6f;
+constexpr float RightLineTopX = 405.6f;
 constexpr float LabelHeight = 16.0f;
 constexpr float KnobWidth = 86.0f;
 constexpr float KnobHeight = 68.0f;
 constexpr float ValueHeight = 22.0f;
 constexpr float FullRowHeight = LabelHeight + KnobHeight + ValueHeight;
-constexpr float Row1Y = 81.0f;
-constexpr float Row2Y = 255.0f;
+constexpr float Row1Y = 29.0f;
+constexpr float Row2Y = 203.0f;
 constexpr float TrimSize = 28.0f;
 constexpr float ButtonMargin = 8.0f;
 constexpr int KnobFrames = 65;
@@ -72,9 +72,7 @@ struct Control
 
 struct FileSlot
 {
-  std::string label;
   std::string uriSuffix;
-  Box labelBox;
   Box lcdBox;
 };
 
@@ -160,7 +158,7 @@ std::vector<Control> buildControls()
        0.0f,
        ""});
 
-  const float loaderY0 = 146.0f;
+  const float loaderY0 = 94.0f;
   const float loaderPitch = 77.0f;
   const float rightW = PedalWidth - Pad - rightX;
   for (int slot = 0; slot < 2; ++slot)
@@ -176,10 +174,13 @@ std::vector<Control> buildControls()
                         ""});
   }
 
+  const float bypassCentreY = PedalHeight - 24.0f;
+  const float bypassCentreX =
+      (lineXAtY(LeftLineTopX, bypassCentreY) + lineXAtY(RightLineTopX, bypassCentreY)) * 0.5f;
   controls.push_back({":bypass",
                       Widget::Bypass,
                       "ON",
-                      {PedalWidth - Pad - 8.0f - 64.0f, HeaderY + 9.0f, 64.0f, 28.0f},
+                      {bypassCentreX - 32.0f, bypassCentreY - 14.0f, 64.0f, 28.0f},
                       {0, 0, 0, 0},
                       false,
                       1.0f,
@@ -191,34 +192,30 @@ std::vector<FileSlot> buildFileSlots()
 {
   const float rightX = Pad + 220.0f + 160.0f;
   const float rightW = PedalWidth - Pad - rightX;
-  const float loaderY0 = 146.0f;
+  const float loaderY0 = 94.0f;
   const float loaderPitch = 77.0f;
-  const std::vector<std::pair<std::string, std::string>> names = {
-      {"NAM 1", "nam1Model"}, {"NAM 2", "nam2Model"}, {"CAB IR", "cabinetIr"}};
+  const std::vector<std::string> parameters = {"nam1Model", "nam2Model", "cabinetIr"};
 
   std::vector<FileSlot> slots;
-  for (size_t i = 0; i < names.size(); ++i)
+  for (size_t i = 0; i < parameters.size(); ++i)
   {
     const float y = loaderY0 + static_cast<float>(i) * loaderPitch;
-    slots.push_back({names[i].first,
-                     names[i].second,
-                     {rightX + 2.0f, y, 120.0f, 28.0f},
-                     {rightX + 2.0f, y + 31.0f, rightW - 4.0f, 30.0f}});
+    slots.push_back({parameters[i], {rightX + 2.0f, y + 31.0f, rightW - 4.0f, 30.0f}});
   }
   return slots;
 }
 
 juce::Image makeImage(float w, float h)
 {
-  return juce::Image(juce::Image::ARGB, juce::roundToInt(w * RenderScale),
-                     juce::roundToInt(h * RenderScale), true);
+  return juce::Image(juce::Image::ARGB, juce::roundToInt(w * PixelScale),
+                     juce::roundToInt(h * PixelScale), true);
 }
 
-void paintComponentInto(juce::Image& image, juce::Component& component, float offsetX,
-                        float offsetY)
+void paintComponentInto(juce::Image& image, juce::Component& component, float originX,
+                        float originY, float scaleX, float scaleY)
 {
   juce::Graphics g(image);
-  g.addTransform(juce::AffineTransform::translation(offsetX, offsetY).scaled(RenderScale));
+  g.addTransform(juce::AffineTransform::scale(scaleX, scaleY).translated(originX, originY));
   component.paintEntireComponent(g, false);
 }
 
@@ -265,10 +262,11 @@ float frameMargin(Widget widget)
 }
 
 void paintWidgetFrame(OctoberLookAndFeel& lookAndFeel, const Control& control, int frame,
-                      juce::Image& image, float offsetX, float offsetY)
+                      juce::Image& image, float originX, float originY, float scaleX, float scaleY)
 {
   const auto& box = control.widgetBox;
-  const float margin = frameMargin(control.widget) * RenderScale;
+  const float marginX = frameMargin(control.widget) * scaleX;
+  const float marginY = frameMargin(control.widget) * scaleY;
   const int width = juce::roundToInt(box.w);
   const int height = juce::roundToInt(box.h);
 
@@ -285,7 +283,7 @@ void paintWidgetFrame(OctoberLookAndFeel& lookAndFeel, const Control& control, i
       slider.setValue(
           static_cast<double>(frame) / static_cast<double>(frameCount(control.widget) - 1),
           juce::dontSendNotification);
-      paintComponentInto(image, slider, offsetX / RenderScale, offsetY / RenderScale);
+      paintComponentInto(image, slider, originX, originY, scaleX, scaleY);
       slider.setLookAndFeel(nullptr);
       break;
     }
@@ -296,8 +294,7 @@ void paintWidgetFrame(OctoberLookAndFeel& lookAndFeel, const Control& control, i
       button.setClickingTogglesState(true);
       button.setToggleState(frame == 1, juce::dontSendNotification);
       button.setBounds(0, 0, width, height);
-      paintComponentInto(image, button, (offsetX + margin) / RenderScale,
-                         (offsetY + margin) / RenderScale);
+      paintComponentInto(image, button, originX + marginX, originY + marginY, scaleX, scaleY);
       button.setLookAndFeel(nullptr);
       break;
     }
@@ -310,8 +307,7 @@ void paintWidgetFrame(OctoberLookAndFeel& lookAndFeel, const Control& control, i
         button.setComponentID("metalToggle");
       button.setToggleState(frame == 1, juce::dontSendNotification);
       button.setBounds(0, 0, width, height);
-      paintComponentInto(image, button, (offsetX + margin) / RenderScale,
-                         (offsetY + margin) / RenderScale);
+      paintComponentInto(image, button, originX + marginX, originY + marginY, scaleX, scaleY);
       button.setLookAndFeel(nullptr);
       break;
     }
@@ -338,16 +334,35 @@ std::string spriteName(Widget widget)
   return {};
 }
 
-juce::Image renderSprite(OctoberLookAndFeel& lookAndFeel, const Control& control)
+struct FrameSize
+{
+  float designWidth;
+  float designHeight;
+  int cssWidth;
+  int cssHeight;
+};
+
+FrameSize frameSize(const Control& control)
 {
   const float margin = frameMargin(control.widget);
-  const float frameW = control.widgetBox.w + margin * 2.0f;
-  const float frameH = control.widgetBox.h + margin * 2.0f;
+  const float designWidth = control.widgetBox.w + margin * 2.0f;
+  const float designHeight = control.widgetBox.h + margin * 2.0f;
+  return {designWidth, designHeight, juce::roundToInt(designWidth * DisplayScale),
+          juce::roundToInt(designHeight * DisplayScale)};
+}
+
+juce::Image renderSprite(OctoberLookAndFeel& lookAndFeel, const Control& control)
+{
+  const auto size = frameSize(control);
   const int frames = frameCount(control.widget);
-  auto image = makeImage(frameW * static_cast<float>(frames), frameH);
+  const float framePixelWidth = static_cast<float>(size.cssWidth) * RenderScale;
+  const float framePixelHeight = static_cast<float>(size.cssHeight) * RenderScale;
+  juce::Image image(juce::Image::ARGB, juce::roundToInt(framePixelWidth) * frames,
+                    juce::roundToInt(framePixelHeight), true);
   for (int frame = 0; frame < frames; ++frame)
     paintWidgetFrame(lookAndFeel, control, frame, image,
-                     static_cast<float>(frame) * frameW * RenderScale, 0.0f);
+                     static_cast<float>(frame) * framePixelWidth, 0.0f,
+                     framePixelWidth / size.designWidth, framePixelHeight / size.designHeight);
   return image;
 }
 
@@ -369,7 +384,7 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
 {
   auto image = makeImage(PedalWidth, PedalHeight);
   juce::Graphics g(image);
-  g.addTransform(juce::AffineTransform::scale(RenderScale));
+  g.addTransform(juce::AffineTransform::scale(PixelScale));
 
   const juce::Rectangle<float> bounds(0.0f, 0.0f, PedalWidth, PedalHeight);
   const float cornerRadius = 3.0f;
@@ -395,12 +410,6 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
   g.drawLine(LeftLineTopX, 0.0f, lineXAtY(LeftLineTopX, PedalHeight), PedalHeight, 3.0f);
   g.drawLine(RightLineTopX, 0.0f, lineXAtY(RightLineTopX, PedalHeight), PedalHeight, 3.0f);
 
-  const juce::Rectangle<float> header(Pad, HeaderY, PedalWidth - 2.0f * Pad, HeaderHeight);
-  drawLCDBackground(g, header);
-  const juce::Font lcdTitleFont(juce::FontOptions(lookAndFeel.getLCDTypeface()).withHeight(18.0f));
-  drawText(g, "OCTOBASS", {Pad + 16.0f, HeaderY, 300.0f, HeaderHeight}, lcdTitleFont, kLCDInkColour,
-           juce::Justification::centredLeft);
-
   const juce::Font labelFont(
       juce::FontOptions(lookAndFeel.getTypefaceForFont(juce::Font(juce::FontOptions(15.0f))))
           .withHeight(15.0f));
@@ -414,11 +423,7 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
   }
 
   for (const auto& slot : fileSlots)
-  {
-    drawText(g, slot.label, slot.labelBox, labelFont, LabelColour,
-             juce::Justification::centredLeft);
     drawLCDBackground(g, {slot.lcdBox.x, slot.lcdBox.y, slot.lcdBox.w, slot.lcdBox.h});
-  }
 
   const auto logo =
       juce::ImageCache::getFromMemory(BinaryData::OctoberLogo_png, BinaryData::OctoberLogo_pngSize);
@@ -445,12 +450,12 @@ juce::Image renderScreenshot(OctoberLookAndFeel& lookAndFeel, const juce::Image&
     const int frames = frameCount(control.widget);
     const int frame = juce::roundToInt(control.defaultNormalised * static_cast<float>(frames - 1));
     paintWidgetFrame(lookAndFeel, control, frame, image,
-                     (control.widgetBox.x - margin) * RenderScale,
-                     (control.widgetBox.y - margin) * RenderScale);
+                     (control.widgetBox.x - margin) * PixelScale,
+                     (control.widgetBox.y - margin) * PixelScale, PixelScale, PixelScale);
   }
 
   juce::Graphics g(image);
-  g.addTransform(juce::AffineTransform::scale(RenderScale));
+  g.addTransform(juce::AffineTransform::scale(PixelScale));
   const juce::Font valueFont(juce::FontOptions(lookAndFeel.getLCDTypeface()).withHeight(9.0f));
   for (const auto& control : controls)
     if (control.hasValue)
@@ -470,7 +475,10 @@ juce::Image renderScreenshot(OctoberLookAndFeel& lookAndFeel, const juce::Image&
 
 std::string px(float value)
 {
-  return juce::String(value, 2).trimCharactersAtEnd("0").trimCharactersAtEnd(".").toStdString() +
+  return juce::String(value * DisplayScale, 2)
+             .trimCharactersAtEnd("0")
+             .trimCharactersAtEnd(".")
+             .toStdString() +
          "px";
 }
 
@@ -492,46 +500,47 @@ std::string generateStylesheet(const std::vector<Control>& controls,
          ";\n    background-image: url(/resources/background.png{{{ns}}});\n"
          "    background-size: " +
          px(PedalWidth) + " " + px(PedalHeight) +
-         ";\n    background-repeat: no-repeat;\n    border-radius: 3px;\n}\n\n";
-  css += pedal + " .mod-drag-handle {\n    position: absolute;\n    left: " + px(Pad) +
-         ";\n    top: " + px(HeaderY) + ";\n    width: " + px(PedalWidth - 2.0f * Pad - 90.0f) +
-         ";\n    height: " + px(HeaderHeight) + ";\n    cursor: move;\n    z-index: 10;\n}\n\n";
+         ";\n    background-repeat: no-repeat;\n    border-radius: " + px(3.0f) + ";\n}\n\n";
+  css += pedal +
+         " .mod-drag-handle {\n    position: absolute;\n    left: 0;\n    top: 0;\n"
+         "    width: 100%;\n    height: 100%;\n    cursor: move;\n    z-index: 1;\n}\n\n";
   css += pedal +
          " .opc-widget {\n    position: absolute;\n    cursor: pointer;\n"
          "    background-repeat: no-repeat;\n    z-index: 20;\n}\n\n";
-  css += pedal +
-         " .opc-version {\n    position: absolute;\n    left: 32px;\n    top: " + px(VersionTextY) +
-         ";\n    width: 110px;\n    height: 10px;\n    font-family: 'Courier New', monospace "
-         "!important;\n"
-         "    font-size: 8px;\n    line-height: 10px;\n    color: #555555;\n}\n\n";
+  css += pedal + " .opc-version {\n    position: absolute;\n    left: " + px(32.0f) +
+         ";\n    top: " + px(VersionTextY) + ";\n    width: " + px(110.0f) +
+         ";\n    height: " + px(10.0f) +
+         ";\n    font-family: 'Courier New', monospace !important;\n    font-size: " + px(8.0f) +
+         ";\n    line-height: " + px(10.0f) + ";\n    color: #555555;\n}\n\n";
   css +=
       pedal +
       " .opc-value {\n    position: absolute;\n    font-family: 'OPC LCD', monospace !important;\n"
-      "    font-size: 9px;\n    line-height: " +
-      px(ValueHeight) +
+      "    font-size: " +
+      px(9.0f) + ";\n    line-height: " + px(ValueHeight) +
       ";\n    text-align: center;\n    color: #1c1c30;\n    white-space: nowrap;\n"
       "    overflow: hidden;\n    z-index: 20;\n}\n\n";
 
   for (const auto& control : controls)
   {
     const float margin = frameMargin(control.widget);
-    const float frameW = control.widgetBox.w + margin * 2.0f;
-    const float frameH = control.widgetBox.h + margin * 2.0f;
+    const auto size = frameSize(control);
+    const std::string frameW = std::to_string(size.cssWidth) + "px";
+    const std::string frameH = std::to_string(size.cssHeight) + "px";
+    const std::string stripW = std::to_string(size.cssWidth * frameCount(control.widget)) + "px";
     const int frames = frameCount(control.widget);
     const std::string selector = pedal + " .opc-" + cssClassFor(control.symbol);
     css += selector + " {\n    left: " + px(control.widgetBox.x - margin) +
-           ";\n    top: " + px(control.widgetBox.y - margin) + ";\n    width: " + px(frameW) +
-           ";\n    height: " + px(frameH) + ";\n    background-image: url(/resources/" +
-           spriteName(control.widget) +
-           "{{{ns}}});\n    background-size: " + px(frameW * static_cast<float>(frames)) + " " +
-           px(frameH) + ";\n}\n\n";
+           ";\n    top: " + px(control.widgetBox.y - margin) + ";\n    width: " + frameW +
+           ";\n    height: " + frameH + ";\n    background-image: url(/resources/" +
+           spriteName(control.widget) + "{{{ns}}});\n    background-size: " + stripW + " " +
+           frameH + ";\n}\n\n";
 
     if (frames == 2)
     {
       const std::string active = control.widget == Widget::Bypass ? ".off" : ".on";
       const std::string inactive = control.widget == Widget::Bypass ? ".on" : ".off";
       css += selector + inactive + " {\n    background-position: 0 0;\n}\n\n";
-      css += selector + active + " {\n    background-position: -" + px(frameW) + " 0;\n}\n\n";
+      css += selector + active + " {\n    background-position: -" + frameW + " 0;\n}\n\n";
     }
 
     if (control.hasValue)
@@ -554,21 +563,26 @@ std::string generateStylesheet(const std::vector<Control>& controls,
 
   css += pedal +
          " .opc-file {\n    position: absolute;\n    z-index: 30;\n"
-         "    font-family: 'OPC LCD', monospace !important;\n    font-size: 10px;\n    color: "
-         "#1c1c30;\n"
+         "    font-family: 'OPC LCD', monospace !important;\n    font-size: " +
+         px(10.0f) +
+         ";\n    color: #1c1c30;\n"
          "    cursor: pointer;\n}\n\n";
   css += pedal +
          " .opc-file .mod-enumerated-selected {\n    font-family: 'OPC LCD', monospace "
-         "!important;\n    padding: 0 8px;\n"
-         "    line-height: 30px;\n    white-space: nowrap;\n    overflow: hidden;\n"
+         "!important;\n    padding: 0 " +
+         px(8.0f) + ";\n    line-height: " + px(30.0f) +
+         ";\n    white-space: nowrap;\n    overflow: hidden;\n"
          "    text-overflow: ellipsis;\n}\n\n";
   css += pedal +
          " .opc-file .mod-enumerated-list {\n    display: none;\n    position: absolute;\n"
-         "    top: 32px;\n    left: 0;\n    width: 100%;\n    max-height: 220px;\n"
+         "    top: " +
+         px(32.0f) + ";\n    left: 0;\n    width: 100%;\n    max-height: " + px(220.0f) +
+         ";\n"
          "    overflow: auto;\n    background: #2c2c2c;\n    border: 1px solid #181818;\n"
-         "    color: #ffffff;\n    font-family: 'OPC LCD', monospace !important;\n    font-size: "
-         "9px;\n}\n\n";
-  css += pedal + " .opc-file .mod-enumerated-list > div {\n    padding: 6px 8px;\n}\n\n";
+         "    color: #ffffff;\n    font-family: 'OPC LCD', monospace !important;\n    font-size: " +
+         px(9.0f) + ";\n}\n\n";
+  css += pedal + " .opc-file .mod-enumerated-list > div {\n    padding: " + px(6.0f) + " " +
+         px(8.0f) + ";\n}\n\n";
   css += pedal +
          " .opc-file .mod-enumerated-list > div:hover {\n    background: #e07030;\n"
          "    color: #1c1c30;\n}\n\n";
@@ -722,7 +736,8 @@ int main(int argc, char** argv)
   ok &= writePng(background, outputDirectory.getChildFile("background.png"));
 
   const auto screenshot = renderScreenshot(lookAndFeel, background, controls, fileSlots);
-  ok &= writePng(screenshot.rescaled(juce::roundToInt(PedalWidth), juce::roundToInt(PedalHeight),
+  ok &= writePng(screenshot.rescaled(juce::roundToInt(PedalWidth * DisplayScale),
+                                     juce::roundToInt(PedalHeight * DisplayScale),
                                      juce::Graphics::highResamplingQuality),
                  outputDirectory.getChildFile("screenshot.png"));
   ok &= writePng(screenshot.rescaled(190, juce::roundToInt(190.0f * PedalHeight / PedalWidth),

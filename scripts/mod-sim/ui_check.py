@@ -110,6 +110,50 @@ def check_bypass(page: Page):
     check("bypass releases", "off" in classes(bypass), " ".join(classes(bypass)))
 
 
+def check_sprite_frames(page: Page):
+    mismatches = page.evaluate(
+        """() => Array.from(document.querySelectorAll('.mod-pedal-octobass .opc-widget')).flatMap(e => {
+             const style = getComputedStyle(e);
+             const width = parseFloat(style.width);
+             const strip = parseFloat(style.backgroundSize.split(' ')[0]);
+             const frames = strip / width;
+             return Number.isInteger(width) && Math.abs(frames - Math.round(frames)) < 1e-6
+                 ? [] : [e.className + ' ' + style.width + ' ' + style.backgroundSize];
+           })""")
+    check("sprite frames are whole pixels", not mismatches, "; ".join(mismatches))
+
+
+def check_pedal_size(page: Page):
+    size = page.evaluate(
+        """() => { const p = document.querySelector('.mod-pedal-octobass');
+                   return [p.offsetWidth, p.offsetHeight]; }""")
+    check("pedal is scaled up", size[0] >= 950 and size[1] >= 440, f"{size[0]}x{size[1]}")
+
+
+def list_visible(page: Page, parameter):
+    return file_picker(page, parameter).locator(".mod-enumerated-list").is_visible()
+
+
+def check_file_list_dismissal(page: Page):
+    file_picker(page, "nam1Model").locator(".mod-enumerated-selected").click()
+    page.wait_for_timeout(300)
+    check("file list opens", list_visible(page, "nam1Model"))
+    box = page.locator(PEDAL).bounding_box()
+    page.mouse.click(box["x"] + box["width"] + 200, box["y"] + box["height"] / 2)
+    page.wait_for_timeout(300)
+    check("click outside closes file list", not list_visible(page, "nam1Model"))
+
+    file_picker(page, "nam1Model").locator(".mod-enumerated-selected").click()
+    page.wait_for_timeout(300)
+    file_picker(page, "nam2Model").locator(".mod-enumerated-selected").click()
+    page.wait_for_timeout(300)
+    check("opening another picker closes the first", not list_visible(page, "nam1Model"))
+    check("second picker opens", list_visible(page, "nam2Model"))
+    page.mouse.click(box["x"] + box["width"] + 200, box["y"] + box["height"] / 2)
+    page.wait_for_timeout(300)
+    check("click outside closes second picker", not list_visible(page, "nam2Model"))
+
+
 def check_file_loading(page: Page):
     for parameter, expected_suffix in [("nam1Model", ".nam"), ("cabinetIr", ".wav")]:
         picker = file_picker(page, parameter)
@@ -152,6 +196,9 @@ def main():
         add_pedal(page)
         screenshot(page, "pedal-default.png")
         check_layout(page)
+        check_pedal_size(page)
+        check_sprite_frames(page)
+        check_file_list_dismissal(page)
         check_solo_exclusivity(page)
         check_bypass(page)
         check_knob_drag(page)

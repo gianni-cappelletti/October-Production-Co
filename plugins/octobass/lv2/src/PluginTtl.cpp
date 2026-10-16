@@ -20,7 +20,8 @@ constexpr const char* Brand = "OPC";
 constexpr const char* Label = "OctoBASS";
 constexpr const char* Comment =
     "Bass amp and tone shaper: graphic EQ, crossover split, compressed low band, two serial NAM "
-    "slots and a cabinet IR on the high band.";
+    "slots and a cabinet IR on the high band. NAM Quality below 50% runs the slim model; 50% and "
+    "above runs the full-size model, which is likely too heavy for a MOD Dwarf.";
 
 struct GroupInfo
 {
