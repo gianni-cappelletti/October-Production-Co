@@ -501,14 +501,16 @@ std::string generateStylesheet(const std::vector<Control>& controls,
          "    background-repeat: no-repeat;\n    z-index: 20;\n}\n\n";
   css += pedal +
          " .opc-version {\n    position: absolute;\n    left: 32px;\n    top: " + px(VersionTextY) +
-         ";\n    width: 110px;\n    height: 10px;\n    font-family: 'Courier New', monospace;\n"
+         ";\n    width: 110px;\n    height: 10px;\n    font-family: 'Courier New', monospace "
+         "!important;\n"
          "    font-size: 8px;\n    line-height: 10px;\n    color: #555555;\n}\n\n";
-  css += pedal +
-         " .opc-value {\n    position: absolute;\n    font-family: 'OPC LCD', monospace;\n"
-         "    font-size: 9px;\n    line-height: " +
-         px(ValueHeight) +
-         ";\n    text-align: center;\n    color: #1c1c30;\n    white-space: nowrap;\n"
-         "    overflow: hidden;\n    z-index: 20;\n}\n\n";
+  css +=
+      pedal +
+      " .opc-value {\n    position: absolute;\n    font-family: 'OPC LCD', monospace !important;\n"
+      "    font-size: 9px;\n    line-height: " +
+      px(ValueHeight) +
+      ";\n    text-align: center;\n    color: #1c1c30;\n    white-space: nowrap;\n"
+      "    overflow: hidden;\n    z-index: 20;\n}\n\n";
 
   for (const auto& control : controls)
   {
@@ -552,17 +554,20 @@ std::string generateStylesheet(const std::vector<Control>& controls,
 
   css += pedal +
          " .opc-file {\n    position: absolute;\n    z-index: 30;\n"
-         "    font-family: 'OPC LCD', monospace;\n    font-size: 10px;\n    color: #1c1c30;\n"
+         "    font-family: 'OPC LCD', monospace !important;\n    font-size: 10px;\n    color: "
+         "#1c1c30;\n"
          "    cursor: pointer;\n}\n\n";
   css += pedal +
-         " .opc-file .mod-enumerated-selected {\n    padding: 0 8px;\n"
+         " .opc-file .mod-enumerated-selected {\n    font-family: 'OPC LCD', monospace "
+         "!important;\n    padding: 0 8px;\n"
          "    line-height: 30px;\n    white-space: nowrap;\n    overflow: hidden;\n"
          "    text-overflow: ellipsis;\n}\n\n";
   css += pedal +
          " .opc-file .mod-enumerated-list {\n    display: none;\n    position: absolute;\n"
          "    top: 32px;\n    left: 0;\n    width: 100%;\n    max-height: 220px;\n"
          "    overflow: auto;\n    background: #2c2c2c;\n    border: 1px solid #181818;\n"
-         "    color: #ffffff;\n    font-family: 'OPC LCD', monospace;\n    font-size: 9px;\n}\n\n";
+         "    color: #ffffff;\n    font-family: 'OPC LCD', monospace !important;\n    font-size: "
+         "9px;\n}\n\n";
   css += pedal + " .opc-file .mod-enumerated-list > div {\n    padding: 6px 8px;\n}\n\n";
   css += pedal +
          " .opc-file .mod-enumerated-list > div:hover {\n    background: #e07030;\n"

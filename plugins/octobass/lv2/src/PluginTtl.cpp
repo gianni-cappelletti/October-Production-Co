@@ -64,21 +64,29 @@ std::string groupUri(PortGroup group)
   return {};
 }
 
-std::string unitTurtle(PortUnit unit)
+std::string customUnit(const std::string& label, const std::string& symbol,
+                       const std::string& render)
 {
-  switch (unit)
+  return "[\n            a units:Unit ;\n            rdfs:label " + quoted(label) +
+         " ;\n            units:symbol " + quoted(symbol) + " ;\n            units:render " +
+         quoted(render) + "\n        ]";
+}
+
+std::string unitTurtle(const PortSpec& spec)
+{
+  const std::string precision = "%." + std::to_string(spec.displayDecimals) + "f";
+  switch (spec.unit)
   {
     case PortUnit::Hertz:
-      return "units:hz";
+      return customUnit("hertz", "Hz", precision + " Hz");
     case PortUnit::Decibels:
-      return "units:db";
+      return customUnit("decibels", "dB", precision + " dB");
+    case PortUnit::DecibelsU:
+      return customUnit("decibels unloaded", "dBu", precision + " dBu");
     case PortUnit::Percent:
-      return "units:pc";
+      return customUnit("percent", "%", precision + "%%");
     case PortUnit::Frames:
       return "units:frame";
-    case PortUnit::DecibelsU:
-      return "[\n            a units:Unit ;\n            rdfs:label \"decibels unloaded\" ;\n"
-             "            units:symbol \"dBu\" ;\n            units:render \"%f dBu\"\n        ]";
     case PortUnit::None:
       break;
   }
@@ -111,6 +119,15 @@ std::string join(const std::vector<std::string>& parts, const std::string& separ
   for (size_t i = 0; i < parts.size(); ++i)
     result += (i == 0 ? "" : separator) + parts[i];
   return result;
+}
+
+std::string scalePointsTurtle(const PortSpec& spec)
+{
+  std::vector<std::string> points;
+  for (const auto& point : spec.scalePoints)
+    points.push_back("[\n            rdfs:label " + quoted(point.label) +
+                     " ;\n            rdf:value " + number(point.value) + "\n        ]");
+  return "lv2:scalePoint " + join(points, " , ");
 }
 
 std::string portTurtle(const PortSpec& spec)
@@ -153,7 +170,7 @@ std::string portTurtle(const PortSpec& spec)
     statements.push_back("lv2:maximum " + number(spec.maximum));
   }
 
-  if (const auto unit = unitTurtle(spec.unit); !unit.empty())
+  if (const auto unit = unitTurtle(spec); !unit.empty())
     statements.push_back("units:unit " + unit);
 
   switch (spec.style)
@@ -165,18 +182,14 @@ std::string portTurtle(const PortSpec& spec)
       statements.push_back("lv2:portProperty lv2:toggled");
       break;
     case PortStyle::Enumeration:
-    {
       statements.push_back("lv2:portProperty lv2:integer, lv2:enumeration");
-      std::vector<std::string> points;
-      for (const auto& point : spec.scalePoints)
-        points.push_back("[\n            rdfs:label " + quoted(point.label) +
-                         " ;\n            rdf:value " + number(point.value) + "\n        ]");
-      statements.push_back("lv2:scalePoint " + join(points, " , "));
       break;
-    }
     case PortStyle::Linear:
       break;
   }
+
+  if (!spec.scalePoints.empty())
+    statements.push_back(scalePointsTurtle(spec));
 
   if (spec.group != PortGroup::None)
     statements.push_back("pg:group " + groupUri(spec.group));

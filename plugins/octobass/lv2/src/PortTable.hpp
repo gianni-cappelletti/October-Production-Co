@@ -70,6 +70,7 @@ struct PortSpec
   float maximum = 0.0f;
   float defaultValue = 0.0f;
   PortUnit unit = PortUnit::None;
+  int displayDecimals = 1;
   PortStyle style = PortStyle::Linear;
   PortDesignation designation = PortDesignation::None;
   PortGroup group = PortGroup::None;

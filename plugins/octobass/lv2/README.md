@@ -59,6 +59,20 @@ Inside the container, copy `installers/mod/octobass-lv2/octobass-lv2.mk` to `plu
 ./build moddwarf-new octobass-lv2-publish    # Install to a device connected over USB
 ```
 
+## Desktop testing
+
+Requires Docker (Colima on macOS). The simulator image runs JACK (dummy driver), mod-host and mod-ui at the commits pinned by MOD Desktop 0.0.13 (`scripts/mod-sim/Dockerfile`).
+
+| Command | Result |
+|---------|--------|
+| `make octobass-mod-desktop` | Installs the macOS bundle to `~/Documents/MOD Desktop/lv2` and the bundled tones to `~/Documents/MOD Desktop/user-files` |
+| `make mod-sim` | Builds OctoBASS from the working tree and serves mod-ui at http://localhost:18888 |
+| `make mod-sim-check` | Headless Chromium checks against a running `mod-sim`: layout, readout formats, fonts, Solo exclusivity, bypass, knob drag, file loading. Screenshots in `build/mod-sim/` |
+| `make mod-sim-valgrind` | LV2 tests under valgrind (Linux arm64) |
+| `make mod-sim-cpu` | Times OctoBASS and MOD's Neural Amp Modeler (mod-plugin-builder commit) in the same LV2 host |
+
+Dwarf CPU estimate: `OctoBASS % / NAM nano % x Dwarf NAM nano %`. MOD forum reports for the Dwarf at 128 frames: NAM nano 36-42%, feather 66-76%. `make_timing_models.py` derives nano/feather/standard WaveNet models with random weights for timing only.
+
 ## Benchmark
 
 ```bash

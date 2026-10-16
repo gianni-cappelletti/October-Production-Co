@@ -17,6 +17,7 @@ PortSpec control(PortIndex index, std::string symbol, std::string name, float mi
   spec.maximum = maximum;
   spec.defaultValue = defaultValue;
   spec.unit = unit;
+  spec.displayDecimals = unit == PortUnit::Percent ? 0 : 1;
   spec.style = style;
   spec.group = group;
   return spec;
@@ -67,9 +68,11 @@ std::vector<PortSpec> buildPortTable()
   ports.push_back(enabledPort);
 
   const auto main = PortGroup::Main;
-  ports.push_back(control(port::Crossover, "crossover", "Crossover", MinCrossoverFrequency,
-                          MaxCrossoverFrequency, DefaultCrossoverFrequency, PortUnit::Hertz,
-                          PortStyle::Linear, main));
+  PortSpec crossover = control(port::Crossover, "crossover", "Crossover", MinCrossoverFrequency,
+                               MaxCrossoverFrequency, DefaultCrossoverFrequency, PortUnit::Hertz,
+                               PortStyle::Linear, main);
+  crossover.displayDecimals = 0;
+  ports.push_back(crossover);
   ports.push_back(control(port::Squash, "squash", "Squash", MinSquashAmount * 100.0f,
                           MaxSquashAmount * 100.0f, DefaultSquashAmount * 100.0f, PortUnit::Percent,
                           PortStyle::Linear, main));
@@ -89,9 +92,11 @@ std::vector<PortSpec> buildPortTable()
                           PortStyle::Linear, main));
   ports.push_back(control(port::DryWet, "dry_wet", "Dry/Wet", 0.0f, 100.0f,
                           DefaultDryWetMix * 100.0f, PortUnit::Percent, PortStyle::Linear, main));
-  ports.push_back(control(port::GateThreshold, "gate", "Gate", MinGateThresholdDb,
-                          MaxGateThresholdDb, DefaultGateThresholdDb, PortUnit::Decibels,
-                          PortStyle::Linear, main));
+  PortSpec gate =
+      control(port::GateThreshold, "gate", "Gate", MinGateThresholdDb, MaxGateThresholdDb,
+              DefaultGateThresholdDb, PortUnit::Decibels, PortStyle::Linear, main);
+  gate.scalePoints.push_back({"Off", MinGateThresholdDb});
+  ports.push_back(gate);
   ports.push_back(control(port::HighBandMix, "high_blend", "High Blend", 0.0f, 100.0f,
                           DefaultHighBandMix * 100.0f, PortUnit::Percent, PortStyle::Linear, main));
   ports.push_back(toggle(port::LowBandSolo, "low_solo", "Low Solo", false, main));

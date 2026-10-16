@@ -125,7 +125,12 @@
         lv2:default 250.0 ;
         lv2:minimum 50.0 ;
         lv2:maximum 800.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.0f Hz"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -135,7 +140,12 @@
         lv2:default 0.0 ;
         lv2:minimum 0.0 ;
         lv2:maximum 100.0 ;
-        units:unit units:pc ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "percent" ;
+            units:symbol "%" ;
+            units:render "%.0f%%"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -168,7 +178,12 @@
         lv2:default 0.0 ;
         lv2:minimum -24.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -178,7 +193,12 @@
         lv2:default 0.0 ;
         lv2:minimum -24.0 ;
         lv2:maximum 24.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -188,7 +208,12 @@
         lv2:default 0.0 ;
         lv2:minimum -24.0 ;
         lv2:maximum 24.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -198,7 +223,12 @@
         lv2:default 0.0 ;
         lv2:minimum -24.0 ;
         lv2:maximum 24.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -208,7 +238,12 @@
         lv2:default 100.0 ;
         lv2:minimum 0.0 ;
         lv2:maximum 100.0 ;
-        units:unit units:pc ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "percent" ;
+            units:symbol "%" ;
+            units:render "%.0f%%"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -218,7 +253,16 @@
         lv2:default -96.0 ;
         lv2:minimum -96.0 ;
         lv2:maximum 0.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
+        lv2:scalePoint [
+            rdfs:label "Off" ;
+            rdf:value -96.0
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -228,7 +272,12 @@
         lv2:default 100.0 ;
         lv2:minimum 0.0 ;
         lv2:maximum 100.0 ;
-        units:unit units:pc ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "percent" ;
+            units:symbol "%" ;
+            units:render "%.0f%%"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -268,7 +317,12 @@
         lv2:default 20.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -289,7 +343,12 @@
         lv2:default 20000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -310,7 +369,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -321,7 +385,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -341,7 +410,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -352,7 +426,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -372,7 +451,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -383,7 +467,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -403,7 +492,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -414,7 +508,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -434,7 +533,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -445,7 +549,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -465,7 +574,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -476,7 +590,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -496,7 +615,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -507,7 +631,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -527,7 +656,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -538,7 +672,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -558,7 +697,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -569,7 +713,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -589,7 +738,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -600,7 +754,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -620,7 +779,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -631,7 +795,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -651,7 +820,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -662,7 +836,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -682,7 +861,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -693,7 +877,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -713,7 +902,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -724,7 +918,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -744,7 +943,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -755,7 +959,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -775,7 +984,12 @@
         lv2:default 1000.0 ;
         lv2:minimum 20.0 ;
         lv2:maximum 20000.0 ;
-        units:unit units:hz ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.1f Hz"
+        ] ;
         lv2:portProperty pprop:logarithmic ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
@@ -786,7 +1000,12 @@
         lv2:default 0.0 ;
         lv2:minimum -12.0 ;
         lv2:maximum 12.0 ;
-        units:unit units:db ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -806,7 +1025,12 @@
         lv2:default 49.0 ;
         lv2:minimum 0.0 ;
         lv2:maximum 100.0 ;
-        units:unit units:pc ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "percent" ;
+            units:symbol "%" ;
+            units:render "%.0f%%"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -830,7 +1054,7 @@
             a units:Unit ;
             rdfs:label "decibels unloaded" ;
             units:symbol "dBu" ;
-            units:render "%f dBu"
+            units:render "%.1f dBu"
         ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
     ] , [
@@ -871,7 +1095,12 @@
         lv2:default 49.0 ;
         lv2:minimum 0.0 ;
         lv2:maximum 100.0 ;
-        units:unit units:pc ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "percent" ;
+            units:symbol "%" ;
+            units:render "%.0f%%"
+        ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
@@ -895,7 +1124,7 @@
             a units:Unit ;
             rdfs:label "decibels unloaded" ;
             units:symbol "dBu" ;
-            units:render "%f dBu"
+            units:render "%.1f dBu"
         ] ;
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
     ] , [
