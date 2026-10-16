@@ -29,6 +29,8 @@ add_executable(octobir-core-tests
   SampleRateChangeTests.cpp
   StereoComponentTests.cpp
   ComponentTests.cpp
+  RealtimeAllocationTests.cpp
+  ${CMAKE_SOURCE_DIR}/tests/support/AllocationTracker.cpp
 )
 
 target_link_libraries(octobir-core-tests
@@ -36,6 +38,10 @@ target_link_libraries(octobir-core-tests
     octobir-core
     gtest_main
 )
+
+target_compile_features(octobir-core-tests PRIVATE cxx_std_17)
+
+target_include_directories(octobir-core-tests PRIVATE ${CMAKE_SOURCE_DIR}/tests/support)
 
 target_compile_definitions(octobir-core-tests
   PRIVATE

@@ -93,6 +93,8 @@ class IRProcessor
   void reset();
 
  private:
+  int primingBlockSize() const;
+
   std::unique_ptr<WDL_ImpulseBuffer> impulseBuffer1_;
   std::unique_ptr<WDL_ConvolutionEngine_Div> convolutionEngine1_;
   std::unique_ptr<IRLoader> irLoader1_;
