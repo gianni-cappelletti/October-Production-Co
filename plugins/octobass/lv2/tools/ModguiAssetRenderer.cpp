@@ -53,7 +53,9 @@ constexpr float ButtonMargin = 8.0f;
 constexpr int KnobFrames = 65;
 constexpr float FooterCornerCentreY = PedalHeight - 15.5f;
 constexpr float VersionTextY = FooterCornerCentreY - 5.0f;
-constexpr float LogoCentreX = PedalWidth * 0.9f - 4.0f;
+constexpr float LogoHeight = 66.0f;
+constexpr float LogoCentreX = Pad + 161.0f;
+constexpr float LogoCentreY = Row2Y + LabelHeight + KnobHeight * 0.5f;
 constexpr const char* PedalClass = "mod-pedal-octobass";
 constexpr const char* FilePlaceholder = "-- choose a file --";
 
@@ -494,12 +496,10 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
       juce::ImageCache::getFromMemory(BinaryData::OctoberLogo_png, BinaryData::OctoberLogo_pngSize);
   if (logo.isValid())
   {
-    const float logoH = 40.0f;
     const float logoW =
-        logoH * static_cast<float>(logo.getWidth()) / static_cast<float>(logo.getHeight());
-    const float logoX = LogoCentreX - logoW * 0.5f;
-    const float logoY = FooterCornerCentreY - logoH * 0.5f - 2.0f;
-    g.drawImage(logo, {logoX, logoY, logoW, logoH});
+        LogoHeight * static_cast<float>(logo.getWidth()) / static_cast<float>(logo.getHeight());
+    g.drawImage(logo,
+                juce::Rectangle<float>(logoW, LogoHeight).withCentre({LogoCentreX, LogoCentreY}));
   }
   return image;
 }
