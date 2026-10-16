@@ -29,7 +29,7 @@ Native LV2 wrapper around `octobass-core` for MOD Audio devices (Dwarf, Duo X) a
 - File loads, clears and NAM quality changes run on the LV2 worker thread; `run()` does not allocate.
 - The pedal has no Solo buttons; the Solo ports are in MOD's settings panel. Both Solo ports on: the most recently engaged solo wins, and the modgui clears the other Solo port.
 - The footer has three footswitches with status LEDs: BYPASS (plugin bypass), NAM 1 and NAM 2 (slot on/off). A lit LED means the stage is running.
-- Each NAM slot has a LITE/FULL lever above its LCD. It shows FULL at quality >= 50% and sets quality to 0% or 100% when clicked.
+- Each NAM slot has a LITE/FULL lever to the right of its LCD. It shows FULL at quality >= 50% and sets quality to 0% or 100% when clicked.
 - Saved state stores file paths through `state:mapPath`.
 - LV2 versions have no major field, and hosts treat an odd minor or micro version as a development build (mod-ui labels it Testing). The encoding keeps every release even and increasing. MINOR must stay below 100.
 - The version is written into `manifest.ttl` and `modgui/icon.html` from their `.in` templates when the bundle is assembled.

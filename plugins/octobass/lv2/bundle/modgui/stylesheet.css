@@ -184,7 +184,7 @@
 
 .mod-pedal-octobass .opc-nam1-quality {
     left: 864.5px;
-    top: 175.5px;
+    top: 208px;
     width: 78px;
     height: 57px;
     background-image: url(/resources/toggle.png{{{ns}}});
@@ -201,7 +201,7 @@
 
 .mod-pedal-octobass .opc-nam2-quality {
     left: 864.5px;
-    top: 265.2px;
+    top: 267.8px;
     width: 78px;
     height: 57px;
     background-image: url(/resources/toggle.png{{{ns}}});
@@ -269,22 +269,22 @@
 
 .mod-pedal-octobass .opc-file[mod-parameter-uri$="#nam1Model"] {
     left: 516.1px;
-    top: 226.2px;
-    width: 449.8px;
+    top: 217.1px;
+    width: 312px;
     height: 39px;
 }
 
 .mod-pedal-octobass .opc-file[mod-parameter-uri$="#nam2Model"] {
     left: 516.1px;
-    top: 315.9px;
-    width: 449.8px;
+    top: 276.9px;
+    width: 312px;
     height: 39px;
 }
 
 .mod-pedal-octobass .opc-file[mod-parameter-uri$="#cabinetIr"] {
     left: 516.1px;
-    top: 365.3px;
-    width: 449.8px;
+    top: 336.7px;
+    width: 312px;
     height: 39px;
 }
 

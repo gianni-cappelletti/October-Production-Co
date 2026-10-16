@@ -126,6 +126,25 @@ def check_right_zone(page: Page):
              document.querySelector(`.mod-pedal-octobass .opc-file[mod-parameter-uri$="#${p}"]`).offsetTop)""")
     check("LCDs are closer together", tops[1] - tops[0] <= 92 and tops[2] - tops[1] <= 92, str(tops))
 
+    boxes = page.evaluate(
+        """() => ['nam1Model', 'nam2Model', 'cabinetIr'].map(p => {
+             const e = document.querySelector(`.mod-pedal-octobass .opc-file[mod-parameter-uri$="#${p}"]`);
+             return [e.offsetLeft, e.offsetTop, e.offsetWidth, e.offsetHeight];
+           })""")
+    widths = [box[2] for box in boxes]
+    check("LCD slots share one width", len(set(widths)) == 1, str(widths))
+    check("LCD slots are narrower than the zone", widths[0] <= 330, str(widths))
+    for slot, (left, top, width, height) in zip(["nam1", "nam2"], boxes):
+        lever = page.evaluate(
+            f"""() => {{ const e = document.querySelector('.mod-pedal-octobass .opc-{slot}-quality');
+                        return [e.offsetLeft, e.offsetTop, e.offsetHeight]; }}""")
+        lcd_centre = top + height / 2
+        lever_centre = lever[1] + lever[2] / 2
+        check(f"{slot} quality lever is inline with its LCD", abs(lcd_centre - lever_centre) <= 2,
+              f"lcd {lcd_centre} lever {lever_centre}")
+        check(f"{slot} quality lever is right of its LCD", lever[0] > left + width,
+              f"lever {lever[0]} lcd right {left + width}")
+
 
 def check_quality_levers(page: Page):
     for slot in ["nam1", "nam2"]:

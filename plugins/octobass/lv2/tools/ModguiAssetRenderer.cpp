@@ -44,8 +44,11 @@ constexpr float FootswitchSpacing = 100.0f;
 constexpr float FootswitchRowCentreX = 380.0f;
 constexpr float FootswitchLabelY = DividerY + 6.0f;
 constexpr float FootswitchY = FootswitchLabelY + LabelHeight;
-constexpr std::array<float, 2> LeverRowY{{143.0f, 212.0f}};
-constexpr std::array<float, 3> FileLcdY{{174.0f, 243.0f, 281.0f}};
+constexpr std::array<float, 3> FileLcdY{{167.0f, 213.0f, 259.0f}};
+constexpr float QualityLeverX =
+    RightZoneX + RightZoneWidth - LeverLabelWidth - LeverLabelGap - LeverWidth;
+constexpr float FileLcdX = RightZoneX + 2.0f;
+constexpr float FileLcdWidth = QualityLeverX - LeverLabelGap - LeverLabelWidth - 8.0f - FileLcdX;
 constexpr float ButtonMargin = 8.0f;
 constexpr int KnobFrames = 65;
 constexpr float VersionTextY = PedalHeight - 15.5f - 5.0f;
@@ -142,15 +145,13 @@ std::vector<Control> buildControls()
   controls.push_back(knob("high_output_gain", "OUTPUT", RightZoneX + 2.0f * columnW, columnW, Row1Y,
                           Widget::Knob, 0.5f, "0.0 dB"));
 
-  const float zoneRight = RightZoneX + RightZoneWidth;
-  const float qualityX = zoneRight - LeverLabelWidth - LeverLabelGap - LeverWidth;
   for (int slot = 0; slot < 2; ++slot)
   {
-    const float y = LeverRowY[static_cast<size_t>(slot)];
+    const float y = FileLcdY[static_cast<size_t>(slot)] + (LcdHeight - LeverHeight) * 0.5f;
     controls.push_back({"nam" + std::to_string(slot + 1) + "_quality",
                         Widget::QualityLever,
                         "",
-                        {qualityX, y, LeverWidth, LeverHeight},
+                        {QualityLeverX, y, LeverWidth, LeverHeight},
                         {0, 0, 0, 0},
                         false,
                         0.0f,
@@ -183,8 +184,7 @@ std::vector<FileSlot> buildFileSlots()
   const std::array<std::string, 3> parameters = {"nam1Model", "nam2Model", "cabinetIr"};
   std::vector<FileSlot> slots;
   for (size_t i = 0; i < parameters.size(); ++i)
-    slots.push_back(
-        {parameters[i], {RightZoneX + 2.0f, FileLcdY[i], RightZoneWidth - 4.0f, LcdHeight}});
+    slots.push_back({parameters[i], {FileLcdX, FileLcdY[i], FileLcdWidth, LcdHeight}});
   return slots;
 }
 
