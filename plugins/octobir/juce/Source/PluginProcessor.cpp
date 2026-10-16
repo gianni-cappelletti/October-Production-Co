@@ -2,11 +2,12 @@
 
 #include "PluginEditor.h"
 
-OctobIRProcessor::OctobIRProcessor()
+OctobIRProcessor::OctobIRProcessor(const juce::File& browseFolderSettingsFile)
     : AudioProcessor(BusesProperties()
                          .withInput("Input", juce::AudioChannelSet::stereo(), true)
                          .withInput("Sidechain", juce::AudioChannelSet::stereo(), false)
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+      browseFolderMemory_(browseFolderSettingsFile),
       apvts_(*this, nullptr, "Parameters", createParameterLayout())
 {
 }
@@ -473,6 +474,33 @@ void OctobIRProcessor::swapImpulseResponses()
     param->setValueNotifyingHost(param->convertTo0to1(trimB));
   if (auto* param = apvts_.getParameter("irBTrimGain"))
     param->setValueNotifyingHost(param->convertTo0to1(trimA));
+}
+
+namespace
+{
+BrowseFolderMemory::Slot toBrowseSlot(OctobIRProcessor::FileSlot slot)
+{
+  return slot == OctobIRProcessor::FileSlot::IR1 ? BrowseFolderMemory::Slot{"IR1", "IR2"}
+                                                 : BrowseFolderMemory::Slot{"IR2", "IR1"};
+}
+}  // namespace
+
+juce::File OctobIRProcessor::getBrowseStartFolder(FileSlot slot) const
+{
+  const auto loadedFileAt = [](const juce::String& path)
+  { return juce::File::isAbsolutePath(path) ? juce::File(path) : juce::File(); };
+  const bool isIR1 = slot == FileSlot::IR1;
+  return browseFolderMemory_.getStartFolder(
+      toBrowseSlot(slot), loadedFileAt(isIR1 ? currentIR1Path_ : currentIR2Path_),
+      loadedFileAt(isIR1 ? currentIR2Path_ : currentIR1Path_));
+}
+
+bool OctobIRProcessor::loadPickedFile(FileSlot slot, const juce::File& file,
+                                      juce::String& errorMessage)
+{
+  browseFolderMemory_.rememberPickedFile(toBrowseSlot(slot), file);
+  return slot == FileSlot::IR1 ? loadImpulseResponse1(file.getFullPathName(), errorMessage)
+                               : loadImpulseResponse2(file.getFullPathName(), errorMessage);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

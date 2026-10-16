@@ -226,14 +226,18 @@ void drawToggleButton(NVGcontext* vg, float w, float h, const char* label, bool 
   nvgText(vg, (w + ledW) * 0.5f, h * 0.5f, label, nullptr);
 }
 
-void drawLCDBackground(NVGcontext* vg, float x, float y, float w, float h)
+NVGcolor lcdBacklightColour(bool backlit)
+{
+  return backlit ? nvgRGB(0xF0, 0x88, 0x30) : nvgRGB(0xB4, 0x82, 0x5C);
+}
+
+void drawLCDBackground(NVGcontext* vg, float x, float y, float w, float h, bool backlit = true)
 {
   const float cr = 3.0f;
 
-  // Orange fill
   nvgBeginPath(vg);
   nvgRoundedRect(vg, x, y, w, h, cr);
-  nvgFillColor(vg, nvgRGB(0xF0, 0x88, 0x30));
+  nvgFillColor(vg, lcdBacklightColour(backlit));
   nvgFill(vg);
 
   // Dark border
@@ -478,14 +482,17 @@ void openIRFileDialog(OpcVcvIr* module, bool isIR2)
     return;
   }
 
-  char* path = osdialog_file(OSDIALOG_OPEN, nullptr, nullptr, filters);
+  const std::string startFolder = module->getBrowseStartFolder(isIR2);
+  char* path = osdialog_file(OSDIALOG_OPEN, startFolder.empty() ? nullptr : startFolder.c_str(),
+                             nullptr, filters);
   if (path != nullptr)
   {
-    if (isIR2)
-      module->loadIR2(std::string(path));
-    else
-      module->loadIR(std::string(path));
+    module->loadPickedFile(isIR2, std::string(path));
     free(path);
+  }
+  else
+  {
+    INFO("openIRFileDialog: IR %s file dialog cancelled", isIR2 ? "B" : "A");
   }
   osdialog_filters_free(filters);
 }
@@ -587,9 +594,18 @@ struct IrFileDisplay : OpaqueWidget
 
   IrFileDisplay(bool ir2 = false) : isIR2(ir2), text("<No IR selected>") {}
 
+  bool isSlotEnabled() const
+  {
+    if (module == nullptr)
+      return true;
+    const auto enableParam =
+        isIR2 ? OpcVcvIr::ParamId::IrBEnableParam : OpcVcvIr::ParamId::IrAEnableParam;
+    return module->params[static_cast<int>(enableParam)].getValue() > 0.5f;
+  }
+
   void draw(const DrawArgs& args) override
   {
-    drawLCDBackground(args.vg, 0.f, 0.f, box.size.x, box.size.y);
+    drawLCDBackground(args.vg, 0.f, 0.f, box.size.x, box.size.y, isSlotEnabled());
 
     int fontId = ensureFont(args.vg, "PressStart2P", lcdFontPath);
     if (fontId >= 0)

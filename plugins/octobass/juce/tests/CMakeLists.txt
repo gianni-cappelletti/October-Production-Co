@@ -15,6 +15,9 @@ enable_testing()
 add_executable(octobass-plugin-tests
     TestMain.cpp
     PluginProcessorTests.cpp
+    BrowseFolderTests.cpp
+    NamSlotTests.cpp
+    EditorTests.cpp
     ../Source/GraphicEQDisplay.cpp
     ../Source/NamCalibrationPanel.cpp
     ../Source/PluginProcessor.cpp
@@ -24,6 +27,7 @@ add_executable(octobass-plugin-tests
 target_include_directories(octobass-plugin-tests
     PRIVATE
         ../Source
+        ${CMAKE_SOURCE_DIR}/libs/juce-ui-shared/testing
 )
 
 target_include_directories(octobass-plugin-tests

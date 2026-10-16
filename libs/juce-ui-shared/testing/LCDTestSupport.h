@@ -1,0 +1,47 @@
+#pragma once
+
+#include <juce_gui_basics/juce_gui_basics.h>
+
+#include <cmath>
+
+#include "LCDDisplay.h"
+
+namespace lcd_test
+{
+
+inline double relativeLuminance(juce::Colour colour)
+{
+  const auto linear = [](juce::uint8 channel)
+  {
+    const double c = channel / 255.0;
+    return c <= 0.03928 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * linear(colour.getRed()) + 0.7152 * linear(colour.getGreen()) +
+         0.0722 * linear(colour.getBlue());
+}
+
+inline double contrastRatio(juce::Colour a, juce::Colour b)
+{
+  const double la = relativeLuminance(a);
+  const double lb = relativeLuminance(b);
+  return (juce::jmax(la, lb) + 0.05) / (juce::jmin(la, lb) + 0.05);
+}
+
+inline juce::Colour renderedBacklight(LCDDisplay& display)
+{
+  const auto snapshot = display.createComponentSnapshot(display.getLocalBounds(), true, 1.0f);
+  return snapshot.getPixelAt(snapshot.getWidth() - 4, snapshot.getHeight() / 2);
+}
+
+inline bool looksDimmed(juce::Colour backlight)
+{
+  return relativeLuminance(backlight) < 0.8 * relativeLuminance(kLCDBacklightColour) &&
+         backlight.getSaturation() < kLCDBacklightColour.getSaturation();
+}
+
+inline bool looksLit(juce::Colour backlight)
+{
+  return relativeLuminance(backlight) >= 0.9 * relativeLuminance(kLCDBacklightColour);
+}
+
+}  // namespace lcd_test

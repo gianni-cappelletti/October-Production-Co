@@ -25,6 +25,19 @@ Hear it in action:
 
 [![Watch the demo](https://img.youtube.com/vi/2IXuBt0V-WM/maxresdefault.jpg)](https://youtu.be/2IXuBt0V-WM)
 
+### MIDI Control
+
+Slot on/off parameters are host-automatable and can be mapped to a MIDI controller such as a footswitch with the host's MIDI learn. The plugins do not receive MIDI directly. A slot's display dims while the slot is off.
+
+| Plugin | Parameters | CC 0-63 | CC 64-127 |
+|--------|------------|---------|-----------|
+| OctoBASS | NAM 1 On, NAM 2 On | Off | On |
+| OctobIR | IR A Enable, IR B Enable | Off | On |
+
+- Logic Pro: click the switch, choose Logic Pro > Control Surfaces > Learn Assignment (Cmd-L), press the footswitch.
+- VCV Rack: map the switch with the MIDI-MAP module.
+- A momentary footswitch (127 on press, 0 on release) keeps the slot on only while held. Use the controller's latching mode or the host mapping's toggle mode to switch on each press.
+
 ## Supported Platforms
 
 | Plugin | VST3 | AU | VCV Rack |

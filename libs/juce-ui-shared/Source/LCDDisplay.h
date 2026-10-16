@@ -28,6 +28,14 @@ class LCDDisplay : public juce::Component
     repaint();
   }
 
+  void setBacklit(bool backlit)
+  {
+    if (backlit == backlit_)
+      return;
+    backlit_ = backlit;
+    repaint();
+  }
+
   void setTypeface(juce::Typeface::Ptr typeface)
   {
     typeface_ = typeface;
@@ -44,10 +52,11 @@ class LCDDisplay : public juce::Component
 
   void paint(juce::Graphics& g) override
   {
-    drawLCDBackground(g, getLocalBounds().toFloat().reduced(1.0f));
+    drawLCDBackground(g, getLocalBounds().toFloat().reduced(1.0f),
+                      backlit_ ? kLCDBacklightColour : kLCDDimBacklightColour);
 
     if (typeface_ != nullptr)
-      g.setFont(juce::Font(juce::FontOptions().withTypeface(typeface_).withHeight(9.0f)));
+      g.setFont(juce::Font(juce::FontOptions(typeface_).withHeight(9.0f)));
     else
       g.setFont(juce::Font(
           juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 9.0f, juce::Font::plain)));
@@ -69,7 +78,8 @@ class LCDDisplay : public juce::Component
 
  private:
   juce::String text_ = "No IR loaded";
-  juce::Colour textColour_ = juce::Colour(0xff1c1c30);
+  juce::Colour textColour_ = kLCDInkColour;
+  bool backlit_ = true;
   juce::Typeface::Ptr typeface_;
   std::function<void()> onClick_;
 };

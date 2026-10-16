@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <mutex>
 #include <octobir-core/IRProcessor.hpp>
@@ -31,26 +32,23 @@ class BassProcessor
   bool isIRLoaded() const;
   std::string getCurrentIRPath() const;
 
-  // NAM model loading
-  bool loadNamModel(const std::string& filepath, std::string& errorMessage);
-  void clearNamModel();
-  bool isNamModelLoaded() const;
-  std::string getCurrentNamModelPath() const;
+  bool loadNamModel(NamSlot slot, const std::string& filepath, std::string& errorMessage);
+  void clearNamModel(NamSlot slot);
+  bool isNamModelLoaded(NamSlot slot) const;
+  std::string getCurrentNamModelPath(NamSlot slot) const;
 
   // Quality/CPU trade-off for slimmable NAM models (0.0 slimmest, 1.0 full).
   // Message thread only -- not real-time safe.
-  void setNamQuality(float quality);
+  void setNamQuality(NamSlot slot, float quality);
 
-  // Discrete quality levels of the loaded NAM model: 0 = no model,
-  // 1 = no quality options, >1 = selectable levels. Message thread only.
-  int getNamQualityLevels() const;
+  int getNamQualityLevels(NamSlot slot) const;
 
-  // NAM calibration (see NamProcessor). Setters are real-time safe and
-  // callable per block; the metadata query is message thread only.
-  void setNamCalibrateInput(bool enabled);
-  void setNamInputCalibrationLevel(float levelDbu);
-  void setNamOutputMode(int mode);
-  NamModelMetadata getNamModelMetadata() const;
+  void setNamCalibrateInput(NamSlot slot, bool enabled);
+  void setNamInputCalibrationLevel(NamSlot slot, float levelDbu);
+  void setNamOutputMode(NamSlot slot, int mode);
+  NamModelMetadata getNamModelMetadata(NamSlot slot) const;
+  void setNamEnabled(NamSlot slot, bool enabled);
+  bool isNamEnabled(NamSlot slot) const;
 
   // Crossover
   void setCrossoverFrequency(float frequencyHz);
@@ -105,7 +103,7 @@ class BassProcessor
   GraphicEQ graphicEQ_;
   Crossover crossover_;
   Compressor compressor_;
-  NamProcessor namProcessor_;
+  std::array<NamProcessor, kNumNamSlots> namSlots_;
   IRProcessor irProcessor_;
   NoiseGate noiseGate_;
 
@@ -148,8 +146,13 @@ class BassProcessor
   float highOutputGainLinear_;
   float outputGainLinear_;
 
+  mutable std::mutex irPathMutex_;
   std::string currentIRPath_;
-  std::string currentNamModelPath_;
+
+  NamProcessor& namSlot(NamSlot slot) { return namSlots_[slotIndex(slot)]; }
+  const NamProcessor& namSlot(NamSlot slot) const { return namSlots_[slotIndex(slot)]; }
+  static size_t slotIndex(NamSlot slot) { return static_cast<size_t>(slot); }
+  void setCurrentIRPath(std::string path);
 
   void stageDelayBuffer(int latencySamples);
 

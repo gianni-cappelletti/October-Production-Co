@@ -5,6 +5,7 @@
 // without a running Rack engine or GUI.
 
 #include <cstdint>
+#include <filesystem>
 #include <map>
 #include <string>
 #include <vector>
@@ -25,7 +26,8 @@
 enum json_type_t : uint8_t
 {
   JSON_OBJECT_T,
-  JSON_STRING_T
+  JSON_STRING_T,
+  JSON_INTEGER_T
 };
 
 struct json_t
@@ -60,10 +62,18 @@ inline json_t* json_string(const char* s)
   return j;
 }
 
+inline json_t* json_integer(long long)
+{
+  return new json_t{JSON_INTEGER_T};
+}
+
 inline void json_object_set_new(json_t* obj, const char* key, json_t* val)
 {
   if (obj != nullptr && key != nullptr && val != nullptr)
+  {
+    delete obj->children[key];
     obj->children[key] = val;
+  }
 }
 
 inline json_t* json_object_get(const json_t* obj, const char* key)
@@ -143,6 +153,46 @@ struct SampleRateChangeEvent
 {
   float sampleRate = 44100.f;
 };
+
+namespace system
+{
+
+inline std::filesystem::path toPath(const std::string& utf8Path)
+{
+  return {std::u8string(utf8Path.begin(), utf8Path.end())};
+}
+
+inline std::string toUtf8(const std::filesystem::path& path)
+{
+  const std::u8string u8 = path.generic_u8string();
+  return {u8.begin(), u8.end()};
+}
+
+inline bool isDirectory(const std::string& path)
+{
+  std::error_code ec;
+  return std::filesystem::is_directory(toPath(path), ec);
+}
+
+inline std::string getDirectory(const std::string& path)
+{
+  return toUtf8(toPath(path).parent_path());
+}
+
+}  // namespace system
+
+#ifdef _WIN32
+namespace string
+{
+
+inline std::string UTF16toUTF8(const std::wstring& w)
+{
+  const std::u8string u8 = std::filesystem::path(w).u8string();
+  return {u8.begin(), u8.end()};
+}
+
+}  // namespace string
+#endif
 
 template <typename T>
 T clamp(T x, T lo, T hi)

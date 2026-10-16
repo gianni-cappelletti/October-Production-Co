@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cmath>
 #include <octobir-core/Types.hpp>
 
@@ -58,6 +59,14 @@ constexpr float MaxHighOutputGainDb = 24.0f;
 
 // High band wet/dry blend
 constexpr float DefaultHighBandMix = 1.0f;
+
+enum class NamSlot : int
+{
+  First = 0,
+  Second = 1,
+};
+constexpr int kNumNamSlots = 2;
+constexpr std::array<NamSlot, kNumNamSlots> kNamSlots{NamSlot::First, NamSlot::Second};
 
 // NAM model quality/CPU trade-off (0.0 slimmest, 1.0 full quality)
 constexpr float DefaultNamQuality = 1.0f;

@@ -107,7 +107,7 @@ TEST_F(BassProcessorTest, InitialDefaults)
   EXPECT_FALSE(proc.getLowBandSolo());
   EXPECT_FALSE(proc.getHighBandSolo());
   EXPECT_FALSE(proc.isIRLoaded());
-  EXPECT_FALSE(proc.isNamModelLoaded());
+  EXPECT_FALSE(proc.isNamModelLoaded(NamSlot::First));
   EXPECT_EQ(proc.getLatencySamples(), 0);
 }
 
@@ -453,7 +453,7 @@ TEST_F(BassProcessorTest, NamBypass_MagnitudePreserved)
   constexpr size_t kSkip = 4 * kBlockSize;
   auto input = generateSine(100.0f, 44100.0f, kTotalSamples);
 
-  EXPECT_FALSE(proc.isNamModelLoaded());
+  EXPECT_FALSE(proc.isNamModelLoaded(NamSlot::First));
 
   std::vector<float> output(kTotalSamples);
   for (size_t b = 0; b < kNumBlocks; ++b)
@@ -533,26 +533,26 @@ TEST_F(BassProcessorTest, HighOutputGain_AffectsLevel)
 TEST_F(BassProcessorTest, NamModelLoading_InvalidPath)
 {
   std::string err;
-  EXPECT_FALSE(proc.loadNamModel("/nonexistent/path/model.nam", err));
+  EXPECT_FALSE(proc.loadNamModel(NamSlot::First, "/nonexistent/path/model.nam", err));
   EXPECT_FALSE(err.empty());
-  EXPECT_FALSE(proc.isNamModelLoaded());
+  EXPECT_FALSE(proc.isNamModelLoaded(NamSlot::First));
 }
 
 TEST_F(BassProcessorTest, ClearNamModel)
 {
   // Clearing when nothing loaded should not crash
-  proc.clearNamModel();
-  EXPECT_FALSE(proc.isNamModelLoaded());
-  EXPECT_TRUE(proc.getCurrentNamModelPath().empty());
+  proc.clearNamModel(NamSlot::First);
+  EXPECT_FALSE(proc.isNamModelLoaded(NamSlot::First));
+  EXPECT_TRUE(proc.getCurrentNamModelPath(NamSlot::First).empty());
 }
 
 TEST_F(BassProcessorTest, NamCalibrationForwardsToNamProcessor)
 {
   std::string namPath = std::string(TEST_DATA_DIR) + "/INPUT_calibration_linear.nam";
   std::string err;
-  ASSERT_TRUE(proc.loadNamModel(namPath, err)) << "NAM load failed: " << err;
+  ASSERT_TRUE(proc.loadNamModel(NamSlot::First, namPath, err)) << "NAM load failed: " << err;
 
-  const auto metadata = proc.getNamModelMetadata();
+  const auto metadata = proc.getNamModelMetadata(NamSlot::First);
   EXPECT_TRUE(metadata.hasInputLevel);
   EXPECT_DOUBLE_EQ(metadata.inputLevelDbu, 18.0);
   EXPECT_TRUE(metadata.hasOutputLevel);
@@ -562,9 +562,9 @@ TEST_F(BassProcessorTest, NamCalibrationForwardsToNamProcessor)
 
   // Out-of-range mode must clamp rather than misbehave; the block must
   // still process cleanly with calibration engaged
-  proc.setNamCalibrateInput(true);
-  proc.setNamInputCalibrationLevel(24.0f);
-  proc.setNamOutputMode(99);
+  proc.setNamCalibrateInput(NamSlot::First, true);
+  proc.setNamInputCalibrationLevel(NamSlot::First, 24.0f);
+  proc.setNamOutputMode(NamSlot::First, 99);
 
   std::vector<float> input(kBlockSize, 0.1f);
   std::vector<float> output(kBlockSize, 0.0f);
@@ -577,16 +577,16 @@ TEST_F(BassProcessorTest, NamModelLoading_ValidModel)
 {
   std::string namPath = std::string(TEST_DATA_DIR) + "/INPUT_VHD.nam";
   std::string err;
-  ASSERT_TRUE(proc.loadNamModel(namPath, err)) << "NAM load failed: " << err;
-  EXPECT_TRUE(proc.isNamModelLoaded());
-  EXPECT_EQ(proc.getCurrentNamModelPath(), namPath);
+  ASSERT_TRUE(proc.loadNamModel(NamSlot::First, namPath, err)) << "NAM load failed: " << err;
+  EXPECT_TRUE(proc.isNamModelLoaded(NamSlot::First));
+  EXPECT_EQ(proc.getCurrentNamModelPath(NamSlot::First), namPath);
 }
 
 TEST_F(BassProcessorTest, NamModel_ProcessProducesOutput)
 {
   std::string namPath = std::string(TEST_DATA_DIR) + "/INPUT_VHD.nam";
   std::string err;
-  ASSERT_TRUE(proc.loadNamModel(namPath, err)) << err;
+  ASSERT_TRUE(proc.loadNamModel(NamSlot::First, namPath, err)) << err;
 
   constexpr size_t kNumSamples = kBlockSize * 4;
   // High freq sine above crossover to route through high band + NAM
@@ -605,12 +605,12 @@ TEST_F(BassProcessorTest, NamModel_ClearRestoresBypass)
 {
   std::string namPath = std::string(TEST_DATA_DIR) + "/INPUT_VHD.nam";
   std::string err;
-  ASSERT_TRUE(proc.loadNamModel(namPath, err)) << err;
-  EXPECT_TRUE(proc.isNamModelLoaded());
+  ASSERT_TRUE(proc.loadNamModel(NamSlot::First, namPath, err)) << err;
+  EXPECT_TRUE(proc.isNamModelLoaded(NamSlot::First));
 
-  proc.clearNamModel();
-  EXPECT_FALSE(proc.isNamModelLoaded());
-  EXPECT_TRUE(proc.getCurrentNamModelPath().empty());
+  proc.clearNamModel(NamSlot::First);
+  EXPECT_FALSE(proc.isNamModelLoaded(NamSlot::First));
+  EXPECT_TRUE(proc.getCurrentNamModelPath(NamSlot::First).empty());
 
   // After clearing, processing should still work (bypass mode)
   constexpr size_t kNumSamples = kBlockSize;

@@ -84,6 +84,9 @@ class NamProcessor
   void setInputCalibrationLevel(float levelDbu);
   void setOutputMode(NamOutputMode mode);
 
+  void setEnabled(bool enabled);
+  bool isEnabled() const;
+
   void setSampleRate(double sampleRate);
   void setMaxBlockSize(size_t maxBlockSize);
 

@@ -16,6 +16,7 @@ add_executable(octobir-vcv-tests
     TestMain.cpp
     VcvModuleTests.cpp
     VcvAudioTests.cpp
+    VcvBrowseFolderTests.cpp
 )
 
 target_include_directories(octobir-vcv-tests
@@ -36,11 +37,13 @@ target_compile_definitions(octobir-vcv-tests
     PRIVATE
         OCTOBIR_VCV_HEADLESS_TEST=1
         TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data"
+        $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
 )
 
 target_compile_options(octobir-vcv-tests
     PRIVATE
         $<$<CXX_COMPILER_ID:Clang,GNU>:-Wall -Wextra -Wno-unused-parameter>
+        $<$<CXX_COMPILER_ID:MSVC>:/utf-8>
 )
 
 target_link_libraries(octobir-vcv-tests

@@ -145,7 +145,7 @@ void GraphicEQDisplay::paintOverChildren(juce::Graphics& g)
 
     juce::Font tooltipFont =
         typeface_ != nullptr
-            ? juce::Font(juce::FontOptions().withTypeface(typeface_).withHeight(kTooltipFontH))
+            ? juce::Font(juce::FontOptions(typeface_).withHeight(kTooltipFontH))
             : juce::Font(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(),
                                            kTooltipFontH, juce::Font::plain));
     g.setFont(tooltipFont);

@@ -6,10 +6,12 @@
 // the ink and backlight colours cannot drift apart
 inline const juce::Colour kLCDInkColour{0xff1c1c30};
 inline const juce::Colour kLCDBacklightColour{0xffF08830};
+inline const juce::Colour kLCDDimBacklightColour{0xffB4825C};
 
-inline void drawLCDBackground(juce::Graphics& g, juce::Rectangle<float> bounds)
+inline void drawLCDBackground(juce::Graphics& g, juce::Rectangle<float> bounds,
+                              juce::Colour backlight = kLCDBacklightColour)
 {
-  g.setColour(kLCDBacklightColour);
+  g.setColour(backlight);
   g.fillRoundedRectangle(bounds, 3.0f);
 
   g.setColour(juce::Colour(0xff1a1a1a));

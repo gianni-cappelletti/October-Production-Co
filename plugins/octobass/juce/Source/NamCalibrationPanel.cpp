@@ -1,5 +1,7 @@
 #include "NamCalibrationPanel.h"
 
+#include "PluginProcessor.h"
+
 namespace
 {
 constexpr int kPanelWidth = 380;
@@ -18,18 +20,22 @@ const juce::Colour kAccentColour(0xffe07030);
 const juce::Colour kTrackColour(0xff404040);
 }  // namespace
 
-NamCalibrationPanel::NamCalibrationPanel(juce::AudioProcessorValueTreeState& apvts)
+NamCalibrationPanel::NamCalibrationPanel(juce::AudioProcessorValueTreeState& apvts,
+                                         octob::NamSlot slot)
 {
+  const auto& ids = OctoBassProcessor::getNamSlotIds(slot);
+  const auto slotName = OctoBassProcessor::getNamSlotName(slot);
+
   setWantsKeyboardFocus(true);
 
   addAndMakeVisible(titleLabel_);
-  titleLabel_.setText("NAM CALIBRATION", juce::dontSendNotification);
+  titleLabel_.setText(slotName.toUpperCase() + " CALIBRATION", juce::dontSendNotification);
   titleLabel_.setJustificationType(juce::Justification::centredLeft);
   titleLabel_.setColour(juce::Label::textColourId, kTextColour);
 
   addAndMakeVisible(closeButton_);
   closeButton_.setButtonText("X");
-  closeButton_.setTitle("Close NAM Calibration");
+  closeButton_.setTitle("Close " + slotName + " Calibration");
   closeButton_.onClick = [this]
   {
     if (onDismiss)
@@ -38,13 +44,13 @@ NamCalibrationPanel::NamCalibrationPanel(juce::AudioProcessorValueTreeState& apv
 
   addAndMakeVisible(calibrateInputToggle_);
   calibrateInputToggle_.setButtonText("CALIBRATE INPUT");
-  calibrateInputToggle_.setTitle("Calibrate Input");
+  calibrateInputToggle_.setTitle(slotName + " Calibrate Input");
   calibrateInputToggle_.setColour(juce::ToggleButton::textColourId, kTextColour);
   calibrateInputToggle_.setColour(juce::ToggleButton::tickColourId, kAccentColour);
   calibrateInputToggle_.setColour(juce::ToggleButton::tickDisabledColourId, kTrackColour);
   calibrateInputAttachment_ =
       std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-          apvts, "namCalibrateInput", calibrateInputToggle_);
+          apvts, ids.calibrateInput, calibrateInputToggle_);
 
   addAndMakeVisible(inputLevelLabel_);
   inputLevelLabel_.setText("INPUT LEVEL (dBu)", juce::dontSendNotification);
@@ -52,13 +58,14 @@ NamCalibrationPanel::NamCalibrationPanel(juce::AudioProcessorValueTreeState& apv
   inputLevelLabel_.setColour(juce::Label::textColourId, kTextColour);
 
   addAndMakeVisible(inputLevelSlider_);
+  inputLevelSlider_.setTitle(slotName + " Input Level");
   inputLevelSlider_.setSliderStyle(juce::Slider::LinearHorizontal);
   inputLevelSlider_.setTextBoxStyle(juce::Slider::TextBoxRight, false, 70, 22);
   inputLevelSlider_.setColour(juce::Slider::trackColourId, kAccentColour);
   inputLevelSlider_.setColour(juce::Slider::backgroundColourId, kTrackColour);
   inputLevelSlider_.setColour(juce::Slider::thumbColourId, kTextColour);
   inputLevelAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-      apvts, "namInputCalibrationLevel", inputLevelSlider_);
+      apvts, ids.inputCalibrationLevel, inputLevelSlider_);
 
   addAndMakeVisible(outputModeLabel_);
   outputModeLabel_.setText("OUTPUT MODE", juce::dontSendNotification);
@@ -66,14 +73,14 @@ NamCalibrationPanel::NamCalibrationPanel(juce::AudioProcessorValueTreeState& apv
   outputModeLabel_.setColour(juce::Label::textColourId, kTextColour);
 
   addAndMakeVisible(outputModeCombo_);
-  outputModeCombo_.setTitle("NAM Output Mode");
+  outputModeCombo_.setTitle(slotName + " Output Mode");
   // Item IDs are choice index + 1: ComboBoxAttachment maps them onto the
   // Raw/Normalized/Calibrated choice parameter
   outputModeCombo_.addItem("Raw", 1);
   outputModeCombo_.addItem("Normalized", 2);
   outputModeCombo_.addItem("Calibrated", 3);
   outputModeAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-      apvts, "namOutputMode", outputModeCombo_);
+      apvts, ids.outputMode, outputModeCombo_);
 
   setCapabilities({});
 }

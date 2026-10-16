@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -464,4 +465,143 @@ TEST_F(NamProcessorTest, QualityPersistsAcrossModelLoads)
   for (float s : output)
     peak = std::max(peak, std::abs(s));
   EXPECT_GT(peak, 1e-6f) << "Slimmest model should still produce output";
+}
+
+TEST_F(NamProcessorTest, SlotIsSwitchedOnByDefault)
+{
+  EXPECT_TRUE(proc.isEnabled());
+}
+
+TEST_F(NamCalibrationTest, SwitchedOffSlotPassesItsInputThroughUntouched)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(calibrationModelPath, err)) << err;
+  proc.setOutputMode(NamOutputMode::Normalized);
+  proc.setCalibrateInput(true);
+  proc.setInputCalibrationLevel(30.0f);
+  proc.setEnabled(false);
+
+  const auto input = generateSine(1000.0f, 44100.0f, kNumBlocks * kBlockSize, 0.1f);
+  std::vector<float> output(input.size());
+  steadyStateRms(output, input);
+
+  for (size_t i = kMeasuredBlock * kBlockSize; i < input.size(); ++i)
+    ASSERT_FLOAT_EQ(output[i], input[i]) << "at sample " << i;
+}
+
+TEST_F(NamCalibrationTest, SwitchingSlotOffAndOnIsClickFree)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(calibrationModelPath, err)) << err;
+  proc.setOutputMode(NamOutputMode::Normalized);
+
+  const std::vector<float> input(kNumBlocks * kBlockSize, 0.1f);
+  std::vector<float> output(input.size());
+  const auto processBlock = [&](size_t block)
+  {
+    proc.process(input.data() + block * kBlockSize, output.data() + block * kBlockSize, kBlockSize);
+  };
+
+  for (size_t b = 0; b < 2; ++b)
+    processBlock(b);
+  proc.setEnabled(false);
+  for (size_t b = 2; b < 5; ++b)
+    processBlock(b);
+  const float switchedOffLevel = output[5 * kBlockSize - 1];
+  proc.setEnabled(true);
+  for (size_t b = 5; b < kNumBlocks; ++b)
+    processBlock(b);
+
+  EXPECT_NEAR(switchedOffLevel, 0.1f, 1.0e-6f);
+  EXPECT_NEAR(output.back(), 0.1f * std::pow(10.0f, 3.5f / 20.0f), 1.0e-4f);
+
+  float maxDelta = 0.0f;
+  for (size_t i = 1; i < output.size(); ++i)
+    maxDelta = std::max(maxDelta, std::abs(output[i] - output[i - 1]));
+  EXPECT_LT(maxDelta, 0.005f);
+}
+
+TEST_F(NamProcessorTest, SwitchingBackOnSoundsAsIfNeverSwitchedOff)
+{
+  NamProcessor neverSwitched;
+  neverSwitched.setSampleRate(44100.0);
+  neverSwitched.setMaxBlockSize(kBlockSize);
+
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(a1ModelPath, err)) << err;
+  ASSERT_TRUE(neverSwitched.loadModel(a1ModelPath, err)) << err;
+
+  constexpr size_t kNumBlocks = 16;
+  constexpr size_t kSwitchOffBlock = 2;
+  constexpr size_t kSwitchOnBlock = 10;
+  constexpr size_t kFirstSettledBlock = kSwitchOnBlock + 1;
+
+  const auto input = generateSine(1000.0f, 44100.0f, kNumBlocks * kBlockSize);
+  std::vector<float> output(input.size());
+  std::vector<float> reference(input.size());
+
+  for (size_t b = 0; b < kNumBlocks; ++b)
+  {
+    if (b == kSwitchOffBlock)
+      proc.setEnabled(false);
+    if (b == kSwitchOnBlock)
+      proc.setEnabled(true);
+
+    const size_t offset = b * kBlockSize;
+    proc.process(input.data() + offset, output.data() + offset, kBlockSize);
+    neverSwitched.process(input.data() + offset, reference.data() + offset, kBlockSize);
+  }
+
+  for (size_t i = kFirstSettledBlock * kBlockSize; i < input.size(); ++i)
+    ASSERT_NEAR(output[i], reference[i], 1.0e-6f)
+        << "The model must keep running while switched off, at sample " << i;
+}
+
+TEST_F(NamProcessorTest, LoadAfterAnUnprocessedClearReportsTheNewModel)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(a1ModelPath, err)) << err;
+  std::vector<float> block(kBlockSize, 0.0f);
+  proc.process(block.data(), block.data(), kBlockSize);
+
+  proc.clearModel();
+  ASSERT_TRUE(proc.loadModel(wavenetModelPath, err)) << err;
+
+  EXPECT_TRUE(proc.isModelLoaded());
+  EXPECT_EQ(proc.getCurrentModelPath(), wavenetModelPath);
+
+  proc.process(block.data(), block.data(), kBlockSize);
+  EXPECT_TRUE(proc.isModelLoaded());
+  EXPECT_EQ(proc.getCurrentModelPath(), wavenetModelPath);
+}
+
+TEST_F(NamCalibrationTest, EmptyBlockDuringTheOnOffFadeKeepsItClickFree)
+{
+  std::string err;
+  ASSERT_TRUE(proc.loadModel(calibrationModelPath, err)) << err;
+  proc.setOutputMode(NamOutputMode::Normalized);
+
+  constexpr size_t kPartialBlock = 64;
+  const std::vector<float> input(kNumBlocks * kBlockSize, 0.1f);
+  std::vector<float> output(input.size());
+  size_t written = 0;
+  const auto processNext = [&](size_t numFrames)
+  {
+    proc.process(input.data() + written, output.data() + written, numFrames);
+    written += numFrames;
+  };
+
+  processNext(kBlockSize);
+  processNext(kBlockSize);
+  proc.setEnabled(false);
+  processNext(kPartialBlock);
+  processNext(0);
+  while (written < input.size())
+    processNext(std::min<size_t>(kBlockSize, input.size() - written));
+
+  float maxDelta = 0.0f;
+  for (size_t i = 1; i < output.size(); ++i)
+    maxDelta = std::max(maxDelta, std::abs(output[i] - output[i - 1]));
+  EXPECT_LT(maxDelta, 0.005f);
+  EXPECT_NEAR(output.back(), 0.1f, 1.0e-6f);
 }

@@ -16,7 +16,7 @@ void LCDMeterPanel::paint(juce::Graphics& g)
   drawLCDBackground(g, getLocalBounds().toFloat().reduced(1.0f));
 
   if (typeface_ != nullptr)
-    g.setFont(juce::Font(juce::FontOptions().withTypeface(typeface_).withHeight(9.0f)));
+    g.setFont(juce::Font(juce::FontOptions(typeface_).withHeight(9.0f)));
   else
     g.setFont(juce::Font(
         juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 9.0f, juce::Font::plain)));
@@ -197,7 +197,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   nextButton1_.onClick = [this] { nextButton1Clicked(); };
 
   addAndMakeVisible(ir1LCDDisplay_);
-  ir1LCDDisplay_.setTextColour(juce::Colour(0xff1c1c30));
+  ir1LCDDisplay_.setTextColour(kLCDInkColour);
   ir1LCDDisplay_.setOnClick([this] { loadButton1Clicked(); });
   ir1LCDDisplay_.setText(audioProcessor.getCurrentIR1Path().isEmpty()
                              ? "No IR loaded"
@@ -208,6 +208,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   ir1EnableButton_.setButtonText("ENABLE");
   ir1EnableAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "irAEnable", ir1EnableButton_);
+  ir1BacklightAttachment_ = attachBacklight(ir1LCDDisplay_, "irAEnable");
 
   addAndMakeVisible(loadButton2_);
   loadButton2_.setPaintingIsUnclipped(true);
@@ -234,7 +235,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   nextButton2_.onClick = [this] { nextButton2Clicked(); };
 
   addAndMakeVisible(ir2LCDDisplay_);
-  ir2LCDDisplay_.setTextColour(juce::Colour(0xff1c1c30));
+  ir2LCDDisplay_.setTextColour(kLCDInkColour);
   ir2LCDDisplay_.setOnClick([this] { loadButton2Clicked(); });
   ir2LCDDisplay_.setText(audioProcessor.getCurrentIR2Path().isEmpty()
                              ? "No IR loaded"
@@ -245,6 +246,7 @@ OctobIREditor::OctobIREditor(OctobIRProcessor& p) : AudioProcessorEditor(&p), au
   ir2EnableButton_.setButtonText("ENABLE");
   ir2EnableAttachment_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
       audioProcessor.getAPVTS(), "irBEnable", ir2EnableButton_);
+  ir2BacklightAttachment_ = attachBacklight(ir2LCDDisplay_, "irBEnable");
 
   addAndMakeVisible(meterPanel_);
 
@@ -545,6 +547,21 @@ void OctobIREditor::resized()
   }
 }
 
+std::unique_ptr<juce::ParameterAttachment> OctobIREditor::attachBacklight(
+    LCDDisplay& display, const juce::String& enableParamId)
+{
+  auto attachment = std::make_unique<juce::ParameterAttachment>(
+      *audioProcessor.getAPVTS().getParameter(enableParamId),
+      [&display, enableParamId](float value)
+      {
+        const bool enabled = value >= 0.5f;
+        DBG(enableParamId + (enabled ? " on, display lit" : " off, display dimmed"));
+        display.setBacklit(enabled);
+      });
+  attachment->sendInitialUpdate();
+  return attachment;
+}
+
 void OctobIREditor::timerCallback()
 {
   updateMeters();
@@ -568,31 +585,37 @@ void OctobIREditor::updateMeters()
 
 void OctobIREditor::loadButton1Clicked()
 {
-  auto chooser = std::make_shared<juce::FileChooser>("Select impulse response WAV file for IR 1",
-                                                     getLastBrowsedDirectory(), "*.wav");
+  auto chooser = std::make_shared<juce::FileChooser>(
+      "Select impulse response WAV file for IR 1",
+      audioProcessor.getBrowseStartFolder(OctobIRProcessor::FileSlot::IR1), "*.wav");
 
   auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
   chooser->launchAsync(
       flags,
-      [this, chooser](const juce::FileChooser& fc)
+      [safeThis = juce::Component::SafePointer(this), chooser](const juce::FileChooser& fc)
       {
-        auto file = fc.getResult();
-        if (file.existsAsFile())
+        if (safeThis == nullptr)
         {
-          updateLastBrowsedDirectory(file);
-          juce::String error;
-          bool success = audioProcessor.loadImpulseResponse1(file.getFullPathName(), error);
-          if (success)
-          {
-            ir1LCDDisplay_.setText(file.getFileName());
-          }
-          else
-          {
-            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
-                                                   "Failed to Load IR 1", error, "OK");
-            ir1LCDDisplay_.setText("Failed to load IR");
-          }
+          DBG("Editor destroyed while IR 1 chooser was open, dropping result");
+          return;
+        }
+        auto file = fc.getResult();
+        if (!file.existsAsFile())
+        {
+          DBG("IR 1 chooser closed without a file");
+          return;
+        }
+        juce::String error;
+        if (safeThis->audioProcessor.loadPickedFile(OctobIRProcessor::FileSlot::IR1, file, error))
+        {
+          safeThis->ir1LCDDisplay_.setText(file.getFileName());
+        }
+        else
+        {
+          juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
+                                                 "Failed to Load IR 1", error, "OK");
+          safeThis->ir1LCDDisplay_.setText("Failed to load IR");
         }
       });
 }
@@ -605,31 +628,37 @@ void OctobIREditor::clearButton1Clicked()
 
 void OctobIREditor::loadButton2Clicked()
 {
-  auto chooser = std::make_shared<juce::FileChooser>("Select impulse response WAV file for IR 2",
-                                                     getLastBrowsedDirectory(), "*.wav");
+  auto chooser = std::make_shared<juce::FileChooser>(
+      "Select impulse response WAV file for IR 2",
+      audioProcessor.getBrowseStartFolder(OctobIRProcessor::FileSlot::IR2), "*.wav");
 
   auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
   chooser->launchAsync(
       flags,
-      [this, chooser](const juce::FileChooser& fc)
+      [safeThis = juce::Component::SafePointer(this), chooser](const juce::FileChooser& fc)
       {
-        auto file = fc.getResult();
-        if (file.existsAsFile())
+        if (safeThis == nullptr)
         {
-          updateLastBrowsedDirectory(file);
-          juce::String error;
-          bool success = audioProcessor.loadImpulseResponse2(file.getFullPathName(), error);
-          if (success)
-          {
-            ir2LCDDisplay_.setText(file.getFileName());
-          }
-          else
-          {
-            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
-                                                   "Failed to Load IR 2", error, "OK");
-            ir2LCDDisplay_.setText("Failed to load IR");
-          }
+          DBG("Editor destroyed while IR 2 chooser was open, dropping result");
+          return;
+        }
+        auto file = fc.getResult();
+        if (!file.existsAsFile())
+        {
+          DBG("IR 2 chooser closed without a file");
+          return;
+        }
+        juce::String error;
+        if (safeThis->audioProcessor.loadPickedFile(OctobIRProcessor::FileSlot::IR2, file, error))
+        {
+          safeThis->ir2LCDDisplay_.setText(file.getFileName());
+        }
+        else
+        {
+          juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
+                                                 "Failed to Load IR 2", error, "OK");
+          safeThis->ir2LCDDisplay_.setText("Failed to load IR");
         }
       });
 }
@@ -740,34 +769,4 @@ void OctobIREditor::cycleIRFile(int irIndex, int direction)
       ir2LCDDisplay_.setText("Failed to load IR");
     }
   }
-}
-
-juce::File OctobIREditor::getLastBrowsedDirectory() const
-{
-  if (lastBrowsedDirectory_.exists() && lastBrowsedDirectory_.isDirectory())
-    return lastBrowsedDirectory_;
-
-  juce::String ir1Path = audioProcessor.getCurrentIR1Path();
-  if (ir1Path.isNotEmpty())
-  {
-    juce::File ir1File(ir1Path);
-    if (ir1File.existsAsFile())
-      return ir1File.getParentDirectory();
-  }
-
-  juce::String ir2Path = audioProcessor.getCurrentIR2Path();
-  if (ir2Path.isNotEmpty())
-  {
-    juce::File ir2File(ir2Path);
-    if (ir2File.existsAsFile())
-      return ir2File.getParentDirectory();
-  }
-
-  return juce::File::getSpecialLocation(juce::File::userHomeDirectory);
-}
-
-void OctobIREditor::updateLastBrowsedDirectory(const juce::File& file)
-{
-  if (file.existsAsFile())
-    lastBrowsedDirectory_ = file.getParentDirectory();
 }

@@ -16,6 +16,8 @@ add_executable(octobir-plugin-tests
     TestMain.cpp
     PluginProcessorTests.cpp
     PluginAudioTests.cpp
+    BrowseFolderTests.cpp
+    EditorTests.cpp
     ../Source/PluginProcessor.cpp
     ../Source/PluginEditor.cpp
 )
@@ -23,6 +25,7 @@ add_executable(octobir-plugin-tests
 target_include_directories(octobir-plugin-tests
     PRIVATE
         ../Source
+        ${CMAKE_SOURCE_DIR}/libs/juce-ui-shared/testing
 )
 
 target_include_directories(octobir-plugin-tests

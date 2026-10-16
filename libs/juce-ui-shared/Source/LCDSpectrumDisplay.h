@@ -90,7 +90,7 @@ class LCDSpectrumDisplay : public juce::Component
 
     juce::Font labelFont =
         typeface_ != nullptr
-            ? juce::Font(juce::FontOptions().withTypeface(typeface_).withHeight(kLabelFontH))
+            ? juce::Font(juce::FontOptions(typeface_).withHeight(kLabelFontH))
             : juce::Font(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), kLabelFontH,
                                            juce::Font::plain));
 

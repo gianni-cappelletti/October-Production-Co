@@ -477,8 +477,8 @@ TEST_F(BassProcessorAudioTest, NamQuality_AffectsSlimmableModelOutput)
     proc.setMaxBlockSize(kBlockSize);
 
     std::string err;
-    EXPECT_TRUE(proc.loadNamModel(a2Path, err)) << err;
-    proc.setNamQuality(quality);
+    EXPECT_TRUE(proc.loadNamModel(NamSlot::First, a2Path, err)) << err;
+    proc.setNamQuality(NamSlot::First, quality);
 
     auto input = generateSine(1000.0f, 44100.0f, 8192);
     return processFullSignal(proc, input);

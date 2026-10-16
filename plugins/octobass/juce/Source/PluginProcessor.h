@@ -4,8 +4,11 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
 #include <octobass-core/BassProcessor.hpp>
 #include <octobass-core/Types.hpp>
+
+#include "BrowseFolderMemory.h"
 
 // AsyncUpdater is public so tests can flush deferred work deterministically
 // with handleUpdateNowIfNeeded() instead of pumping the message loop
@@ -14,7 +17,15 @@ class OctoBassProcessor : public juce::AudioProcessor,
                           private juce::AudioProcessorValueTreeState::Listener
 {
  public:
-  OctoBassProcessor();
+  enum class FileSlot : uint8_t
+  {
+    Nam1,
+    Nam2,
+    ImpulseResponse
+  };
+
+  explicit OctoBassProcessor(const juce::File& browseFolderSettingsFile =
+                                 BrowseFolderMemory::getDefaultSettingsFile(JucePlugin_Name));
   ~OctoBassProcessor() override;
 
   void prepareToPlay(double sampleRate, int samplesPerBlock) override;
@@ -45,25 +56,42 @@ class OctoBassProcessor : public juce::AudioProcessor,
 
   juce::AudioProcessorValueTreeState& getAPVTS() { return apvts_; }
 
+  struct NamSlotIds
+  {
+    const char* quality;
+    const char* calibrateInput;
+    const char* inputCalibrationLevel;
+    const char* outputMode;
+    const char* on;
+    const char* modelPathProperty;
+  };
+  static const NamSlotIds& getNamSlotIds(octob::NamSlot slot);
+
+  static juce::String getNamSlotName(octob::NamSlot slot);
+
   // NAM model management
-  bool loadNamModel(const juce::String& filepath, juce::String& errorMessage);
-  void clearNamModel();
-  bool isNamModelLoaded() const;
-  juce::String getCurrentNamModelPath() const;
+  bool loadNamModel(octob::NamSlot slot, const juce::String& filepath, juce::String& errorMessage);
+  void clearNamModel(octob::NamSlot slot);
+  bool isNamModelLoaded(octob::NamSlot slot) const;
+  juce::String getCurrentNamModelPath(octob::NamSlot slot) const;
 
   // Discrete quality levels of the loaded NAM model: 0 = no model,
   // 1 = no quality options, >1 = selectable levels. Message thread only.
-  int getNamQualityLevels() const;
+  int getNamQualityLevels(octob::NamSlot slot) const;
 
   // Level metadata of the loaded NAM model, all-false defaults when none is
   // loaded. Message thread only.
-  octob::NamModelMetadata getNamModelMetadata() const;
+  octob::NamModelMetadata getNamModelMetadata(octob::NamSlot slot) const;
 
   // IR management
   bool loadImpulseResponse(const juce::String& filepath, juce::String& errorMessage);
   void clearImpulseResponse();
   bool isIRLoaded() const;
   juce::String getCurrentIRPath() const;
+
+  static FileSlot fileSlotFor(octob::NamSlot slot);
+  juce::File getBrowseStartFolder(FileSlot slot) const;
+  bool loadPickedFile(FileSlot slot, const juce::File& file, juce::String& errorMessage);
 
   int getLatencySamples() const;
 
@@ -80,6 +108,7 @@ class OctoBassProcessor : public juce::AudioProcessor,
   juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
   octob::BassProcessor bassProcessor_;
+  BrowseFolderMemory browseFolderMemory_;
 
   bool prevLowSolo_ = false;
   bool prevHighSolo_ = false;
@@ -101,8 +130,21 @@ class OctoBassProcessor : public juce::AudioProcessor,
   // NAM quality is applied on the message thread via the async updater because
   // SetSlimmableSize is not real-time safe
   void parameterChanged(const juce::String& parameterID, float newValue) override;
-  std::atomic<bool> namQualityDirty_{false};
-  std::atomic<float>* namQualityParam_ = nullptr;
+
+  struct NamSlotParams
+  {
+    std::atomic<float>* quality = nullptr;
+    std::atomic<float>* calibrateInput = nullptr;
+    std::atomic<float>* inputCalibrationLevel = nullptr;
+    std::atomic<float>* outputMode = nullptr;
+    std::atomic<float>* on = nullptr;
+    std::atomic<bool> qualityDirty{false};
+  };
+  std::array<NamSlotParams, octob::kNumNamSlots> namSlotParams_;
+  NamSlotParams& namSlotParams(octob::NamSlot slot)
+  {
+    return namSlotParams_[static_cast<size_t>(slot)];
+  }
 
   struct EQNodeParams
   {
@@ -128,9 +170,6 @@ class OctoBassProcessor : public juce::AudioProcessor,
   std::atomic<float>* highBandMixParam_ = nullptr;
   std::atomic<float>* lowBandSoloParam_ = nullptr;
   std::atomic<float>* highBandSoloParam_ = nullptr;
-  std::atomic<float>* namCalibrateInputParam_ = nullptr;
-  std::atomic<float>* namInputCalibrationLevelParam_ = nullptr;
-  std::atomic<float>* namOutputModeParam_ = nullptr;
 
   juce::AbstractFifo spectrumFifo_{kSpectrumFifoSize};
   std::array<float, kSpectrumFifoSize> spectrumFifoBuffer_{};
