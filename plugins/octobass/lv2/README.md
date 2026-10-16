@@ -27,7 +27,8 @@ Native LV2 wrapper around `octobass-core` for MOD Audio devices (Dwarf, Duo X) a
 
 - Percent ports use 0-100; the core receives 0-1.
 - File loads, clears and NAM quality changes run on the LV2 worker thread; `run()` does not allocate.
-- Both Solo ports on: the most recently engaged solo wins. The modgui clears the other Solo port.
+- The pedal has no Solo buttons; the Solo ports are in MOD's settings panel. Both Solo ports on: the most recently engaged solo wins, and the modgui clears the other Solo port.
+- Each NAM slot has an OFF/ON lever and a LITE/FULL lever. The LITE/FULL lever shows FULL at quality >= 50% and sets quality to 0% or 100% when clicked.
 - Saved state stores file paths through `state:mapPath`.
 - LV2 versions have no major field, and hosts treat an odd minor or micro version as a development build (mod-ui labels it Testing). The encoding keeps every release even and increasing. MINOR must stay below 100.
 - The version is written into `manifest.ttl` and `modgui/icon.html` from their `.in` templates when the bundle is assembled.
@@ -67,7 +68,7 @@ Requires Docker (Colima on macOS). The simulator image runs JACK (dummy driver),
 |---------|--------|
 | `make octobass-mod-desktop` | Installs the macOS bundle to `~/Documents/MOD Desktop/lv2` and the bundled tones to `~/Documents/MOD Desktop/user-files` |
 | `make mod-sim` | Builds OctoBASS from the working tree and serves mod-ui at http://localhost:18888 |
-| `make mod-sim-check` | Headless Chromium checks against a running `mod-sim`: layout, readout formats, fonts, Solo exclusivity, bypass, knob drag, file loading. Screenshots in `build/mod-sim/` |
+| `make mod-sim-check` | Headless Chromium checks against a running `mod-sim`: layout, readout formats, fonts, quality levers, bypass, knob drag, file loading and dismissal. Screenshots in `build/mod-sim/` |
 | `make mod-sim-valgrind` | LV2 tests under valgrind (Linux arm64) |
 | `make mod-sim-cpu` | Times OctoBASS and MOD's Neural Amp Modeler (mod-plugin-builder commit) in the same LV2 host |
 

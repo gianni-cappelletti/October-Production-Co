@@ -56,14 +56,19 @@ def add_pedal(page: Page):
 
 
 def check_layout(page: Page):
-    for css_class in ["squash", "compression-mode", "low-level", "low-solo", "crossover", "gate",
-                      "high-input-gain", "high-blend", "high-output-gain", "high-solo",
-                      "nam1-on", "nam2-on", "bypass"]:
+    for css_class in ["squash", "compression-mode", "low-level", "crossover", "gate",
+                      "high-input-gain", "high-blend", "high-output-gain",
+                      "nam1-on", "nam2-on", "nam1-quality", "nam2-quality", "bypass"]:
         check(f"widget {css_class} visible", widget(page, css_class).is_visible())
+    for css_class in ["low-solo", "high-solo"]:
+        check(f"no {css_class} button on the pedal", widget(page, css_class).count() == 0)
     for parameter in ["nam1Model", "nam2Model", "cabinetIr"]:
         check(f"file picker {parameter} rendered once", file_picker(page, parameter).count() == 1,
               f"count={file_picker(page, parameter).count()}")
     expected_readouts = {
+        "high-input-gain": "0.0 dB",
+        "high-blend": "100%",
+        "high-output-gain": "0.0 dB",
         "squash": "0%",
         "compression-mode": "Tight",
         "low-level": "0.0 dB",
@@ -84,20 +89,6 @@ def check_layout(page: Page):
 
 def classes(locator):
     return (locator.get_attribute("class") or "").split()
-
-
-def check_solo_exclusivity(page: Page):
-    low = widget(page, "low-solo")
-    high = widget(page, "high-solo")
-    low.click()
-    page.wait_for_timeout(400)
-    check("low solo turns on", "on" in classes(low), " ".join(classes(low)))
-    high.click()
-    page.wait_for_timeout(600)
-    check("high solo turns on", "on" in classes(high), " ".join(classes(high)))
-    check("low solo cleared by modgui script", "off" in classes(low), " ".join(classes(low)))
-    high.click()
-    page.wait_for_timeout(400)
 
 
 def check_bypass(page: Page):
@@ -121,6 +112,35 @@ def check_sprite_frames(page: Page):
                  ? [] : [e.className + ' ' + style.width + ' ' + style.backgroundSize];
            })""")
     check("sprite frames are whole pixels", not mismatches, "; ".join(mismatches))
+
+
+def check_right_zone(page: Page):
+    squash = widget(page, "squash").bounding_box()
+    for css_class in ["high-input-gain", "high-blend", "high-output-gain"]:
+        box = widget(page, css_class).bounding_box()
+        check(f"{css_class} knob is full size", abs(box["width"] - squash["width"]) < 1,
+              f"{box['width']:.1f} vs {squash['width']:.1f}")
+
+    tops = page.evaluate(
+        """() => ['nam1Model', 'nam2Model', 'cabinetIr'].map(p =>
+             document.querySelector(`.mod-pedal-octobass .opc-file[mod-parameter-uri$="#${p}"]`).offsetTop)""")
+    check("LCDs are closer together", tops[1] - tops[0] <= 92 and tops[2] - tops[1] <= 92, str(tops))
+
+
+def check_quality_levers(page: Page):
+    for slot in ["nam1", "nam2"]:
+        lever = widget(page, f"{slot}-quality")
+        check(f"{slot} quality lever visible", lever.is_visible())
+        check(f"{slot} quality lever starts on Lite", "opc-full" not in classes(lever),
+              " ".join(classes(lever)))
+        lever.click()
+        page.wait_for_timeout(400)
+        check(f"{slot} quality lever switches to Full", "opc-full" in classes(lever),
+              " ".join(classes(lever)))
+        lever.click()
+        page.wait_for_timeout(400)
+        check(f"{slot} quality lever switches back to Lite", "opc-full" not in classes(lever),
+              " ".join(classes(lever)))
 
 
 def check_pedal_size(page: Page):
@@ -197,9 +217,10 @@ def main():
         screenshot(page, "pedal-default.png")
         check_layout(page)
         check_pedal_size(page)
+        check_right_zone(page)
+        check_quality_levers(page)
         check_sprite_frames(page)
         check_file_list_dismissal(page)
-        check_solo_exclusivity(page)
         check_bypass(page)
         check_knob_drag(page)
         check_file_loading(page)

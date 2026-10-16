@@ -25,39 +25,39 @@
             lv2:name "Low Level"
         ] , [
             lv2:index 3 ;
-            lv2:symbol "low_solo" ;
-            lv2:name "Low Solo"
-        ] , [
-            lv2:index 4 ;
             lv2:symbol "crossover" ;
             lv2:name "Crossover"
         ] , [
-            lv2:index 5 ;
+            lv2:index 4 ;
             lv2:symbol "gate" ;
             lv2:name "Gate"
         ] , [
-            lv2:index 6 ;
+            lv2:index 5 ;
             lv2:symbol "high_input_gain" ;
             lv2:name "High Input"
         ] , [
-            lv2:index 7 ;
+            lv2:index 6 ;
             lv2:symbol "high_blend" ;
             lv2:name "High Blend"
         ] , [
-            lv2:index 8 ;
+            lv2:index 7 ;
             lv2:symbol "high_output_gain" ;
             lv2:name "High Output"
         ] , [
-            lv2:index 9 ;
-            lv2:symbol "high_solo" ;
-            lv2:name "High Solo"
-        ] , [
-            lv2:index 10 ;
+            lv2:index 8 ;
             lv2:symbol "nam1_on" ;
             lv2:name "NAM 1 On"
         ] , [
-            lv2:index 11 ;
+            lv2:index 9 ;
+            lv2:symbol "nam1_quality" ;
+            lv2:name "NAM 1 Quality"
+        ] , [
+            lv2:index 10 ;
             lv2:symbol "nam2_on" ;
             lv2:name "NAM 2 On"
+        ] , [
+            lv2:index 11 ;
+            lv2:symbol "nam2_quality" ;
+            lv2:name "NAM 2 Quality"
         ]
     ] .

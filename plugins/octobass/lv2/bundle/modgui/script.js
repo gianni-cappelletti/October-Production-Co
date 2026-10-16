@@ -1,5 +1,26 @@
 function (event, funcs) {
+    var qualityFullThreshold = 50;
+
+    var updateQualityLever = function (symbol, value) {
+        event.icon.find('[opc-quality-symbol="' + symbol + '"]')
+            .toggleClass('opc-full', value >= qualityFullThreshold)
+            .data('value', value);
+    };
+
     if (event.type === 'start') {
+        event.ports.forEach(function (port) {
+            updateQualityLever(port.symbol, port.value);
+        });
+
+        event.icon.find('[opc-quality-symbol]').on('click', function (e) {
+            var lever = $(this);
+            var symbol = lever.attr('opc-quality-symbol');
+            var value = lever.data('value') >= qualityFullThreshold ? 0 : 100;
+            funcs.set_port_value(symbol, value);
+            updateQualityLever(symbol, value);
+            e.stopPropagation();
+        });
+
         var containers = [event.icon, event.settings];
         var closeOtherFileLists = function (e) {
             if (!document.body.contains(event.icon[0])) {
@@ -21,7 +42,13 @@ function (event, funcs) {
         return;
     }
 
-    if (event.type !== 'change' || event.value < 0.5) {
+    if (event.type !== 'change' || event.symbol === undefined) {
+        return;
+    }
+
+    updateQualityLever(event.symbol, event.value);
+
+    if (event.value < 0.5) {
         return;
     }
     if (event.symbol === 'low_solo') {

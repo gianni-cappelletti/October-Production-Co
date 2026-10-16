@@ -102,23 +102,6 @@
     height: 28.6px;
 }
 
-.mod-pedal-octobass .opc-low-solo {
-    left: 200.2px;
-    top: 304.2px;
-    width: 68px;
-    height: 57px;
-    background-image: url(/resources/solo.png{{{ns}}});
-    background-size: 136px 57px;
-}
-
-.mod-pedal-octobass .opc-low-solo.off {
-    background-position: 0 0;
-}
-
-.mod-pedal-octobass .opc-low-solo.on {
-    background-position: -68px 0;
-}
-
 .mod-pedal-octobass .opc-crossover {
     left: 363.32px;
     top: 58.5px;
@@ -152,52 +135,56 @@
 }
 
 .mod-pedal-octobass .opc-high-input-gain {
-    left: 574.92px;
+    left: 533.43px;
     top: 58.5px;
-    width: 36px;
-    height: 36px;
-    background-image: url(/resources/knob-trim.png{{{ns}}});
-    background-size: 2340px 36px;
+    width: 112px;
+    height: 88px;
+    background-image: url(/resources/knob.png{{{ns}}});
+    background-size: 7280px 88px;
+}
+
+.mod-pedal-octobass .opc-value-high-input-gain {
+    left: 533.43px;
+    top: 146.9px;
+    width: 111.8px;
+    height: 28.6px;
 }
 
 .mod-pedal-octobass .opc-high-blend {
-    left: 682.17px;
+    left: 685.1px;
     top: 58.5px;
-    width: 36px;
-    height: 36px;
-    background-image: url(/resources/knob-trim.png{{{ns}}});
-    background-size: 2340px 36px;
+    width: 112px;
+    height: 88px;
+    background-image: url(/resources/knob.png{{{ns}}});
+    background-size: 7280px 88px;
+}
+
+.mod-pedal-octobass .opc-value-high-blend {
+    left: 685.1px;
+    top: 146.9px;
+    width: 111.8px;
+    height: 28.6px;
 }
 
 .mod-pedal-octobass .opc-high-output-gain {
-    left: 789.42px;
+    left: 836.77px;
     top: 58.5px;
-    width: 36px;
-    height: 36px;
-    background-image: url(/resources/knob-trim.png{{{ns}}});
-    background-size: 2340px 36px;
+    width: 112px;
+    height: 88px;
+    background-image: url(/resources/knob.png{{{ns}}});
+    background-size: 7280px 88px;
 }
 
-.mod-pedal-octobass .opc-high-solo {
-    left: 878.47px;
-    top: 48.1px;
-    width: 73px;
-    height: 57px;
-    background-image: url(/resources/solo.png{{{ns}}});
-    background-size: 146px 57px;
-}
-
-.mod-pedal-octobass .opc-high-solo.off {
-    background-position: 0 0;
-}
-
-.mod-pedal-octobass .opc-high-solo.on {
-    background-position: -73px 0;
+.mod-pedal-octobass .opc-value-high-output-gain {
+    left: 836.77px;
+    top: 146.9px;
+    width: 111.8px;
+    height: 28.6px;
 }
 
 .mod-pedal-octobass .opc-nam1-on {
-    left: 835.9px;
-    top: 111.8px;
+    left: 718.9px;
+    top: 175.5px;
     width: 78px;
     height: 57px;
     background-image: url(/resources/toggle.png{{{ns}}});
@@ -212,9 +199,26 @@
     background-position: -78px 0;
 }
 
+.mod-pedal-octobass .opc-nam1-quality {
+    left: 864.5px;
+    top: 175.5px;
+    width: 78px;
+    height: 57px;
+    background-image: url(/resources/toggle.png{{{ns}}});
+    background-size: 156px 57px;
+}
+
+.mod-pedal-octobass .opc-nam1-quality {
+    background-position: 0 0;
+}
+
+.mod-pedal-octobass .opc-nam1-quality.opc-full {
+    background-position: -78px 0;
+}
+
 .mod-pedal-octobass .opc-nam2-on {
-    left: 835.9px;
-    top: 211.9px;
+    left: 718.9px;
+    top: 265.2px;
     width: 78px;
     height: 57px;
     background-image: url(/resources/toggle.png{{{ns}}});
@@ -226,6 +230,23 @@
 }
 
 .mod-pedal-octobass .opc-nam2-on.on {
+    background-position: -78px 0;
+}
+
+.mod-pedal-octobass .opc-nam2-quality {
+    left: 864.5px;
+    top: 265.2px;
+    width: 78px;
+    height: 57px;
+    background-image: url(/resources/toggle.png{{{ns}}});
+    background-size: 156px 57px;
+}
+
+.mod-pedal-octobass .opc-nam2-quality {
+    background-position: 0 0;
+}
+
+.mod-pedal-octobass .opc-nam2-quality.opc-full {
     background-position: -78px 0;
 }
 
@@ -248,21 +269,21 @@
 
 .mod-pedal-octobass .opc-file[mod-parameter-uri$="#nam1Model"] {
     left: 516.1px;
-    top: 162.5px;
+    top: 226.2px;
     width: 449.8px;
     height: 39px;
 }
 
 .mod-pedal-octobass .opc-file[mod-parameter-uri$="#nam2Model"] {
     left: 516.1px;
-    top: 262.6px;
+    top: 315.9px;
     width: 449.8px;
     height: 39px;
 }
 
 .mod-pedal-octobass .opc-file[mod-parameter-uri$="#cabinetIr"] {
     left: 516.1px;
-    top: 362.7px;
+    top: 365.3px;
     width: 449.8px;
     height: 39px;
 }

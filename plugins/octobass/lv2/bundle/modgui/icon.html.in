@@ -7,17 +7,20 @@
     <div class="opc-value opc-value-compression-mode" mod-role="input-control-value" mod-port-symbol="compression_mode"></div>
     <div class="opc-widget opc-low-level" mod-role="input-control-port" mod-port-symbol="low_level"></div>
     <div class="opc-value opc-value-low-level" mod-role="input-control-value" mod-port-symbol="low_level"></div>
-    <div class="opc-widget opc-low-solo" mod-role="input-control-port" mod-port-symbol="low_solo" mod-widget="switch"></div>
     <div class="opc-widget opc-crossover" mod-role="input-control-port" mod-port-symbol="crossover"></div>
     <div class="opc-value opc-value-crossover" mod-role="input-control-value" mod-port-symbol="crossover"></div>
     <div class="opc-widget opc-gate" mod-role="input-control-port" mod-port-symbol="gate"></div>
     <div class="opc-value opc-value-gate" mod-role="input-control-value" mod-port-symbol="gate"></div>
     <div class="opc-widget opc-high-input-gain" mod-role="input-control-port" mod-port-symbol="high_input_gain"></div>
+    <div class="opc-value opc-value-high-input-gain" mod-role="input-control-value" mod-port-symbol="high_input_gain"></div>
     <div class="opc-widget opc-high-blend" mod-role="input-control-port" mod-port-symbol="high_blend"></div>
+    <div class="opc-value opc-value-high-blend" mod-role="input-control-value" mod-port-symbol="high_blend"></div>
     <div class="opc-widget opc-high-output-gain" mod-role="input-control-port" mod-port-symbol="high_output_gain"></div>
-    <div class="opc-widget opc-high-solo" mod-role="input-control-port" mod-port-symbol="high_solo" mod-widget="switch"></div>
+    <div class="opc-value opc-value-high-output-gain" mod-role="input-control-value" mod-port-symbol="high_output_gain"></div>
     <div class="opc-widget opc-nam1-on" mod-role="input-control-port" mod-port-symbol="nam1_on" mod-widget="switch"></div>
+    <div class="opc-widget opc-nam1-quality" opc-quality-symbol="nam1_quality"></div>
     <div class="opc-widget opc-nam2-on" mod-role="input-control-port" mod-port-symbol="nam2_on" mod-widget="switch"></div>
+    <div class="opc-widget opc-nam2-quality" opc-quality-symbol="nam2_quality"></div>
     <div class="opc-widget opc-bypass" mod-role="bypass"></div>
     {{#effect.parameters}}
     {{#path}}

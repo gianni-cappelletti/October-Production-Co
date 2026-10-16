@@ -1,6 +1,7 @@
 #include <BinaryData.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <array>
 #include <cstdio>
 #include <functional>
 #include <string>
@@ -29,7 +30,15 @@ constexpr float ValueHeight = 22.0f;
 constexpr float FullRowHeight = LabelHeight + KnobHeight + ValueHeight;
 constexpr float Row1Y = 29.0f;
 constexpr float Row2Y = 203.0f;
-constexpr float TrimSize = 28.0f;
+constexpr float RightZoneX = Pad + 220.0f + 160.0f;
+constexpr float RightZoneWidth = PedalWidth - Pad - RightZoneX;
+constexpr float LeverWidth = 44.0f;
+constexpr float LeverHeight = 28.0f;
+constexpr float LeverLabelWidth = 26.0f;
+constexpr float LeverLabelGap = 2.0f;
+constexpr float LcdHeight = 30.0f;
+constexpr std::array<float, 2> LeverRowY{{143.0f, 212.0f}};
+constexpr std::array<float, 3> FileLcdY{{174.0f, 243.0f, 281.0f}};
 constexpr float ButtonMargin = 8.0f;
 constexpr int KnobFrames = 65;
 constexpr float VersionTextY = PedalHeight - 15.5f - 5.0f;
@@ -44,9 +53,8 @@ enum class Widget
 {
   Knob,
   ModeKnob,
-  Trim,
-  Solo,
   Toggle,
+  QualityLever,
   Bypass,
 };
 
@@ -68,6 +76,8 @@ struct Control
   bool hasValue;
   float defaultNormalised;
   std::string defaultText;
+  std::string leftLabel{};
+  std::string rightLabel{};
 };
 
 struct FileSlot
@@ -105,17 +115,6 @@ std::vector<Control> buildControls()
   controls.push_back(
       knob("low_level", "OUTPUT", Pad, halfLeft, Row2Y, Widget::Knob, 24.0f / 36.0f, "0.0 dB"));
 
-  const float soloCentreY = Row2Y + FullRowHeight * 0.5f;
-  controls.push_back(
-      {"low_solo",
-       Widget::Solo,
-       "",
-       {Pad + halfLeft + (halfLeft - 36.0f) * 0.5f, soloCentreY - 14.0f, 36.0f, 28.0f},
-       {0, 0, 0, 0},
-       false,
-       0.0f,
-       ""});
-
   const float centreAreaW = 120.0f;
   const auto centreColumn = [&](float rowY)
   {
@@ -128,50 +127,41 @@ std::vector<Control> buildControls()
   controls.push_back(
       knob("gate", "GATE", centreColumn(Row2Y), centreAreaW, Row2Y, Widget::Knob, 0.0f, "Off"));
 
-  const float rightX = Pad + 220.0f + 160.0f;
-  const float stripX = rightX + 20.0f;
-  const float stripColW = (PedalWidth - Pad - stripX) / 4.0f;
-  const auto trim =
-      [&](int index, const std::string& symbol, const std::string& label, float defaultNormalised)
-  {
-    const float columnX = stripX + static_cast<float>(index) * stripColW;
-    return Control{
-        symbol,
-        Widget::Trim,
-        label,
-        {columnX + (stripColW - TrimSize) * 0.5f, Row1Y + LabelHeight, TrimSize, TrimSize},
-        {columnX, Row1Y, stripColW, LabelHeight},
-        false,
-        defaultNormalised,
-        ""};
-  };
-  controls.push_back(trim(0, "high_input_gain", "INPUT", 0.5f));
-  controls.push_back(trim(1, "high_blend", "MIX", 1.0f));
-  controls.push_back(trim(2, "high_output_gain", "OUTPUT", 0.5f));
+  const float columnW = RightZoneWidth / 3.0f;
   controls.push_back(
-      {"high_solo",
-       Widget::Solo,
-       "",
-       {stripX + 3.0f * stripColW + (stripColW - 40.0f) * 0.5f, Row1Y + LabelHeight, 40.0f, 28.0f},
-       {0, 0, 0, 0},
-       false,
-       0.0f,
-       ""});
+      knob("high_input_gain", "INPUT", RightZoneX, columnW, Row1Y, Widget::Knob, 0.5f, "0.0 dB"));
+  controls.push_back(
+      knob("high_blend", "MIX", RightZoneX + columnW, columnW, Row1Y, Widget::Knob, 1.0f, "100%"));
+  controls.push_back(knob("high_output_gain", "OUTPUT", RightZoneX + 2.0f * columnW, columnW, Row1Y,
+                          Widget::Knob, 0.5f, "0.0 dB"));
 
-  const float loaderY0 = 94.0f;
-  const float loaderPitch = 77.0f;
-  const float rightW = PedalWidth - Pad - rightX;
+  const float zoneRight = RightZoneX + RightZoneWidth;
+  const float qualityX = zoneRight - LeverLabelWidth - LeverLabelGap - LeverWidth;
+  const float onX = qualityX - 2.0f * (LeverLabelWidth + LeverLabelGap) - 12.0f - LeverWidth;
   for (int slot = 0; slot < 2; ++slot)
   {
-    const float y = loaderY0 + static_cast<float>(slot) * loaderPitch;
-    controls.push_back({"nam" + std::to_string(slot + 1) + "_on",
+    const float y = LeverRowY[static_cast<size_t>(slot)];
+    const std::string prefix = "nam" + std::to_string(slot + 1);
+    controls.push_back({prefix + "_on",
                         Widget::Toggle,
                         "",
-                        {rightX + rightW - 48.0f - 46.0f, y, 44.0f, 28.0f},
+                        {onX, y, LeverWidth, LeverHeight},
                         {0, 0, 0, 0},
                         false,
                         1.0f,
-                        ""});
+                        "",
+                        "OFF",
+                        "ON"});
+    controls.push_back({prefix + "_quality",
+                        Widget::QualityLever,
+                        "",
+                        {qualityX, y, LeverWidth, LeverHeight},
+                        {0, 0, 0, 0},
+                        false,
+                        0.0f,
+                        "",
+                        "LITE",
+                        "FULL"});
   }
 
   const float bypassCentreY = PedalHeight - 24.0f;
@@ -184,24 +174,19 @@ std::vector<Control> buildControls()
                       {0, 0, 0, 0},
                       false,
                       1.0f,
+                      "",
+                      "",
                       ""});
   return controls;
 }
 
 std::vector<FileSlot> buildFileSlots()
 {
-  const float rightX = Pad + 220.0f + 160.0f;
-  const float rightW = PedalWidth - Pad - rightX;
-  const float loaderY0 = 94.0f;
-  const float loaderPitch = 77.0f;
-  const std::vector<std::string> parameters = {"nam1Model", "nam2Model", "cabinetIr"};
-
+  const std::array<std::string, 3> parameters = {"nam1Model", "nam2Model", "cabinetIr"};
   std::vector<FileSlot> slots;
   for (size_t i = 0; i < parameters.size(); ++i)
-  {
-    const float y = loaderY0 + static_cast<float>(i) * loaderPitch;
-    slots.push_back({parameters[i], {rightX + 2.0f, y + 31.0f, rightW - 4.0f, 30.0f}});
-  }
+    slots.push_back(
+        {parameters[i], {RightZoneX + 2.0f, FileLcdY[i], RightZoneWidth - 4.0f, LcdHeight}});
   return slots;
 }
 
@@ -242,12 +227,11 @@ int frameCount(Widget widget)
   switch (widget)
   {
     case Widget::Knob:
-    case Widget::Trim:
       return KnobFrames;
     case Widget::ModeKnob:
       return 4;
-    case Widget::Solo:
     case Widget::Toggle:
+    case Widget::QualityLever:
     case Widget::Bypass:
       return 2;
   }
@@ -256,9 +240,7 @@ int frameCount(Widget widget)
 
 float frameMargin(Widget widget)
 {
-  return (widget == Widget::Solo || widget == Widget::Toggle || widget == Widget::Bypass)
-             ? ButtonMargin
-             : 0.0f;
+  return widget == Widget::Knob || widget == Widget::ModeKnob ? 0.0f : ButtonMargin;
 }
 
 void paintWidgetFrame(OctoberLookAndFeel& lookAndFeel, const Control& control, int frame,
@@ -274,7 +256,6 @@ void paintWidgetFrame(OctoberLookAndFeel& lookAndFeel, const Control& control, i
   {
     case Widget::Knob:
     case Widget::ModeKnob:
-    case Widget::Trim:
     {
       juce::Slider slider;
       slider.setLookAndFeel(&lookAndFeel);
@@ -287,23 +268,13 @@ void paintWidgetFrame(OctoberLookAndFeel& lookAndFeel, const Control& control, i
       slider.setLookAndFeel(nullptr);
       break;
     }
-    case Widget::Solo:
-    {
-      juce::TextButton button("S");
-      button.setLookAndFeel(&lookAndFeel);
-      button.setClickingTogglesState(true);
-      button.setToggleState(frame == 1, juce::dontSendNotification);
-      button.setBounds(0, 0, width, height);
-      paintComponentInto(image, button, originX + marginX, originY + marginY, scaleX, scaleY);
-      button.setLookAndFeel(nullptr);
-      break;
-    }
     case Widget::Toggle:
+    case Widget::QualityLever:
     case Widget::Bypass:
     {
       juce::ToggleButton button(control.widget == Widget::Bypass ? control.label : "");
       button.setLookAndFeel(&lookAndFeel);
-      if (control.widget == Widget::Toggle)
+      if (control.widget != Widget::Bypass)
         button.setComponentID("metalToggle");
       button.setToggleState(frame == 1, juce::dontSendNotification);
       button.setBounds(0, 0, width, height);
@@ -322,11 +293,8 @@ std::string spriteName(Widget widget)
       return "knob.png";
     case Widget::ModeKnob:
       return "knob-mode.png";
-    case Widget::Trim:
-      return "knob-trim.png";
-    case Widget::Solo:
-      return "solo.png";
     case Widget::Toggle:
+    case Widget::QualityLever:
       return "toggle.png";
     case Widget::Bypass:
       return "bypass.png";
@@ -413,6 +381,9 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
   const juce::Font labelFont(
       juce::FontOptions(lookAndFeel.getTypefaceForFont(juce::Font(juce::FontOptions(15.0f))))
           .withHeight(15.0f));
+  const juce::Font leverLabelFont(
+      juce::FontOptions(lookAndFeel.getTypefaceForFont(juce::Font(juce::FontOptions(11.0f))))
+          .withHeight(11.0f));
   for (const auto& control : controls)
   {
     if (!control.label.empty() && control.widget != Widget::Bypass)
@@ -420,6 +391,16 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
                juce::Justification::centred);
     if (control.hasValue)
       drawLCDBackground(g, valueBox(control));
+
+    const auto& box = control.widgetBox;
+    if (!control.leftLabel.empty())
+      drawText(g, control.leftLabel,
+               {box.x - LeverLabelGap - LeverLabelWidth, box.y, LeverLabelWidth, box.h},
+               leverLabelFont, LabelColour, juce::Justification::centredRight);
+    if (!control.rightLabel.empty())
+      drawText(g, control.rightLabel,
+               {box.x + box.w + LeverLabelGap, box.y, LeverLabelWidth, box.h}, leverLabelFont,
+               LabelColour, juce::Justification::centredLeft);
   }
 
   for (const auto& slot : fileSlots)
@@ -535,7 +516,12 @@ std::string generateStylesheet(const std::vector<Control>& controls,
            spriteName(control.widget) + "{{{ns}}});\n    background-size: " + stripW + " " +
            frameH + ";\n}\n\n";
 
-    if (frames == 2)
+    if (control.widget == Widget::QualityLever)
+    {
+      css += selector + " {\n    background-position: 0 0;\n}\n\n";
+      css += selector + ".opc-full {\n    background-position: -" + frameW + " 0;\n}\n\n";
+    }
+    else if (frames == 2)
     {
       const std::string active = control.widget == Widget::Bypass ? ".off" : ".on";
       const std::string inactive = control.widget == Widget::Bypass ? ".on" : ".off";
@@ -596,9 +582,11 @@ std::string widgetRoleAttributes(const Control& control)
 {
   if (control.widget == Widget::Bypass)
     return "mod-role=\"bypass\"";
+  if (control.widget == Widget::QualityLever)
+    return "opc-quality-symbol=\"" + control.symbol + "\"";
   std::string attributes =
       "mod-role=\"input-control-port\" mod-port-symbol=\"" + control.symbol + "\"";
-  if (control.widget == Widget::Solo || control.widget == Widget::Toggle)
+  if (control.widget == Widget::Toggle)
     attributes += " mod-widget=\"switch\"";
   return attributes;
 }
@@ -722,12 +710,12 @@ int main(int argc, char** argv)
   const auto fileSlots = buildFileSlots();
   bool ok = true;
 
-  std::vector<Widget> rendered;
+  std::vector<std::string> rendered;
   for (const auto& control : controls)
   {
-    if (std::find(rendered.begin(), rendered.end(), control.widget) != rendered.end())
+    if (std::find(rendered.begin(), rendered.end(), spriteName(control.widget)) != rendered.end())
       continue;
-    rendered.push_back(control.widget);
+    rendered.push_back(spriteName(control.widget));
     ok &= writePng(renderSprite(lookAndFeel, control),
                    outputDirectory.getChildFile(spriteName(control.widget)));
   }
