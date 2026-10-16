@@ -60,6 +60,7 @@ def check_layout(page: Page):
                       "high-input-gain", "high-blend", "high-output-gain",
                       "nam1-on", "nam2-on", "nam1-quality", "nam2-quality", "bypass"]:
         check(f"widget {css_class} visible", widget(page, css_class).is_visible())
+    check("no version text on the pedal", page.locator(f"{PEDAL} .opc-version").count() == 0)
     for css_class in ["low-solo", "high-solo"]:
         check(f"no {css_class} button on the pedal", widget(page, css_class).count() == 0)
     for parameter in ["nam1Model", "nam2Model", "cabinetIr"]:

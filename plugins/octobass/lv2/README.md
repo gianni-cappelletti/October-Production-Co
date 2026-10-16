@@ -32,7 +32,7 @@ Native LV2 wrapper around `octobass-core` for MOD Audio devices (Dwarf, Duo X) a
 - Each NAM slot has a LITE/FULL lever to the right of its LCD. It shows FULL at quality >= 50% and sets quality to 0% or 100% when clicked.
 - Saved state stores file paths through `state:mapPath`.
 - LV2 versions have no major field, and hosts treat an odd minor or micro version as a development build (mod-ui labels it Testing). The encoding keeps every release even and increasing. MINOR must stay below 100.
-- The version is written into `manifest.ttl` and `modgui/icon.html` from their `.in` templates when the bundle is assembled.
+- The version is written into `manifest.ttl` from `manifest.ttl.in` when the bundle is assembled.
 
 ## Build
 

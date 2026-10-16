@@ -30,18 +30,6 @@
     z-index: 20;
 }
 
-.mod-pedal-octobass .opc-version {
-    position: absolute;
-    left: 41.6px;
-    top: 486.85px;
-    width: 143px;
-    height: 13px;
-    font-family: 'Courier New', monospace !important;
-    font-size: 10.4px;
-    line-height: 13px;
-    color: #555555;
-}
-
 .mod-pedal-octobass .opc-value {
     position: absolute;
     font-family: 'OPC LCD', monospace !important;

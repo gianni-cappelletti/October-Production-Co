@@ -51,8 +51,6 @@ constexpr float FileLcdX = RightZoneX + 2.0f;
 constexpr float FileLcdWidth = QualityLeverX - LeverLabelGap - LeverLabelWidth - 8.0f - FileLcdX;
 constexpr float ButtonMargin = 8.0f;
 constexpr int KnobFrames = 65;
-constexpr float FooterCornerCentreY = PedalHeight - 15.5f;
-constexpr float VersionTextY = FooterCornerCentreY - 5.0f;
 constexpr float LogoHeight = 56.0f;
 constexpr float LogoCentreX = Pad + 161.0f;
 constexpr float LogoCentreY = Row2Y + LabelHeight + KnobHeight * 0.5f;
@@ -599,11 +597,6 @@ std::string generateStylesheet(const std::vector<Control>& controls,
   css += pedal +
          " .opc-widget {\n    position: absolute;\n    cursor: pointer;\n"
          "    background-repeat: no-repeat;\n    z-index: 20;\n}\n\n";
-  css += pedal + " .opc-version {\n    position: absolute;\n    left: " + px(32.0f) +
-         ";\n    top: " + px(VersionTextY) + ";\n    width: " + px(110.0f) +
-         ";\n    height: " + px(10.0f) +
-         ";\n    font-family: 'Courier New', monospace !important;\n    font-size: " + px(8.0f) +
-         ";\n    line-height: " + px(10.0f) + ";\n    color: #555555;\n}\n\n";
   css +=
       pedal +
       " .opc-value {\n    position: absolute;\n    font-family: 'OPC LCD', monospace !important;\n"
@@ -711,7 +704,6 @@ std::string generateTemplate(const std::vector<Control>& controls)
 {
   std::string html = std::string("<div class=\"mod-pedal ") + PedalClass + "\">\n";
   html += "    <div mod-role=\"drag-handle\" class=\"mod-drag-handle\"></div>\n";
-  html += "    <div class=\"opc-version\">v@OPC_VERSION_FULL@</div>\n";
 
   for (const auto& control : controls)
   {
@@ -851,7 +843,7 @@ int main(int argc, char** argv)
 
   ok &= writeText(generateStylesheet(controls, fileSlots),
                   outputDirectory.getChildFile("stylesheet.css"));
-  ok &= writeText(generateTemplate(controls), outputDirectory.getChildFile("icon.html.in"));
+  ok &= writeText(generateTemplate(controls), outputDirectory.getChildFile("icon.html"));
   ok &= writeBinary(BinaryData::PressStart2PRegular_ttf, BinaryData::PressStart2PRegular_ttfSize,
                     outputDirectory.getChildFile("PressStart2P-Regular.ttf"));
 

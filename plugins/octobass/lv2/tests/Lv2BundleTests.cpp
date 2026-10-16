@@ -45,17 +45,6 @@ TEST(Lv2Bundle, ManifestAdvertisesMonorepoVersionAsStableLv2Version)
   EXPECT_EQ(pluginTtl.find("lv2:microVersion"), std::string::npos);
 }
 
-TEST(Lv2Bundle, PedalFaceplateShowsMonorepoVersion)
-{
-  std::string version = readFile(MONOREPO_VERSION_FILE);
-  version.erase(version.find_last_not_of(" \n\r\t") + 1);
-
-  const std::string icon = readFile(std::string(LV2_BUNDLE_BUILD_DIR) + "/modgui/icon.html");
-  ASSERT_FALSE(icon.empty());
-  EXPECT_NE(icon.find(">v" + version + "<"), std::string::npos) << icon;
-  EXPECT_FALSE(readFile(std::string(LV2_BUNDLE_BUILD_DIR) + "/modgui/icon.html.in").size() > 0);
-}
-
 TEST(Lv2Bundle, CommittedPluginTtlMatchesPortTable)
 {
   const std::string committed = readFile(std::string(LV2_BUNDLE_SOURCE_DIR) + "/octobass.ttl");

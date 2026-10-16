@@ -54,8 +54,6 @@ message(STATUS "OctoBASS LV2 version ${OCTOBASS_LV2_MINOR_VERSION}.${OCTOBASS_LV
 set(OCTOBASS_LV2_BINARY "octobass${CMAKE_SHARED_MODULE_SUFFIX}")
 configure_file(${OCTOBASS_LV2_BUNDLE_SOURCE_DIR}/manifest.ttl.in
                ${OCTOBASS_LV2_BUNDLE_DIR}/manifest.ttl @ONLY)
-configure_file(${OCTOBASS_LV2_BUNDLE_SOURCE_DIR}/modgui/icon.html.in
-               ${CMAKE_CURRENT_BINARY_DIR}/modgui-icon.html @ONLY)
 
 add_custom_target(octobass-lv2-bundle ALL
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -66,10 +64,6 @@ add_custom_target(octobass-lv2-bundle ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${OCTOBASS_LV2_BUNDLE_SOURCE_DIR}/modgui
             ${OCTOBASS_LV2_BUNDLE_DIR}/modgui
-    COMMAND ${CMAKE_COMMAND} -E rm -f ${OCTOBASS_LV2_BUNDLE_DIR}/modgui/icon.html.in
-    COMMAND ${CMAKE_COMMAND} -E copy
-            ${CMAKE_CURRENT_BINARY_DIR}/modgui-icon.html
-            ${OCTOBASS_LV2_BUNDLE_DIR}/modgui/icon.html
     DEPENDS octobass-lv2
     COMMENT "Assembling OctoBASS.lv2 bundle"
 )
