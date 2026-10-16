@@ -18,7 +18,8 @@ constexpr float RenderScale = 2.0f;
 constexpr float DisplayScale = 1.3f;
 constexpr float PixelScale = RenderScale * DisplayScale;
 constexpr float PedalWidth = 760.0f;
-constexpr float PedalHeight = 360.0f;
+constexpr float PedalHeight = 450.0f;
+constexpr float DividerY = 360.0f;
 constexpr float Pad = 15.0f;
 constexpr float LineSlope = 86.4f / 540.0f;
 constexpr float LeftLineTopX = 265.6f;
@@ -37,6 +38,12 @@ constexpr float LeverHeight = 28.0f;
 constexpr float LeverLabelWidth = 26.0f;
 constexpr float LeverLabelGap = 2.0f;
 constexpr float LcdHeight = 30.0f;
+constexpr float FootswitchWidth = 56.0f;
+constexpr float FootswitchHeight = 64.0f;
+constexpr float FootswitchSpacing = 100.0f;
+constexpr float FootswitchRowCentreX = 380.0f;
+constexpr float FootswitchLabelY = DividerY + 6.0f;
+constexpr float FootswitchY = FootswitchLabelY + LabelHeight;
 constexpr std::array<float, 2> LeverRowY{{143.0f, 212.0f}};
 constexpr std::array<float, 3> FileLcdY{{174.0f, 243.0f, 281.0f}};
 constexpr float ButtonMargin = 8.0f;
@@ -53,7 +60,7 @@ enum class Widget
 {
   Knob,
   ModeKnob,
-  Toggle,
+  Footswitch,
   QualityLever,
   Bypass,
 };
@@ -137,22 +144,10 @@ std::vector<Control> buildControls()
 
   const float zoneRight = RightZoneX + RightZoneWidth;
   const float qualityX = zoneRight - LeverLabelWidth - LeverLabelGap - LeverWidth;
-  const float onX = qualityX - 2.0f * (LeverLabelWidth + LeverLabelGap) - 12.0f - LeverWidth;
   for (int slot = 0; slot < 2; ++slot)
   {
     const float y = LeverRowY[static_cast<size_t>(slot)];
-    const std::string prefix = "nam" + std::to_string(slot + 1);
-    controls.push_back({prefix + "_on",
-                        Widget::Toggle,
-                        "",
-                        {onX, y, LeverWidth, LeverHeight},
-                        {0, 0, 0, 0},
-                        false,
-                        1.0f,
-                        "",
-                        "OFF",
-                        "ON"});
-    controls.push_back({prefix + "_quality",
+    controls.push_back({"nam" + std::to_string(slot + 1) + "_quality",
                         Widget::QualityLever,
                         "",
                         {qualityX, y, LeverWidth, LeverHeight},
@@ -164,19 +159,22 @@ std::vector<Control> buildControls()
                         "FULL"});
   }
 
-  const float bypassCentreY = PedalHeight - 24.0f;
-  const float bypassCentreX =
-      (lineXAtY(LeftLineTopX, bypassCentreY) + lineXAtY(RightLineTopX, bypassCentreY)) * 0.5f;
-  controls.push_back({":bypass",
-                      Widget::Bypass,
-                      "ON",
-                      {bypassCentreX - 32.0f, bypassCentreY - 14.0f, 64.0f, 28.0f},
-                      {0, 0, 0, 0},
-                      false,
-                      1.0f,
-                      "",
-                      "",
-                      ""});
+  const std::array<std::pair<std::string, std::string>, 3> footswitches = {
+      {{":bypass", "BYPASS"}, {"nam1_on", "NAM 1"}, {"nam2_on", "NAM 2"}}};
+  for (size_t i = 0; i < footswitches.size(); ++i)
+  {
+    const float centreX = FootswitchRowCentreX + (static_cast<float>(i) - 1.0f) * FootswitchSpacing;
+    const auto& [symbol, label] = footswitches[i];
+    controls.push_back(
+        {symbol,
+         symbol == ":bypass" ? Widget::Bypass : Widget::Footswitch,
+         label,
+         {centreX - FootswitchWidth * 0.5f, FootswitchY, FootswitchWidth, FootswitchHeight},
+         {centreX - FootswitchSpacing * 0.5f, FootswitchLabelY, FootswitchSpacing, LabelHeight},
+         false,
+         1.0f,
+         ""});
+  }
   return controls;
 }
 
@@ -230,7 +228,7 @@ int frameCount(Widget widget)
       return KnobFrames;
     case Widget::ModeKnob:
       return 4;
-    case Widget::Toggle:
+    case Widget::Footswitch:
     case Widget::QualityLever:
     case Widget::Bypass:
       return 2;
@@ -241,6 +239,61 @@ int frameCount(Widget widget)
 float frameMargin(Widget widget)
 {
   return widget == Widget::Knob || widget == Widget::ModeKnob ? 0.0f : ButtonMargin;
+}
+
+void drawFootswitch(juce::Graphics& g, juce::Rectangle<float> bounds, bool lit)
+{
+  const juce::Colour ledColour(0xffe07030);
+  const float ledRadius = 5.0f;
+  const juce::Point<float> led(bounds.getCentreX(), bounds.getY() + ledRadius + 2.0f);
+  if (lit)
+  {
+    juce::ColourGradient glow(ledColour.withAlpha(0.35f), led, ledColour.withAlpha(0.0f),
+                              led.translated(ledRadius * 3.0f, 0.0f), true);
+    g.setGradientFill(glow);
+    g.fillEllipse(juce::Rectangle<float>(ledRadius * 6.0f, ledRadius * 6.0f).withCentre(led));
+    juce::ColourGradient body(juce::Colour(0xffffb060), led.translated(-1.5f, -1.5f),
+                              ledColour.darker(0.25f), led.translated(ledRadius, ledRadius), true);
+    g.setGradientFill(body);
+  }
+  else
+  {
+    g.setColour(ledColour.withSaturation(0.25f).withBrightness(0.12f));
+  }
+  const auto ledBounds = juce::Rectangle<float>(ledRadius * 2.0f, ledRadius * 2.0f).withCentre(led);
+  g.fillEllipse(ledBounds);
+  g.setColour(juce::Colour(0xff1a1a1a));
+  g.drawEllipse(ledBounds, 1.0f);
+
+  const float outerRadius = 22.0f;
+  const juce::Point<float> centre(bounds.getCentreX(), bounds.getBottom() - outerRadius - 2.0f);
+  const auto circle = [&centre](float radius)
+  { return juce::Rectangle<float>(radius * 2.0f, radius * 2.0f).withCentre(centre); };
+
+  g.setColour(juce::Colours::black.withAlpha(0.25f));
+  g.fillEllipse(circle(outerRadius).translated(0.5f, 2.0f));
+
+  juce::ColourGradient nut(juce::Colour(0xffABA9A9), centre.x, centre.y - outerRadius,
+                           juce::Colour(0xff7d7d7d), centre.x, centre.y + outerRadius, false);
+  g.setGradientFill(nut);
+  g.fillEllipse(circle(outerRadius));
+  g.setColour(juce::Colour(0xff4a4a4a));
+  g.drawEllipse(circle(outerRadius), 1.0f);
+
+  const float capRadius = 16.0f;
+  juce::ColourGradient cap(
+      juce::Colour(0xfffafafa), centre.translated(-capRadius * 0.3f, -capRadius * 0.35f),
+      juce::Colour(0xff8c8c8c), centre.translated(capRadius * 0.5f, capRadius * 0.55f), true);
+  g.setGradientFill(cap);
+  g.fillEllipse(circle(capRadius));
+  g.setColour(juce::Colour(0xff888888));
+  g.drawEllipse(circle(capRadius), 1.0f);
+
+  const float dimpleRadius = 6.0f;
+  juce::ColourGradient dimple(juce::Colour(0xffb8b8b8), centre.x, centre.y - dimpleRadius,
+                              juce::Colour(0xffeeeeee), centre.x, centre.y + dimpleRadius, false);
+  g.setGradientFill(dimple);
+  g.fillEllipse(circle(dimpleRadius));
 }
 
 void paintWidgetFrame(OctoberLookAndFeel& lookAndFeel, const Control& control, int frame,
@@ -268,14 +321,20 @@ void paintWidgetFrame(OctoberLookAndFeel& lookAndFeel, const Control& control, i
       slider.setLookAndFeel(nullptr);
       break;
     }
-    case Widget::Toggle:
-    case Widget::QualityLever:
+    case Widget::Footswitch:
     case Widget::Bypass:
     {
-      juce::ToggleButton button(control.widget == Widget::Bypass ? control.label : "");
+      juce::Graphics g(image);
+      g.addTransform(juce::AffineTransform::scale(scaleX, scaleY)
+                         .translated(originX + marginX, originY + marginY));
+      drawFootswitch(g, {0.0f, 0.0f, box.w, box.h}, frame == 1);
+      break;
+    }
+    case Widget::QualityLever:
+    {
+      juce::ToggleButton button;
       button.setLookAndFeel(&lookAndFeel);
-      if (control.widget != Widget::Bypass)
-        button.setComponentID("metalToggle");
+      button.setComponentID("metalToggle");
       button.setToggleState(frame == 1, juce::dontSendNotification);
       button.setBounds(0, 0, width, height);
       paintComponentInto(image, button, originX + marginX, originY + marginY, scaleX, scaleY);
@@ -293,11 +352,11 @@ std::string spriteName(Widget widget)
       return "knob.png";
     case Widget::ModeKnob:
       return "knob-mode.png";
-    case Widget::Toggle:
     case Widget::QualityLever:
       return "toggle.png";
+    case Widget::Footswitch:
     case Widget::Bypass:
-      return "bypass.png";
+      return "footswitch.png";
   }
   return {};
 }
@@ -375,8 +434,9 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
   drawPanelScrew(g, screwX2, screwBottomY);
 
   g.setColour(LineColour);
-  g.drawLine(LeftLineTopX, 0.0f, lineXAtY(LeftLineTopX, PedalHeight), PedalHeight, 3.0f);
-  g.drawLine(RightLineTopX, 0.0f, lineXAtY(RightLineTopX, PedalHeight), PedalHeight, 3.0f);
+  g.drawLine(LeftLineTopX, 0.0f, lineXAtY(LeftLineTopX, DividerY), DividerY, 3.0f);
+  g.drawLine(RightLineTopX, 0.0f, lineXAtY(RightLineTopX, DividerY), DividerY, 3.0f);
+  g.drawLine(0.0f, DividerY, PedalWidth, DividerY, 3.0f);
 
   const juce::Font labelFont(
       juce::FontOptions(lookAndFeel.getTypefaceForFont(juce::Font(juce::FontOptions(15.0f))))
@@ -386,7 +446,7 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
           .withHeight(11.0f));
   for (const auto& control : controls)
   {
-    if (!control.label.empty() && control.widget != Widget::Bypass)
+    if (!control.label.empty())
       drawText(g, control.label, control.labelBox, labelFont, LabelColour,
                juce::Justification::centred);
     if (control.hasValue)
@@ -586,7 +646,7 @@ std::string widgetRoleAttributes(const Control& control)
     return "opc-quality-symbol=\"" + control.symbol + "\"";
   std::string attributes =
       "mod-role=\"input-control-port\" mod-port-symbol=\"" + control.symbol + "\"";
-  if (control.widget == Widget::Toggle)
+  if (control.widget == Widget::Footswitch)
     attributes += " mod-widget=\"switch\"";
   return attributes;
 }

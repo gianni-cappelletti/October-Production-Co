@@ -6,9 +6,9 @@
 .mod-pedal-octobass {
     position: absolute;
     width: 988px;
-    height: 468px;
+    height: 585px;
     background-image: url(/resources/background.png{{{ns}}});
-    background-size: 988px 468px;
+    background-size: 988px 585px;
     background-repeat: no-repeat;
     border-radius: 3.9px;
 }
@@ -33,7 +33,7 @@
 .mod-pedal-octobass .opc-version {
     position: absolute;
     left: 41.6px;
-    top: 441.35px;
+    top: 558.35px;
     width: 143px;
     height: 13px;
     font-family: 'Courier New', monospace !important;
@@ -182,23 +182,6 @@
     height: 28.6px;
 }
 
-.mod-pedal-octobass .opc-nam1-on {
-    left: 718.9px;
-    top: 175.5px;
-    width: 78px;
-    height: 57px;
-    background-image: url(/resources/toggle.png{{{ns}}});
-    background-size: 156px 57px;
-}
-
-.mod-pedal-octobass .opc-nam1-on.off {
-    background-position: 0 0;
-}
-
-.mod-pedal-octobass .opc-nam1-on.on {
-    background-position: -78px 0;
-}
-
 .mod-pedal-octobass .opc-nam1-quality {
     left: 864.5px;
     top: 175.5px;
@@ -213,23 +196,6 @@
 }
 
 .mod-pedal-octobass .opc-nam1-quality.opc-full {
-    background-position: -78px 0;
-}
-
-.mod-pedal-octobass .opc-nam2-on {
-    left: 718.9px;
-    top: 265.2px;
-    width: 78px;
-    height: 57px;
-    background-image: url(/resources/toggle.png{{{ns}}});
-    background-size: 156px 57px;
-}
-
-.mod-pedal-octobass .opc-nam2-on.off {
-    background-position: 0 0;
-}
-
-.mod-pedal-octobass .opc-nam2-on.on {
     background-position: -78px 0;
 }
 
@@ -251,12 +217,12 @@
 }
 
 .mod-pedal-octobass .opc-bypass {
-    left: 314.39px;
-    top: 408.2px;
-    width: 104px;
-    height: 57px;
-    background-image: url(/resources/bypass.png{{{ns}}});
-    background-size: 208px 57px;
+    left: 317.2px;
+    top: 486.2px;
+    width: 94px;
+    height: 104px;
+    background-image: url(/resources/footswitch.png{{{ns}}});
+    background-size: 188px 104px;
 }
 
 .mod-pedal-octobass .opc-bypass.on {
@@ -264,7 +230,41 @@
 }
 
 .mod-pedal-octobass .opc-bypass.off {
-    background-position: -104px 0;
+    background-position: -94px 0;
+}
+
+.mod-pedal-octobass .opc-nam1-on {
+    left: 447.2px;
+    top: 486.2px;
+    width: 94px;
+    height: 104px;
+    background-image: url(/resources/footswitch.png{{{ns}}});
+    background-size: 188px 104px;
+}
+
+.mod-pedal-octobass .opc-nam1-on.off {
+    background-position: 0 0;
+}
+
+.mod-pedal-octobass .opc-nam1-on.on {
+    background-position: -94px 0;
+}
+
+.mod-pedal-octobass .opc-nam2-on {
+    left: 577.2px;
+    top: 486.2px;
+    width: 94px;
+    height: 104px;
+    background-image: url(/resources/footswitch.png{{{ns}}});
+    background-size: 188px 104px;
+}
+
+.mod-pedal-octobass .opc-nam2-on.off {
+    background-position: 0 0;
+}
+
+.mod-pedal-octobass .opc-nam2-on.on {
+    background-position: -94px 0;
 }
 
 .mod-pedal-octobass .opc-file[mod-parameter-uri$="#nam1Model"] {

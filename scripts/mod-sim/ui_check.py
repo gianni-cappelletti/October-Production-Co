@@ -143,11 +143,35 @@ def check_quality_levers(page: Page):
               " ".join(classes(lever)))
 
 
+DIVIDER_Y_CSS = 360 * 1.3
+
+
+def check_power_row(page: Page):
+    positions = page.evaluate(
+        """() => ['bypass', 'nam1-on', 'nam2-on'].map(c => {
+             const e = document.querySelector('.mod-pedal-octobass .opc-' + c);
+             return [e.offsetLeft, e.offsetTop, e.offsetHeight];
+           })""")
+    for name, (left, top, height) in zip(["bypass", "nam1-on", "nam2-on"], positions):
+        check(f"{name} sits below the divider", top >= DIVIDER_Y_CSS, f"top={top}")
+    lefts = [left for left, _, _ in positions]
+    check("power row order is bypass, NAM 1, NAM 2", lefts == sorted(lefts), str(lefts))
+
+    for slot in ["nam1", "nam2"]:
+        lever = widget(page, f"{slot}-on")
+        lever.click()
+        page.wait_for_timeout(400)
+        check(f"{slot} power lever switches off", "off" in classes(lever), " ".join(classes(lever)))
+        lever.click()
+        page.wait_for_timeout(400)
+        check(f"{slot} power lever switches on", "on" in classes(lever), " ".join(classes(lever)))
+
+
 def check_pedal_size(page: Page):
     size = page.evaluate(
         """() => { const p = document.querySelector('.mod-pedal-octobass');
                    return [p.offsetWidth, p.offsetHeight]; }""")
-    check("pedal is scaled up", size[0] >= 950 and size[1] >= 440, f"{size[0]}x{size[1]}")
+    check("pedal is scaled up", size[0] >= 950 and size[1] >= 560, f"{size[0]}x{size[1]}")
 
 
 def list_visible(page: Page, parameter):
@@ -219,6 +243,7 @@ def main():
         check_pedal_size(page)
         check_right_zone(page)
         check_quality_levers(page)
+        check_power_row(page)
         check_sprite_frames(page)
         check_file_list_dismissal(page)
         check_bypass(page)
