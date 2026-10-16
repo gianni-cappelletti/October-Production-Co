@@ -2,6 +2,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <functional>
 #include <string>
@@ -161,7 +162,7 @@ std::vector<Control> buildControls()
   }
 
   const std::array<std::pair<std::string, std::string>, 3> footswitches = {
-      {{":bypass", "BYPASS"}, {"nam1_on", "NAM 1"}, {"nam2_on", "NAM 2"}}};
+      {{":bypass", "ON"}, {"nam1_on", "NAM 1"}, {"nam2_on", "NAM 2"}}};
   for (size_t i = 0; i < footswitches.size(); ++i)
   {
     const float centreX = FootswitchRowCentreX + (static_cast<float>(i) - 1.0f) * FootswitchSpacing;
@@ -265,35 +266,66 @@ void drawFootswitch(juce::Graphics& g, juce::Rectangle<float> bounds, bool lit)
   g.setColour(juce::Colour(0xff1a1a1a));
   g.drawEllipse(ledBounds, 1.0f);
 
-  const float outerRadius = 22.0f;
-  const juce::Point<float> centre(bounds.getCentreX(), bounds.getBottom() - outerRadius - 2.0f);
+  const float nutRadius = 24.0f;
+  const juce::Point<float> centre(bounds.getCentreX(), bounds.getBottom() - nutRadius - 2.0f);
+  const auto hexagon = [&centre](float radius)
+  {
+    juce::Path path;
+    for (int i = 0; i < 6; ++i)
+    {
+      const float angle = juce::MathConstants<float>::pi / 3.0f * static_cast<float>(i);
+      const juce::Point<float> vertex(centre.x + radius * std::cos(angle),
+                                      centre.y + radius * std::sin(angle));
+      if (i == 0)
+        path.startNewSubPath(vertex);
+      else
+        path.lineTo(vertex);
+    }
+    path.closeSubPath();
+    return path;
+  };
   const auto circle = [&centre](float radius)
   { return juce::Rectangle<float>(radius * 2.0f, radius * 2.0f).withCentre(centre); };
 
-  g.setColour(juce::Colours::black.withAlpha(0.25f));
-  g.fillEllipse(circle(outerRadius).translated(0.5f, 2.0f));
+  const auto nut = hexagon(nutRadius);
+  g.setColour(juce::Colours::black.withAlpha(0.28f));
+  g.fillPath(nut, juce::AffineTransform::translation(1.5f, 2.5f));
 
-  juce::ColourGradient nut(juce::Colour(0xffABA9A9), centre.x, centre.y - outerRadius,
-                           juce::Colour(0xff7d7d7d), centre.x, centre.y + outerRadius, false);
-  g.setGradientFill(nut);
-  g.fillEllipse(circle(outerRadius));
-  g.setColour(juce::Colour(0xff4a4a4a));
-  g.drawEllipse(circle(outerRadius), 1.0f);
+  juce::ColourGradient nutFill(juce::Colour(0xffe2e2e2), centre.x - nutRadius, centre.y - nutRadius,
+                               juce::Colour(0xff8e8e8e), centre.x + nutRadius, centre.y + nutRadius,
+                               false);
+  g.setGradientFill(nutFill);
+  g.fillPath(nut);
 
-  const float capRadius = 16.0f;
-  juce::ColourGradient cap(
-      juce::Colour(0xfffafafa), centre.translated(-capRadius * 0.3f, -capRadius * 0.35f),
-      juce::Colour(0xff8c8c8c), centre.translated(capRadius * 0.5f, capRadius * 0.55f), true);
-  g.setGradientFill(cap);
+  g.setColour(juce::Colours::white.withAlpha(0.55f));
+  g.strokePath(hexagon(nutRadius - 1.6f), juce::PathStrokeType(1.0f));
+  g.setColour(juce::Colour(0xff4e4e4e));
+  g.strokePath(nut, juce::PathStrokeType(1.2f));
+
+  const float rimRadius = 15.5f;
+  g.setColour(juce::Colours::black.withAlpha(0.3f));
+  g.fillEllipse(circle(rimRadius + 1.5f).translated(0.0f, 1.0f));
+  juce::ColourGradient rim(juce::Colour(0xff5a5a5a), centre.x, centre.y - rimRadius,
+                           juce::Colour(0xff2a2a2a), centre.x, centre.y + rimRadius, false);
+  g.setGradientFill(rim);
+  g.fillEllipse(circle(rimRadius));
+
+  const float capRadius = 13.5f;
+  juce::ColourGradient chrome(juce::Colour(0xfff2f2f2), centre.x, centre.y - capRadius,
+                              juce::Colour(0xfff6f6f6), centre.x, centre.y + capRadius, false);
+  chrome.addColour(0.30, juce::Colour(0xffc4c4c4));
+  chrome.addColour(0.52, juce::Colour(0xff8a8a8a));
+  chrome.addColour(0.62, juce::Colour(0xffa8a8a8));
+  chrome.addColour(0.85, juce::Colour(0xffdedede));
+  g.setGradientFill(chrome);
   g.fillEllipse(circle(capRadius));
-  g.setColour(juce::Colour(0xff888888));
-  g.drawEllipse(circle(capRadius), 1.0f);
 
-  const float dimpleRadius = 6.0f;
-  juce::ColourGradient dimple(juce::Colour(0xffb8b8b8), centre.x, centre.y - dimpleRadius,
-                              juce::Colour(0xffeeeeee), centre.x, centre.y + dimpleRadius, false);
-  g.setGradientFill(dimple);
-  g.fillEllipse(circle(dimpleRadius));
+  g.setColour(juce::Colours::white.withAlpha(0.35f));
+  g.fillEllipse(circle(capRadius)
+                    .withSizeKeepingCentre(capRadius * 1.3f, capRadius * 0.5f)
+                    .translated(0.0f, -capRadius * 0.55f));
+  g.setColour(juce::Colour(0xff6a6a6a));
+  g.drawEllipse(circle(capRadius), 0.8f);
 }
 
 void paintWidgetFrame(OctoberLookAndFeel& lookAndFeel, const Control& control, int frame,
