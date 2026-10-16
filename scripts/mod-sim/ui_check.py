@@ -192,14 +192,25 @@ def check_power_row(page: Page):
     lefts = [left for left, _, _ in positions]
     check("power row order is bypass, NAM 1, NAM 2", lefts == sorted(lefts), str(lefts))
 
+    lcd_parameter = {"nam1": "nam1Model", "nam2": "nam2Model"}
+    other = {"nam1": "nam2", "nam2": "nam1"}
+
+    def lcd_dimmed(slot):
+        return "opc-dim" in classes(file_picker(page, lcd_parameter[slot]))
+
     for slot in ["nam1", "nam2"]:
+        check(f"{slot} LCD is lit while the slot is on", not lcd_dimmed(slot))
         lever = widget(page, f"{slot}-on")
         lever.click()
         page.wait_for_timeout(400)
         check(f"{slot} power lever switches off", "off" in classes(lever), " ".join(classes(lever)))
+        check(f"{slot} LCD dims when the slot is off", lcd_dimmed(slot))
+        check(f"{other[slot]} LCD stays lit", not lcd_dimmed(other[slot]))
+        check("IR LCD never dims", "opc-dim" not in classes(file_picker(page, "cabinetIr")))
         lever.click()
         page.wait_for_timeout(400)
         check(f"{slot} power lever switches on", "on" in classes(lever), " ".join(classes(lever)))
+        check(f"{slot} LCD lights again when the slot is on", not lcd_dimmed(slot))
 
 
 def check_pedal_size(page: Page):

@@ -1,6 +1,17 @@
 function (event, funcs) {
     var qualityFullThreshold = 50;
 
+    var slotFileParameters = { nam1_on: 'nam1Model', nam2_on: 'nam2Model' };
+
+    var updateSlotLcd = function (symbol, value) {
+        var parameter = slotFileParameters[symbol];
+        if (parameter === undefined) {
+            return;
+        }
+        event.icon.find('.opc-file[mod-parameter-uri$="#' + parameter + '"]')
+            .toggleClass('opc-dim', value < 0.5);
+    };
+
     var updateQualityLever = function (symbol, value) {
         event.icon.find('[opc-quality-symbol="' + symbol + '"]')
             .toggleClass('opc-full', value >= qualityFullThreshold)
@@ -10,6 +21,7 @@ function (event, funcs) {
     if (event.type === 'start') {
         event.ports.forEach(function (port) {
             updateQualityLever(port.symbol, port.value);
+            updateSlotLcd(port.symbol, port.value);
         });
 
         event.icon.find('[opc-quality-symbol]').on('click', function (e) {
@@ -47,6 +59,7 @@ function (event, funcs) {
     }
 
     updateQualityLever(event.symbol, event.value);
+    updateSlotLcd(event.symbol, event.value);
 
     if (event.value < 0.5) {
         return;

@@ -489,9 +489,6 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
                LabelColour, juce::Justification::centredLeft);
   }
 
-  for (const auto& slot : fileSlots)
-    drawLCDBackground(g, {slot.lcdBox.x, slot.lcdBox.y, slot.lcdBox.w, slot.lcdBox.h});
-
   const auto logo =
       juce::ImageCache::getFromMemory(BinaryData::OctoberLogo_png, BinaryData::OctoberLogo_pngSize);
   if (logo.isValid())
@@ -500,6 +497,34 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
         LogoHeight * static_cast<float>(logo.getWidth()) / static_cast<float>(logo.getHeight());
     g.drawImage(logo,
                 juce::Rectangle<float>(logoW, LogoHeight).withCentre({LogoCentreX, LogoCentreY}));
+  }
+  return image;
+}
+
+int fileLcdCssWidth()
+{
+  return juce::roundToInt(FileLcdWidth * DisplayScale);
+}
+
+int fileLcdCssHeight()
+{
+  return juce::roundToInt(LcdHeight * DisplayScale);
+}
+
+juce::Image renderFileLcdSprite()
+{
+  const float framePixelWidth = static_cast<float>(fileLcdCssWidth()) * RenderScale;
+  const float framePixelHeight = static_cast<float>(fileLcdCssHeight()) * RenderScale;
+  juce::Image image(juce::Image::ARGB, juce::roundToInt(framePixelWidth) * 2,
+                    juce::roundToInt(framePixelHeight), true);
+  const std::array<juce::Colour, 2> backlights = {kLCDBacklightColour, kLCDDimBacklightColour};
+  for (size_t frame = 0; frame < backlights.size(); ++frame)
+  {
+    juce::Graphics g(image);
+    g.addTransform(
+        juce::AffineTransform::scale(framePixelWidth / FileLcdWidth, framePixelHeight / LcdHeight)
+            .translated(static_cast<float>(frame) * framePixelWidth, 0.0f));
+    drawLCDBackground(g, {0.0f, 0.0f, FileLcdWidth, LcdHeight}, backlights[frame]);
   }
   return image;
 }
@@ -531,6 +556,8 @@ juce::Image renderScreenshot(OctoberLookAndFeel& lookAndFeel, const juce::Image&
     }
 
   const juce::Font fileFont(juce::FontOptions(lookAndFeel.getLCDTypeface()).withHeight(10.0f));
+  for (const auto& slot : fileSlots)
+    drawLCDBackground(g, {slot.lcdBox.x, slot.lcdBox.y, slot.lcdBox.w, slot.lcdBox.h});
   for (const auto& slot : fileSlots)
     drawText(g, FilePlaceholder,
              {slot.lcdBox.x + 8.0f, slot.lcdBox.y, slot.lcdBox.w - 16.0f, slot.lcdBox.h}, fileFont,
@@ -633,10 +660,15 @@ std::string generateStylesheet(const std::vector<Control>& controls,
 
   css += pedal +
          " .opc-file {\n    position: absolute;\n    z-index: 30;\n"
+         "    background-image: url(/resources/lcd.png{{{ns}}});\n    background-size: " +
+         std::to_string(fileLcdCssWidth() * 2) + "px " + std::to_string(fileLcdCssHeight()) +
+         "px;\n    background-position: 0 0;\n    background-repeat: no-repeat;\n"
          "    font-family: 'OPC LCD', monospace !important;\n    font-size: " +
          px(10.0f) +
          ";\n    color: #1c1c30;\n"
          "    cursor: pointer;\n}\n\n";
+  css += pedal + " .opc-file.opc-dim {\n    background-position: -" +
+         std::to_string(fileLcdCssWidth()) + "px 0;\n}\n\n";
   css += pedal +
          " .opc-file .mod-enumerated-selected {\n    font-family: 'OPC LCD', monospace "
          "!important;\n    padding: 0 " +
@@ -806,6 +838,7 @@ int main(int argc, char** argv)
 
   const auto background = renderBackground(lookAndFeel, controls, fileSlots);
   ok &= writePng(background, outputDirectory.getChildFile("background.png"));
+  ok &= writePng(renderFileLcdSprite(), outputDirectory.getChildFile("lcd.png"));
 
   const auto screenshot = renderScreenshot(lookAndFeel, background, controls, fileSlots);
   ok &= writePng(screenshot.rescaled(juce::roundToInt(PedalWidth * DisplayScale),

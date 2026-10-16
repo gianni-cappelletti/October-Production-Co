@@ -291,10 +291,18 @@
 .mod-pedal-octobass .opc-file {
     position: absolute;
     z-index: 30;
+    background-image: url(/resources/lcd.png{{{ns}}});
+    background-size: 624px 39px;
+    background-position: 0 0;
+    background-repeat: no-repeat;
     font-family: 'OPC LCD', monospace !important;
     font-size: 13px;
     color: #1c1c30;
     cursor: pointer;
+}
+
+.mod-pedal-octobass .opc-file.opc-dim {
+    background-position: -312px 0;
 }
 
 .mod-pedal-octobass .opc-file .mod-enumerated-selected {
