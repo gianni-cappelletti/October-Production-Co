@@ -10,7 +10,6 @@
 
 #include "LCDPainting.h"
 #include "OctoberLookAndFeel.h"
-#include "PanelPainting.h"
 
 namespace
 {
@@ -41,7 +40,7 @@ constexpr float LeverLabelGap = 2.0f;
 constexpr float LcdHeight = 30.0f;
 constexpr float FootswitchWidth = 56.0f;
 constexpr float FootswitchHeight = 64.0f;
-constexpr float FootswitchSpacing = 100.0f;
+constexpr float FootswitchSpacing = 180.0f;
 constexpr float FootswitchRowCentreX = 380.0f;
 constexpr float FootswitchLabelY = DividerY + 6.0f;
 constexpr float FootswitchY = FootswitchLabelY + LabelHeight;
@@ -52,7 +51,9 @@ constexpr float FileLcdX = RightZoneX + 2.0f;
 constexpr float FileLcdWidth = QualityLeverX - LeverLabelGap - LeverLabelWidth - 8.0f - FileLcdX;
 constexpr float ButtonMargin = 8.0f;
 constexpr int KnobFrames = 65;
-constexpr float VersionTextY = PedalHeight - 15.5f - 5.0f;
+constexpr float FooterCornerCentreY = PedalHeight - 15.5f;
+constexpr float VersionTextY = FooterCornerCentreY - 5.0f;
+constexpr float LogoCentreX = PedalWidth * 0.9f - 4.0f;
 constexpr const char* PedalClass = "mod-pedal-octobass";
 constexpr const char* FilePlaceholder = "-- choose a file --";
 
@@ -456,15 +457,6 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
   g.setColour(juce::Colours::black.withAlpha(0.06f));
   g.drawRoundedRectangle(bounds.reduced(2.5f), cornerRadius, 1.0f);
 
-  const float screwX1 = PedalWidth / 5.0f;
-  const float screwX2 = PedalWidth * 4.0f / 5.0f;
-  const float screwTopY = 15.5f;
-  const float screwBottomY = PedalHeight - 15.5f;
-  drawPanelScrew(g, screwX1, screwTopY);
-  drawPanelScrew(g, screwX2, screwTopY);
-  drawPanelScrew(g, screwX1, screwBottomY);
-  drawPanelScrew(g, screwX2, screwBottomY);
-
   g.setColour(LineColour);
   g.drawLine(LeftLineTopX, 0.0f, lineXAtY(LeftLineTopX, DividerY), DividerY, 3.0f);
   g.drawLine(RightLineTopX, 0.0f, lineXAtY(RightLineTopX, DividerY), DividerY, 3.0f);
@@ -505,8 +497,8 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
     const float logoH = 40.0f;
     const float logoW =
         logoH * static_cast<float>(logo.getWidth()) / static_cast<float>(logo.getHeight());
-    const float logoX = (screwX2 + PedalWidth) * 0.5f - logoW * 0.5f - 4.0f;
-    const float logoY = screwBottomY - logoH * 0.5f - 2.0f;
+    const float logoX = LogoCentreX - logoW * 0.5f;
+    const float logoY = FooterCornerCentreY - logoH * 0.5f - 2.0f;
     g.drawImage(logo, {logoX, logoY, logoW, logoH});
   }
   return image;
