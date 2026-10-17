@@ -23,7 +23,7 @@ Native LV2 wrapper around `octobass-core` for MOD Audio devices (Dwarf, Duo X) a
 | Required features | `urid:map`, `work:schedule` |
 | Extensions | `work:interface`, `state:interface` |
 | NAM quality | 0-100%, default 49%. Below 50% selects the slim submodel of slimmable (A2) models; 50% and above selects the full-size submodel |
-| Version | Generated from `VERSION`: `lv2:minorVersion` = 2 x (MAJOR x 100 + MINOR), `lv2:microVersion` = 2 x PATCH (2.3.0 is 406.0) |
+| Version | Generated from `VERSION`: `lv2:minorVersion` = 2 x (MAJOR x 100 + MINOR), `lv2:microVersion` = 2 x PATCH (2.4.0 is 408.0) |
 
 - Percent ports use 0-100; the core receives 0-1.
 - The graphic EQ is not exposed. Its low cut (20 Hz) and high cut (20 kHz) are always on, matching the JUCE defaults; the 16 nodes are off.
