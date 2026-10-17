@@ -10,6 +10,7 @@
 #include "Compressor.hpp"
 #include "Crossover.hpp"
 #include "GraphicEQ.hpp"
+#include "LinearSmoother.hpp"
 #include "NamProcessor.hpp"
 #include "NoiseGate.hpp"
 #include "Types.hpp"
@@ -93,9 +94,9 @@ class BassProcessor
   float getHighInputGain() const { return highInputGainDb_; }
   float getHighOutputGain() const { return highOutputGainDb_; }
   float getOutputGain() const { return outputGainDb_; }
-  float getDryWetMix() const { return dryWetMix_; }
+  float getDryWetMix() const { return dryWetMix_.target(); }
   float getGateThreshold() const { return noiseGate_.getThresholdDb(); }
-  float getHighBandMix() const { return highBandMix_; }
+  float getHighBandMix() const { return highBandMix_.target(); }
   bool getLowBandSolo() const { return lowBandSolo_; }
   bool getHighBandSolo() const { return highBandSolo_; }
 
@@ -132,8 +133,6 @@ class BassProcessor
   float highInputGainDb_;
   float highOutputGainDb_;
   float outputGainDb_;
-  float dryWetMix_;
-  float highBandMix_;
   bool lowBandSolo_;
   bool highBandSolo_;
 
@@ -141,10 +140,13 @@ class BassProcessor
   float currentMakeupLinear_;
   float makeupSmoothCoeff_;
 
-  float lowBandLevelLinear_;
-  float highInputGainLinear_;
-  float highOutputGainLinear_;
-  float outputGainLinear_;
+  LinearSmoother lowBandLevelGain_;
+  LinearSmoother highInputGain_;
+  LinearSmoother highOutputGain_;
+  LinearSmoother outputGain_;
+  LinearSmoother dryWetMix_;
+  LinearSmoother highBandMix_;
+  bool snapSmoothersOnNextBlock_ = true;
 
   mutable std::mutex irPathMutex_;
   std::string currentIRPath_;
@@ -153,6 +155,12 @@ class BassProcessor
   const NamProcessor& namSlot(NamSlot slot) const { return namSlots_[slotIndex(slot)]; }
   static size_t slotIndex(NamSlot slot) { return static_cast<size_t>(slot); }
   void setCurrentIRPath(std::string path);
+  void snapSmoothersIfPending();
+  std::array<LinearSmoother*, 6> levelSmoothers()
+  {
+    return {&lowBandLevelGain_, &highInputGain_, &highOutputGain_,
+            &outputGain_,       &dryWetMix_,     &highBandMix_};
+  }
 
   void stageDelayBuffer(int latencySamples);
 

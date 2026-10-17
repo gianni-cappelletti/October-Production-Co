@@ -90,6 +90,8 @@ High band chain: input gain -> `NamSlot::First` -> `NamSlot::Second` -> IR -> ou
 - `void setLowBandSolo(bool solo)` - Solo the low band
 - `void setHighBandSolo(bool solo)` - Solo the high band
 
+Low band level, high input gain, high output gain, output gain, dry/wet and high band mix ramp linearly to a new value over 5 ms. Values set before the first block after `setSampleRate()` or `reset()` apply immediately.
+
 #### Graphic EQ
 
 - `void setGraphicEQBandGain(int bandIndex, float gainDb)` - Set gain for a specific band
