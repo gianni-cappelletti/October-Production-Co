@@ -39,11 +39,6 @@
     lv2:symbol "main" ;
     rdfs:label "Main" .
 
-<https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    a pg:Group ;
-    lv2:symbol "eq" ;
-    rdfs:label "EQ" .
-
 <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
     a pg:Group ;
     lv2:symbol "nam1" ;
@@ -65,7 +60,7 @@
     ] ;
     mod:brand "OPC" ;
     mod:label "OctoBASS" ;
-    rdfs:comment "Bass amp and tone shaper: graphic EQ, crossover split, compressed low band, two serial NAM slots and a cabinet IR on the high band. NAM Quality below 50% runs the slim model; 50% and above runs the full-size model, which is likely too heavy for a MOD Dwarf." ;
+    rdfs:comment "Bass amp and tone shaper: crossover split, compressed low band, two serial NAM slots and a cabinet IR on the high band. NAM Quality below 50% runs the slim model; 50% and above runs the full-size model, which is likely too heavy for a MOD Dwarf. Neural amp modeling by NeuralAmpModelerCore, Copyright (c) 2023 Steven Atkinson, MIT License. License and third-party notices: LICENSE and THIRD_PARTY_NOTICES.txt in the plugin bundle." ;
     lv2:requiredFeature urid:map, work:schedule ;
     lv2:optionalFeature lv2:hardRTCapable, log:log, opts:options, bufsz:boundedBlockLength, state:threadSafeRestore ;
     lv2:extensionData work:interface, state:interface ;
@@ -302,714 +297,6 @@
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
         lv2:index 18 ;
-        lv2:symbol "eq_low_cut" ;
-        lv2:name "EQ Low Cut" ;
-        lv2:default 1.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 19 ;
-        lv2:symbol "eq_low_cut_freq" ;
-        lv2:name "EQ Low Cut Freq" ;
-        lv2:default 20.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 20 ;
-        lv2:symbol "eq_high_cut" ;
-        lv2:name "EQ High Cut" ;
-        lv2:default 1.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 21 ;
-        lv2:symbol "eq_high_cut_freq" ;
-        lv2:name "EQ High Cut Freq" ;
-        lv2:default 20000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 22 ;
-        lv2:symbol "eq_node1_active" ;
-        lv2:name "EQ Node 1 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 23 ;
-        lv2:symbol "eq_node1_freq" ;
-        lv2:name "EQ Node 1 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 24 ;
-        lv2:symbol "eq_node1_gain" ;
-        lv2:name "EQ Node 1 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 25 ;
-        lv2:symbol "eq_node2_active" ;
-        lv2:name "EQ Node 2 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 26 ;
-        lv2:symbol "eq_node2_freq" ;
-        lv2:name "EQ Node 2 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 27 ;
-        lv2:symbol "eq_node2_gain" ;
-        lv2:name "EQ Node 2 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 28 ;
-        lv2:symbol "eq_node3_active" ;
-        lv2:name "EQ Node 3 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 29 ;
-        lv2:symbol "eq_node3_freq" ;
-        lv2:name "EQ Node 3 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 30 ;
-        lv2:symbol "eq_node3_gain" ;
-        lv2:name "EQ Node 3 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 31 ;
-        lv2:symbol "eq_node4_active" ;
-        lv2:name "EQ Node 4 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 32 ;
-        lv2:symbol "eq_node4_freq" ;
-        lv2:name "EQ Node 4 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 33 ;
-        lv2:symbol "eq_node4_gain" ;
-        lv2:name "EQ Node 4 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 34 ;
-        lv2:symbol "eq_node5_active" ;
-        lv2:name "EQ Node 5 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 35 ;
-        lv2:symbol "eq_node5_freq" ;
-        lv2:name "EQ Node 5 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 36 ;
-        lv2:symbol "eq_node5_gain" ;
-        lv2:name "EQ Node 5 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 37 ;
-        lv2:symbol "eq_node6_active" ;
-        lv2:name "EQ Node 6 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 38 ;
-        lv2:symbol "eq_node6_freq" ;
-        lv2:name "EQ Node 6 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 39 ;
-        lv2:symbol "eq_node6_gain" ;
-        lv2:name "EQ Node 6 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 40 ;
-        lv2:symbol "eq_node7_active" ;
-        lv2:name "EQ Node 7 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 41 ;
-        lv2:symbol "eq_node7_freq" ;
-        lv2:name "EQ Node 7 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 42 ;
-        lv2:symbol "eq_node7_gain" ;
-        lv2:name "EQ Node 7 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 43 ;
-        lv2:symbol "eq_node8_active" ;
-        lv2:name "EQ Node 8 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 44 ;
-        lv2:symbol "eq_node8_freq" ;
-        lv2:name "EQ Node 8 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 45 ;
-        lv2:symbol "eq_node8_gain" ;
-        lv2:name "EQ Node 8 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 46 ;
-        lv2:symbol "eq_node9_active" ;
-        lv2:name "EQ Node 9 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 47 ;
-        lv2:symbol "eq_node9_freq" ;
-        lv2:name "EQ Node 9 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 48 ;
-        lv2:symbol "eq_node9_gain" ;
-        lv2:name "EQ Node 9 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 49 ;
-        lv2:symbol "eq_node10_active" ;
-        lv2:name "EQ Node 10 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 50 ;
-        lv2:symbol "eq_node10_freq" ;
-        lv2:name "EQ Node 10 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 51 ;
-        lv2:symbol "eq_node10_gain" ;
-        lv2:name "EQ Node 10 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 52 ;
-        lv2:symbol "eq_node11_active" ;
-        lv2:name "EQ Node 11 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 53 ;
-        lv2:symbol "eq_node11_freq" ;
-        lv2:name "EQ Node 11 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 54 ;
-        lv2:symbol "eq_node11_gain" ;
-        lv2:name "EQ Node 11 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 55 ;
-        lv2:symbol "eq_node12_active" ;
-        lv2:name "EQ Node 12 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 56 ;
-        lv2:symbol "eq_node12_freq" ;
-        lv2:name "EQ Node 12 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 57 ;
-        lv2:symbol "eq_node12_gain" ;
-        lv2:name "EQ Node 12 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 58 ;
-        lv2:symbol "eq_node13_active" ;
-        lv2:name "EQ Node 13 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 59 ;
-        lv2:symbol "eq_node13_freq" ;
-        lv2:name "EQ Node 13 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 60 ;
-        lv2:symbol "eq_node13_gain" ;
-        lv2:name "EQ Node 13 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 61 ;
-        lv2:symbol "eq_node14_active" ;
-        lv2:name "EQ Node 14 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 62 ;
-        lv2:symbol "eq_node14_freq" ;
-        lv2:name "EQ Node 14 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 63 ;
-        lv2:symbol "eq_node14_gain" ;
-        lv2:name "EQ Node 14 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 64 ;
-        lv2:symbol "eq_node15_active" ;
-        lv2:name "EQ Node 15 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 65 ;
-        lv2:symbol "eq_node15_freq" ;
-        lv2:name "EQ Node 15 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 66 ;
-        lv2:symbol "eq_node15_gain" ;
-        lv2:name "EQ Node 15 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 67 ;
-        lv2:symbol "eq_node16_active" ;
-        lv2:name "EQ Node 16 Active" ;
-        lv2:default 0.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 1.0 ;
-        lv2:portProperty lv2:toggled ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 68 ;
-        lv2:symbol "eq_node16_freq" ;
-        lv2:name "EQ Node 16 Freq" ;
-        lv2:default 1000.0 ;
-        lv2:minimum 20.0 ;
-        lv2:maximum 20000.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "hertz" ;
-            units:symbol "Hz" ;
-            units:render "%.1f Hz"
-        ] ;
-        lv2:portProperty pprop:logarithmic ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 69 ;
-        lv2:symbol "eq_node16_gain" ;
-        lv2:name "EQ Node 16 Gain" ;
-        lv2:default 0.0 ;
-        lv2:minimum -12.0 ;
-        lv2:maximum 12.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "decibels" ;
-            units:symbol "dB" ;
-            units:render "%.1f dB"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#eq>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 70 ;
         lv2:symbol "nam1_on" ;
         lv2:name "NAM 1 On" ;
         lv2:default 1.0 ;
@@ -1019,7 +306,7 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 71 ;
+        lv2:index 19 ;
         lv2:symbol "nam1_quality" ;
         lv2:name "NAM 1 Quality" ;
         lv2:default 49.0 ;
@@ -1034,9 +321,10 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 72 ;
+        lv2:index 20 ;
         lv2:symbol "nam1_calibrate_input" ;
         lv2:name "NAM 1 Calibrate Input" ;
+        lv2:shortName "NAM 1 Calibrate" ;
         lv2:default 0.0 ;
         lv2:minimum 0.0 ;
         lv2:maximum 1.0 ;
@@ -1044,9 +332,10 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 73 ;
+        lv2:index 21 ;
         lv2:symbol "nam1_input_level" ;
         lv2:name "NAM 1 Input Level" ;
+        lv2:shortName "NAM 1 Input Lvl" ;
         lv2:default 12.0 ;
         lv2:minimum -60.0 ;
         lv2:maximum 60.0 ;
@@ -1059,9 +348,10 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 74 ;
+        lv2:index 22 ;
         lv2:symbol "nam1_output_mode" ;
         lv2:name "NAM 1 Output Mode" ;
+        lv2:shortName "NAM 1 Out Mode" ;
         lv2:default 1.0 ;
         lv2:minimum 0.0 ;
         lv2:maximum 2.0 ;
@@ -1079,7 +369,7 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 75 ;
+        lv2:index 23 ;
         lv2:symbol "nam2_on" ;
         lv2:name "NAM 2 On" ;
         lv2:default 1.0 ;
@@ -1089,7 +379,7 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 76 ;
+        lv2:index 24 ;
         lv2:symbol "nam2_quality" ;
         lv2:name "NAM 2 Quality" ;
         lv2:default 49.0 ;
@@ -1104,9 +394,10 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 77 ;
+        lv2:index 25 ;
         lv2:symbol "nam2_calibrate_input" ;
         lv2:name "NAM 2 Calibrate Input" ;
+        lv2:shortName "NAM 2 Calibrate" ;
         lv2:default 0.0 ;
         lv2:minimum 0.0 ;
         lv2:maximum 1.0 ;
@@ -1114,9 +405,10 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 78 ;
+        lv2:index 26 ;
         lv2:symbol "nam2_input_level" ;
         lv2:name "NAM 2 Input Level" ;
+        lv2:shortName "NAM 2 Input Lvl" ;
         lv2:default 12.0 ;
         lv2:minimum -60.0 ;
         lv2:maximum 60.0 ;
@@ -1129,9 +421,10 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 79 ;
+        lv2:index 27 ;
         lv2:symbol "nam2_output_mode" ;
         lv2:name "NAM 2 Output Mode" ;
+        lv2:shortName "NAM 2 Out Mode" ;
         lv2:default 1.0 ;
         lv2:minimum 0.0 ;
         lv2:maximum 2.0 ;

@@ -3,6 +3,10 @@ cmake_minimum_required(VERSION 3.22)
 set(LV2_HEADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../third_party/lv2/include)
 set(OCTOBASS_LV2_BUNDLE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/bundle)
 set(OCTOBASS_LV2_BUNDLE_DIR ${CMAKE_CURRENT_BINARY_DIR}/OctoBASS.lv2)
+set(OCTOBASS_LV2_LEGAL_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../LICENSE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../docs/legal/THIRD_PARTY_NOTICES.txt
+)
 
 add_library(octobass-lv2-objects OBJECT
     src/Lv2Entry.cpp
@@ -60,7 +64,9 @@ add_custom_target(octobass-lv2-bundle ALL
             ${OCTOBASS_LV2_BUNDLE_SOURCE_DIR}/octobass.ttl
             ${OCTOBASS_LV2_BUNDLE_SOURCE_DIR}/presets.ttl
             ${OCTOBASS_LV2_BUNDLE_SOURCE_DIR}/modgui.ttl
+            ${OCTOBASS_LV2_LEGAL_FILES}
             ${OCTOBASS_LV2_BUNDLE_DIR}
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${OCTOBASS_LV2_BUNDLE_DIR}/modgui
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${OCTOBASS_LV2_BUNDLE_SOURCE_DIR}/modgui
             ${OCTOBASS_LV2_BUNDLE_DIR}/modgui

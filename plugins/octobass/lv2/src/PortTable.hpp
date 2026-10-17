@@ -49,7 +49,6 @@ enum class PortGroup : uint8_t
 {
   None,
   Main,
-  Equalizer,
   Nam1,
   Nam2,
 };
@@ -66,6 +65,7 @@ struct PortSpec
   PortKind kind;
   std::string symbol;
   std::string name;
+  std::string shortName{};
   float minimum = 0.0f;
   float maximum = 0.0f;
   float defaultValue = 0.0f;

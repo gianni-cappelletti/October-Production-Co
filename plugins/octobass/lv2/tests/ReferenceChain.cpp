@@ -28,6 +28,8 @@ ReferenceChain::ReferenceChain(double sampleRate, size_t maxBlockSize) : maxBloc
 {
   processor_.setSampleRate(sampleRate);
   processor_.setMaxBlockSize(maxBlockSize);
+  processor_.setGraphicEQLowCut(true, MinGraphicEQFreqHz);
+  processor_.setGraphicEQHighCut(true, MaxGraphicEQFreqHz);
   for (const auto slot : kNamSlots)
     setNamQualityPercent(slot, DefaultNamQualityPercent);
 }
@@ -95,13 +97,6 @@ void ReferenceChain::applyControls(const ControlValues& controls)
     processor_.setNamOutputMode(slot, choice(controls[port::namOutputMode(slot)]));
     processor_.setNamEnabled(slot, isOn(controls[port::namOn(slot)]));
   }
-
-  for (int node = 0; node < kGraphicEQNumNodes; ++node)
-    processor_.setGraphicEQNode(node, isOn(controls[port::eqNodeActive(node)]),
-                                controls[port::eqNodeFreq(node)], controls[port::eqNodeGain(node)]);
-  processor_.setGraphicEQLowCut(isOn(controls[port::EqLowCutActive]), controls[port::EqLowCutFreq]);
-  processor_.setGraphicEQHighCut(isOn(controls[port::EqHighCutActive]),
-                                 controls[port::EqHighCutFreq]);
 
   processor_.setLowBandSolo(isOn(controls[port::LowBandSolo]));
   processor_.setHighBandSolo(isOn(controls[port::HighBandSolo]));

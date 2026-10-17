@@ -54,8 +54,43 @@ License: BSD-style (permissive, GPL-compatible)
 
 Used for: Fast Fourier Transform
 
-Redistribution and use in source and binary forms, with or without modification,
-is permitted provided that the conditions in the LICENSE.txt file are met.
+License Text:
+Copyright (c) 2020  Dario Mambro ( dario.mambro@gmail.com )
+Copyright (c) 2019  Hayati Ayguen ( h_ayguen@web.de )
+Copyright (c) 2013  Julien Pommier ( pommier@modartt.com )
+
+Copyright (c) 2004 the University Corporation for Atmospheric
+Research ("UCAR"). All rights reserved. Developed by NCAR's
+Computational and Information Systems Laboratory, UCAR,
+www.cisl.ucar.edu.
+
+Redistribution and use of the Software in source and binary forms,
+with or without modification, is permitted provided that the
+following conditions are met:
+
+- Neither the names of NCAR's Computational and Information Systems
+Laboratory, the University Corporation for Atmospheric Research,
+nor the names of its sponsors or contributors may be used to
+endorse or promote products derived from this Software without
+specific prior written permission.
+
+- Redistributions of source code must retain the above copyright
+notices, this list of conditions, and the disclaimer below.
+
+- Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions, and the disclaimer below in the
+documentation and/or other materials provided with the
+distribution.
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE CONTRIBUTORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS WITH THE
+SOFTWARE.
 
 
 4. dr_wav
@@ -86,15 +121,16 @@ The OFL allows the font to be bundled and redistributed with software provided
 that the copyright notice and license are included.
 
 
-6. Press Start 2P (JUCE Plugin Only)
---------------------------------------
+6. Press Start 2P (JUCE Plugins and OctoBASS LV2)
+---------------------------------------------------
 Copyright 2012 The Press Start 2P Project Authors (cody@zone38.net)
 Source: https://fonts.google.com/specimen/Press+Start+2P
 
 License: SIL Open Font License, Version 1.1
 Full license text: libs/juce-ui-shared/Resources/Fonts/PressStart2P-OFL.txt
+(modgui/PressStart2P-OFL.txt in the OctoBASS LV2 bundle)
 
-Used for: LCD display typeface (file name displays and rotary value labels), embedded in the JUCE plugin binary via juce_add_binary_data.
+Used for: LCD display typeface (file name displays and rotary value labels), embedded in the JUCE plugin binary via juce_add_binary_data and shipped as a font file in the OctoBASS LV2 modgui.
 
 The OFL allows the font to be bundled and redistributed with software provided
 that the copyright notice and license are included.
@@ -127,7 +163,7 @@ Full license: https://www.gnu.org/licenses/gpl-3.0.html
 
 9. NeuralAmpModelerCore (OctoBASS Only)
 ----------------------------------------
-Copyright (c) 2023-2025 Steven Atkinson
+Copyright (c) 2023 Steven Atkinson
 Source: https://github.com/sdatkinson/NeuralAmpModelerCore
 
 License: MIT

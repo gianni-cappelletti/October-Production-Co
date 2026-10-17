@@ -7,7 +7,7 @@ Native LV2 wrapper around `octobass-core` for MOD Audio devices (Dwarf, Duo X) a
 | Path | Contents |
 |------|----------|
 | `src/` | Plugin (`OctoBassLv2`), port table, TTL generator |
-| `bundle/` | Committed bundle data: `manifest.ttl.in`, `octobass.ttl`, `presets.ttl`, `modgui.ttl`, `modgui/` |
+| `bundle/` | Committed bundle data: `manifest.ttl.in`, `octobass.ttl`, `presets.ttl`, `modgui.ttl`, `modgui/`. `LICENSE` and `docs/legal/THIRD_PARTY_NOTICES.txt` are copied in when the bundle is assembled |
 | `tools/` | `ModguiAssetRenderer`: renders modgui sprites, faceplate, screenshot, template and stylesheet with `OctoberLookAndFeel` |
 | `tests/` | Behavioral tests driven through the LV2 C API by `FakeLv2Host` |
 | `../../../installers/mod/octobass-lv2/` | mod-plugin-builder package recipe |
@@ -18,7 +18,7 @@ Native LV2 wrapper around `octobass-core` for MOD Audio devices (Dwarf, Duo X) a
 |------|-------|
 | URI | `https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass` |
 | Audio | 1 in, 1 out |
-| Control ports | 74 inputs mirroring the JUCE parameters, `enabled` (bypass), `latency` output |
+| Control ports | 22 inputs mirroring the JUCE parameters except the graphic EQ, `enabled` (bypass), `latency` output |
 | File parameters | `#nam1Model`, `#nam2Model` (`mod:fileTypes "nammodel"`), `#cabinetIr` (`mod:fileTypes "cabsim"`, `.wav`) |
 | Required features | `urid:map`, `work:schedule` |
 | Extensions | `work:interface`, `state:interface` |
@@ -26,6 +26,9 @@ Native LV2 wrapper around `octobass-core` for MOD Audio devices (Dwarf, Duo X) a
 | Version | Generated from `VERSION`: `lv2:minorVersion` = 2 x (MAJOR x 100 + MINOR), `lv2:microVersion` = 2 x PATCH (2.3.0 is 406.0) |
 
 - Percent ports use 0-100; the core receives 0-1.
+- The graphic EQ is not exposed. Its low cut (20 Hz) and high cut (20 kHz) are always on, matching the JUCE defaults; the 16 nodes are off.
+- Port names longer than mod-ui's 16-character display limit carry an `lv2:shortName`.
+- The bundle includes `LICENSE` (GPL-3.0) and `THIRD_PARTY_NOTICES.txt`.
 - File loads, clears and NAM quality changes run on the LV2 worker thread; `run()` does not allocate.
 - The pedal has no Solo buttons; the Solo ports are in MOD's settings panel. Both Solo ports on: the most recently engaged solo wins, and the modgui clears the other Solo port.
 - The footer has three footswitches with status LEDs: ON (plugin on/bypass), NAM 1 and NAM 2 (slot on/off). A lit LED means the plugin or slot is on. A NAM slot that is off dims its LCD backlight, as in the JUCE plugin.

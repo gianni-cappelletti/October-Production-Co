@@ -168,6 +168,8 @@ OctoBassPlugin::OctoBassPlugin(double sampleRate, uint32_t maxBlockLength, LV2_U
 
   bassProcessor_.setSampleRate(sampleRate);
   bassProcessor_.setMaxBlockSize(maxBlockLength_);
+  bassProcessor_.setGraphicEQLowCut(true, MinGraphicEQFreqHz);
+  bassProcessor_.setGraphicEQHighCut(true, MaxGraphicEQFreqHz);
   for (const auto slot : kNamSlots)
   {
     bassProcessor_.setNamQuality(slot, DefaultNamQualityPercent / 100.0f);
@@ -274,15 +276,6 @@ void OctoBassPlugin::applyControls(bool lowSolo, bool highSolo)
     bassProcessor_.setNamOutputMode(slot, choice(control(port::namOutputMode(slot))));
     bassProcessor_.setNamEnabled(slot, isOn(control(port::namOn(slot))));
   }
-
-  for (int node = 0; node < kGraphicEQNumNodes; ++node)
-    bassProcessor_.setGraphicEQNode(node, isOn(control(port::eqNodeActive(node))),
-                                    control(port::eqNodeFreq(node)),
-                                    control(port::eqNodeGain(node)));
-  bassProcessor_.setGraphicEQLowCut(isOn(control(port::EqLowCutActive)),
-                                    control(port::EqLowCutFreq));
-  bassProcessor_.setGraphicEQHighCut(isOn(control(port::EqHighCutActive)),
-                                     control(port::EqHighCutFreq));
 
   bassProcessor_.setLowBandSolo(lowSolo);
   bassProcessor_.setHighBandSolo(highSolo);

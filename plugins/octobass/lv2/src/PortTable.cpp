@@ -102,30 +102,6 @@ std::vector<PortSpec> buildPortTable()
   ports.push_back(toggle(port::LowBandSolo, "low_solo", "Low Solo", false, main));
   ports.push_back(toggle(port::HighBandSolo, "high_solo", "High Solo", false, main));
 
-  const auto eq = PortGroup::Equalizer;
-  ports.push_back(toggle(port::EqLowCutActive, "eq_low_cut", "EQ Low Cut", true, eq));
-  ports.push_back(control(port::EqLowCutFreq, "eq_low_cut_freq", "EQ Low Cut Freq",
-                          MinGraphicEQFreqHz, MaxGraphicEQFreqHz, MinGraphicEQFreqHz,
-                          PortUnit::Hertz, PortStyle::Logarithmic, eq));
-  ports.push_back(toggle(port::EqHighCutActive, "eq_high_cut", "EQ High Cut", true, eq));
-  ports.push_back(control(port::EqHighCutFreq, "eq_high_cut_freq", "EQ High Cut Freq",
-                          MinGraphicEQFreqHz, MaxGraphicEQFreqHz, MaxGraphicEQFreqHz,
-                          PortUnit::Hertz, PortStyle::Logarithmic, eq));
-
-  for (int node = 0; node < kGraphicEQNumNodes; ++node)
-  {
-    const std::string symbol = "eq_node" + std::to_string(node + 1);
-    const std::string name = "EQ Node " + std::to_string(node + 1);
-    ports.push_back(
-        toggle(port::eqNodeActive(node), symbol + "_active", name + " Active", false, eq));
-    ports.push_back(control(port::eqNodeFreq(node), symbol + "_freq", name + " Freq",
-                            MinGraphicEQFreqHz, MaxGraphicEQFreqHz, DefaultGraphicEQFreqHz,
-                            PortUnit::Hertz, PortStyle::Logarithmic, eq));
-    ports.push_back(control(port::eqNodeGain(node), symbol + "_gain", name + " Gain",
-                            MinGraphicEQGainDb, MaxGraphicEQGainDb, DefaultGraphicEQGainDb,
-                            PortUnit::Decibels, PortStyle::Linear, eq));
-  }
-
   for (const auto slot : kNamSlots)
   {
     const int slotNumber = static_cast<int>(slot) + 1;
@@ -137,15 +113,21 @@ std::vector<PortSpec> buildPortTable()
     ports.push_back(control(port::namQuality(slot), symbol + "_quality", name + " Quality", 0.0f,
                             100.0f, DefaultNamQualityPercent, PortUnit::Percent, PortStyle::Linear,
                             group));
-    ports.push_back(toggle(port::namCalibrateInput(slot), symbol + "_calibrate_input",
-                           name + " Calibrate Input", false, group));
-    ports.push_back(control(port::namInputLevel(slot), symbol + "_input_level",
-                            name + " Input Level", MinNamInputCalibrationLevelDbu,
-                            MaxNamInputCalibrationLevelDbu, DefaultNamInputCalibrationLevelDbu,
-                            PortUnit::DecibelsU, PortStyle::Linear, group));
-    ports.push_back(enumeration(port::namOutputMode(slot), symbol + "_output_mode",
-                                name + " Output Mode", {"Raw", "Normalized", "Calibrated"},
-                                static_cast<int>(NamOutputMode::Normalized), group));
+    PortSpec calibrateInput = toggle(port::namCalibrateInput(slot), symbol + "_calibrate_input",
+                                     name + " Calibrate Input", false, group);
+    calibrateInput.shortName = name + " Calibrate";
+    ports.push_back(calibrateInput);
+    PortSpec inputLevel =
+        control(port::namInputLevel(slot), symbol + "_input_level", name + " Input Level",
+                MinNamInputCalibrationLevelDbu, MaxNamInputCalibrationLevelDbu,
+                DefaultNamInputCalibrationLevelDbu, PortUnit::DecibelsU, PortStyle::Linear, group);
+    inputLevel.shortName = name + " Input Lvl";
+    ports.push_back(inputLevel);
+    PortSpec outputMode = enumeration(port::namOutputMode(slot), symbol + "_output_mode",
+                                      name + " Output Mode", {"Raw", "Normalized", "Calibrated"},
+                                      static_cast<int>(NamOutputMode::Normalized), group);
+    outputMode.shortName = name + " Out Mode";
+    ports.push_back(outputMode);
   }
 
   return ports;

@@ -19,9 +19,11 @@ constexpr const char* HomepageUri = "https://github.com/gianni-cappelletti/Octob
 constexpr const char* Brand = "OPC";
 constexpr const char* Label = "OctoBASS";
 constexpr const char* Comment =
-    "Bass amp and tone shaper: graphic EQ, crossover split, compressed low band, two serial NAM "
-    "slots and a cabinet IR on the high band. NAM Quality below 50% runs the slim model; 50% and "
-    "above runs the full-size model, which is likely too heavy for a MOD Dwarf.";
+    "Bass amp and tone shaper: crossover split, compressed low band, two serial NAM slots and a "
+    "cabinet IR on the high band. NAM Quality below 50% runs the slim model; 50% and above runs "
+    "the full-size model, which is likely too heavy for a MOD Dwarf. Neural amp modeling by "
+    "NeuralAmpModelerCore, Copyright (c) 2023 Steven Atkinson, MIT License. License and "
+    "third-party notices: LICENSE and THIRD_PARTY_NOTICES.txt in the plugin bundle.";
 
 struct GroupInfo
 {
@@ -30,9 +32,8 @@ struct GroupInfo
   const char* label;
 };
 
-constexpr std::array<GroupInfo, 4> Groups{{
+constexpr std::array<GroupInfo, 3> Groups{{
     {PortGroup::Main, "main", "Main"},
-    {PortGroup::Equalizer, "eq", "EQ"},
     {PortGroup::Nam1, "nam1", "NAM 1"},
     {PortGroup::Nam2, "nam2", "NAM 2"},
 }};
@@ -138,6 +139,8 @@ std::string portTurtle(const PortSpec& spec)
   statements.push_back("lv2:index " + std::to_string(spec.index));
   statements.push_back("lv2:symbol " + quoted(spec.symbol));
   statements.push_back("lv2:name " + quoted(spec.name));
+  if (!spec.shortName.empty())
+    statements.push_back("lv2:shortName " + quoted(spec.shortName));
 
   const bool isAtom = spec.kind == PortKind::AtomInput || spec.kind == PortKind::AtomOutput;
   if (isAtom)

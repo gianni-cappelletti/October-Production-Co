@@ -31,27 +31,7 @@ constexpr PortIndex HighBandMix = 15;
 constexpr PortIndex LowBandSolo = 16;
 constexpr PortIndex HighBandSolo = 17;
 
-constexpr PortIndex EqLowCutActive = 18;
-constexpr PortIndex EqLowCutFreq = 19;
-constexpr PortIndex EqHighCutActive = 20;
-constexpr PortIndex EqHighCutFreq = 21;
-
-constexpr PortIndex EqNodeFirst = 22;
-constexpr PortIndex PortsPerEqNode = 3;
-constexpr PortIndex eqNodeActive(int node)
-{
-  return EqNodeFirst + PortsPerEqNode * static_cast<PortIndex>(node);
-}
-constexpr PortIndex eqNodeFreq(int node)
-{
-  return eqNodeActive(node) + 1;
-}
-constexpr PortIndex eqNodeGain(int node)
-{
-  return eqNodeActive(node) + 2;
-}
-
-constexpr PortIndex NamFirst = eqNodeActive(kGraphicEQNumNodes);
+constexpr PortIndex NamFirst = 18;
 constexpr PortIndex PortsPerNamSlot = 5;
 constexpr PortIndex namOn(NamSlot slot)
 {
