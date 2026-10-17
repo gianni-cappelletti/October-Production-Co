@@ -78,16 +78,6 @@ path = "plugins/octobass/lv2/bundle/**"
 SPDX-FileCopyrightText = "2024-2026 October Production Co."
 SPDX-License-Identifier = "GPL-3.0-only"
 
-# OctoBASS modgui images containing the brand logo
-[[annotations]]
-path = [
-    "plugins/octobass/lv2/bundle/modgui/background.png",
-    "plugins/octobass/lv2/bundle/modgui/screenshot.png",
-    "plugins/octobass/lv2/bundle/modgui/thumbnail.png",
-]
-SPDX-FileCopyrightText = "2024-2026 October Production Co."
-SPDX-License-Identifier = "GPL-3.0-only AND LicenseRef-OPC-Trademark"
-
 # OctoBASS modgui bundled font (SIL Open Font License 1.1)
 [[annotations]]
 path = [

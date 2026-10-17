@@ -51,9 +51,13 @@ constexpr float FileLcdX = RightZoneX + 2.0f;
 constexpr float FileLcdWidth = QualityLeverX - LeverLabelGap - LeverLabelWidth - 8.0f - FileLcdX;
 constexpr float ButtonMargin = 8.0f;
 constexpr int KnobFrames = 65;
-constexpr float LogoHeight = 56.0f;
-constexpr float LogoCentreX = Pad + 161.0f;
-constexpr float LogoCentreY = Row2Y + LabelHeight + KnobHeight * 0.5f;
+constexpr float BadgeWidth = 84.0f;
+constexpr float BadgeHeight = 28.0f;
+constexpr float BadgeCornerRadius = 4.0f;
+constexpr float BadgeTextHeight = 11.0f;
+constexpr float BadgeCentreX = Pad + 161.0f;
+constexpr float BadgeCentreY = Row2Y + LabelHeight + KnobHeight * 0.5f;
+constexpr const char* BadgeText = "OPC";
 constexpr const char* PedalClass = "mod-pedal-octobass";
 constexpr const char* FilePlaceholder = "-- choose a file --";
 
@@ -487,15 +491,13 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
                LabelColour, juce::Justification::centredLeft);
   }
 
-  const auto logo =
-      juce::ImageCache::getFromMemory(BinaryData::OctoberLogo_png, BinaryData::OctoberLogo_pngSize);
-  if (logo.isValid())
-  {
-    const float logoW =
-        LogoHeight * static_cast<float>(logo.getWidth()) / static_cast<float>(logo.getHeight());
-    g.drawImage(logo,
-                juce::Rectangle<float>(logoW, LogoHeight).withCentre({LogoCentreX, LogoCentreY}));
-  }
+  const auto badge =
+      juce::Rectangle<float>(BadgeWidth, BadgeHeight).withCentre({BadgeCentreX, BadgeCentreY});
+  g.setColour(LineColour);
+  g.fillRoundedRectangle(badge, BadgeCornerRadius);
+  drawText(g, BadgeText, {badge.getX(), badge.getY(), badge.getWidth(), badge.getHeight()},
+           juce::Font(juce::FontOptions(lookAndFeel.getLCDTypeface()).withHeight(BadgeTextHeight)),
+           kLCDBacklightColour, juce::Justification::centred);
   return image;
 }
 
