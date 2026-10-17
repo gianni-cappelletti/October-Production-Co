@@ -8,6 +8,46 @@
 namespace octob
 {
 
+namespace
+{
+
+constexpr float kLevelSmoothingSeconds = 0.005f;
+
+void applyGain(LinearSmoother& gain, Sample* samples, FrameCount numFrames)
+{
+  if (!gain.isRamping())
+  {
+    const float constantGain = gain.target();
+    for (FrameCount i = 0; i < numFrames; ++i)
+      samples[i] *= constantGain;
+    return;
+  }
+
+  for (FrameCount i = 0; i < numFrames; ++i)
+    samples[i] *= gain.next();
+}
+
+void crossfade(LinearSmoother& wetMix, const Sample* dry, const Sample* wet, Sample* output,
+               FrameCount numFrames)
+{
+  if (!wetMix.isRamping())
+  {
+    const float wetGain = wetMix.target();
+    const float dryGain = 1.0f - wetGain;
+    for (FrameCount i = 0; i < numFrames; ++i)
+      output[i] = dry[i] * dryGain + wet[i] * wetGain;
+    return;
+  }
+
+  for (FrameCount i = 0; i < numFrames; ++i)
+  {
+    const float wetGain = wetMix.next();
+    output[i] = dry[i] * (1.0f - wetGain) + wet[i] * wetGain;
+  }
+}
+
+}  // namespace
+
 BassProcessor::BassProcessor()
     : lowBandDelayWritePos_(0),
       currentIRLatency_(0),
@@ -15,16 +55,16 @@ BassProcessor::BassProcessor()
       highInputGainDb_(DefaultHighInputGainDb),
       highOutputGainDb_(DefaultHighOutputGainDb),
       outputGainDb_(DefaultOutputGainDb),
-      dryWetMix_(DefaultDryWetMix),
-      highBandMix_(DefaultHighBandMix),
       lowBandSolo_(false),
       highBandSolo_(false),
       currentMakeupLinear_(1.0f),
       makeupSmoothCoeff_(0.0f),
-      lowBandLevelLinear_(1.0f),
-      highInputGainLinear_(1.0f),
-      highOutputGainLinear_(1.0f),
-      outputGainLinear_(1.0f)
+      lowBandLevelGain_(dbToLinear(DefaultBandLevelDb)),
+      highInputGain_(dbToLinear(DefaultHighInputGainDb)),
+      highOutputGain_(dbToLinear(DefaultHighOutputGainDb)),
+      outputGain_(dbToLinear(DefaultOutputGainDb)),
+      dryWetMix_(DefaultDryWetMix),
+      highBandMix_(DefaultHighBandMix)
 {
   // Configure IRProcessor for single-slot operation
   irProcessor_.setIRAEnabled(true);
@@ -50,6 +90,10 @@ void BassProcessor::setSampleRate(SampleRate sampleRate)
   constexpr float kMakeupSmoothMs = 5.0f;
   float srFloat = static_cast<float>(sampleRate);
   makeupSmoothCoeff_ = 1.0f - std::exp(-1.0f / (srFloat * kMakeupSmoothMs * 0.001f));
+
+  for (auto* smoother : levelSmoothers())
+    smoother->setRampLength(sampleRate, kLevelSmoothingSeconds);
+  snapSmoothersOnNextBlock_ = true;
 }
 
 void BassProcessor::setMaxBlockSize(FrameCount maxBlockSize)
@@ -219,7 +263,7 @@ void BassProcessor::setLowBandLevel(float levelDb)
   if (lowBandLevelDb_ == levelDb)
     return;
   lowBandLevelDb_ = levelDb;
-  lowBandLevelLinear_ = dbToLinear(levelDb);
+  lowBandLevelGain_.setTarget(dbToLinear(levelDb));
 }
 
 void BassProcessor::setHighInputGain(float gainDb)
@@ -228,7 +272,7 @@ void BassProcessor::setHighInputGain(float gainDb)
   if (highInputGainDb_ == gainDb)
     return;
   highInputGainDb_ = gainDb;
-  highInputGainLinear_ = dbToLinear(gainDb);
+  highInputGain_.setTarget(dbToLinear(gainDb));
 }
 
 void BassProcessor::setHighOutputGain(float gainDb)
@@ -237,7 +281,7 @@ void BassProcessor::setHighOutputGain(float gainDb)
   if (highOutputGainDb_ == gainDb)
     return;
   highOutputGainDb_ = gainDb;
-  highOutputGainLinear_ = dbToLinear(gainDb);
+  highOutputGain_.setTarget(dbToLinear(gainDb));
 }
 
 void BassProcessor::setOutputGain(float gainDb)
@@ -246,12 +290,12 @@ void BassProcessor::setOutputGain(float gainDb)
   if (outputGainDb_ == gainDb)
     return;
   outputGainDb_ = gainDb;
-  outputGainLinear_ = dbToLinear(gainDb);
+  outputGain_.setTarget(dbToLinear(gainDb));
 }
 
 void BassProcessor::setDryWetMix(float mix)
 {
-  dryWetMix_ = std::clamp(mix, 0.0f, 1.0f);
+  dryWetMix_.setTarget(std::clamp(mix, 0.0f, 1.0f));
 }
 
 void BassProcessor::setGateThreshold(float thresholdDb)
@@ -261,7 +305,7 @@ void BassProcessor::setGateThreshold(float thresholdDb)
 
 void BassProcessor::setHighBandMix(float mix)
 {
-  highBandMix_ = std::clamp(mix, 0.0f, 1.0f);
+  highBandMix_.setTarget(std::clamp(mix, 0.0f, 1.0f));
 }
 
 void BassProcessor::setLowBandSolo(bool solo)
@@ -279,6 +323,8 @@ void BassProcessor::processMono(const Sample* input, Sample* output, FrameCount 
   if (numFrames == 0)
     return;
 
+  snapSmoothersIfPending();
+
   // Save dry input for dry/wet blend
   std::copy(input, input + numFrames, dryBuffer_.data());
 
@@ -289,13 +335,13 @@ void BassProcessor::processMono(const Sample* input, Sample* output, FrameCount 
   crossover_.process(eqBuffer_.data(), lowBandBuffer_.data(), highBandBuffer_.data(), numFrames);
 
   // Save dry high band for wet/dry blend before any processing
-  if (highBandMix_ < 1.0f)
+  const bool blendHighBand = highBandMix_.isRamping() || highBandMix_.target() < 1.0f;
+  if (blendHighBand)
     std::copy(highBandBuffer_.data(), highBandBuffer_.data() + numFrames,
               dryHighBandBuffer_.data());
 
   // 1. Apply input gain to high band
-  for (FrameCount i = 0; i < numFrames; ++i)
-    highBandBuffer_[i] *= highInputGainLinear_;
+  applyGain(highInputGain_, highBandBuffer_.data(), numFrames);
 
   for (auto& nam : namSlots_)
     nam.process(highBandBuffer_.data(), highBandBuffer_.data(), numFrames);
@@ -304,17 +350,12 @@ void BassProcessor::processMono(const Sample* input, Sample* output, FrameCount 
   irProcessor_.processMono(highBandBuffer_.data(), highBandBuffer_.data(), numFrames);
 
   // 4. Apply output gain to high band
-  for (FrameCount i = 0; i < numFrames; ++i)
-    highBandBuffer_[i] *= highOutputGainLinear_;
+  applyGain(highOutputGain_, highBandBuffer_.data(), numFrames);
 
   // 5. High band wet/dry blend
-  if (highBandMix_ < 1.0f)
-  {
-    float wet = highBandMix_;
-    float dry = 1.0f - wet;
-    for (FrameCount i = 0; i < numFrames; ++i)
-      highBandBuffer_[i] = dryHighBandBuffer_[i] * dry + highBandBuffer_[i] * wet;
-  }
+  if (blendHighBand)
+    crossfade(highBandMix_, dryHighBandBuffer_.data(), highBandBuffer_.data(),
+              highBandBuffer_.data(), numFrames);
 
   // Pick up a delay buffer staged by an IR load on the message thread.
   // try_lock keeps this non-blocking: a missed swap is retried next block.
@@ -364,19 +405,43 @@ void BassProcessor::processMono(const Sample* input, Sample* output, FrameCount 
   // Solo: include a band if it's soloed, or if the other band is NOT soloed (normal mode)
   bool includeLow = lowBandSolo_ || !highBandSolo_;
   bool includeHigh = highBandSolo_ || !lowBandSolo_;
-  for (FrameCount i = 0; i < numFrames; ++i)
+  if (!lowBandLevelGain_.isRamping() && !outputGain_.isRamping())
   {
-    float low = includeLow ? lowBandBuffer_[i] * lowBandLevelLinear_ : 0.0f;
-    float high = includeHigh ? highBandBuffer_[i] : 0.0f;
-    highBandBuffer_[i] = (low + high) * outputGainLinear_;
+    const float lowBandLevel = lowBandLevelGain_.target();
+    const float outputGain = outputGain_.target();
+    for (FrameCount i = 0; i < numFrames; ++i)
+    {
+      float low = includeLow ? lowBandBuffer_[i] * lowBandLevel : 0.0f;
+      float high = includeHigh ? highBandBuffer_[i] : 0.0f;
+      highBandBuffer_[i] = (low + high) * outputGain;
+    }
+  }
+  else
+  {
+    for (FrameCount i = 0; i < numFrames; ++i)
+    {
+      const float lowBandLevel = lowBandLevelGain_.next();
+      const float outputGain = outputGain_.next();
+      float low = includeLow ? lowBandBuffer_[i] * lowBandLevel : 0.0f;
+      float high = includeHigh ? highBandBuffer_[i] : 0.0f;
+      highBandBuffer_[i] = (low + high) * outputGain;
+    }
   }
 
   // Noise gate: key signal is the clean pre-split input, applied to the wet sum
   noiseGate_.process(dryBuffer_.data(), highBandBuffer_.data(), highBandBuffer_.data(), numFrames);
 
   // Dry/wet blend
-  for (FrameCount i = 0; i < numFrames; ++i)
-    output[i] = dryBuffer_[i] * (1.0f - dryWetMix_) + highBandBuffer_[i] * dryWetMix_;
+  crossfade(dryWetMix_, dryBuffer_.data(), highBandBuffer_.data(), output, numFrames);
+}
+
+void BassProcessor::snapSmoothersIfPending()
+{
+  if (!snapSmoothersOnNextBlock_)
+    return;
+  for (auto* smoother : levelSmoothers())
+    smoother->snapToTarget();
+  snapSmoothersOnNextBlock_ = false;
 }
 
 void BassProcessor::reset()
@@ -389,6 +454,7 @@ void BassProcessor::reset()
   irProcessor_.reset();
   noiseGate_.reset();
   currentMakeupLinear_ = 1.0f;
+  snapSmoothersOnNextBlock_ = true;
 
   std::fill(eqBuffer_.begin(), eqBuffer_.end(), 0.0f);
   std::fill(lowBandBuffer_.begin(), lowBandBuffer_.end(), 0.0f);

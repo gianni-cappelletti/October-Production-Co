@@ -1,0 +1,63 @@
+@prefix lv2:    <http://lv2plug.in/ns/lv2core#> .
+@prefix modgui: <http://moddevices.com/ns/modgui#> .
+
+<https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass>
+    modgui:gui [
+        modgui:resourcesDirectory <modgui> ;
+        modgui:iconTemplate <modgui/icon.html> ;
+        modgui:stylesheet <modgui/stylesheet.css> ;
+        modgui:javascript <modgui/script.js> ;
+        modgui:screenshot <modgui/screenshot.png> ;
+        modgui:thumbnail <modgui/thumbnail.png> ;
+        modgui:brand "OPC" ;
+        modgui:label "OctoBASS" ;
+        modgui:port [
+            lv2:index 0 ;
+            lv2:symbol "squash" ;
+            lv2:name "Squash"
+        ] , [
+            lv2:index 1 ;
+            lv2:symbol "compression_mode" ;
+            lv2:name "Mode"
+        ] , [
+            lv2:index 2 ;
+            lv2:symbol "low_level" ;
+            lv2:name "Low Level"
+        ] , [
+            lv2:index 3 ;
+            lv2:symbol "crossover" ;
+            lv2:name "Crossover"
+        ] , [
+            lv2:index 4 ;
+            lv2:symbol "gate" ;
+            lv2:name "Gate"
+        ] , [
+            lv2:index 5 ;
+            lv2:symbol "high_input_gain" ;
+            lv2:name "High Input"
+        ] , [
+            lv2:index 6 ;
+            lv2:symbol "high_blend" ;
+            lv2:name "High Blend"
+        ] , [
+            lv2:index 7 ;
+            lv2:symbol "high_output_gain" ;
+            lv2:name "High Output"
+        ] , [
+            lv2:index 8 ;
+            lv2:symbol "nam1_on" ;
+            lv2:name "NAM 1 On"
+        ] , [
+            lv2:index 9 ;
+            lv2:symbol "nam1_quality" ;
+            lv2:name "NAM 1 Quality"
+        ] , [
+            lv2:index 10 ;
+            lv2:symbol "nam2_on" ;
+            lv2:name "NAM 2 On"
+        ] , [
+            lv2:index 11 ;
+            lv2:symbol "nam2_quality" ;
+            lv2:name "NAM 2 Quality"
+        ]
+    ] .

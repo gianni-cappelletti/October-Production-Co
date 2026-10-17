@@ -1,7 +1,6 @@
 #pragma once
 
-#include <bit>
-#include <cstdint>
+#include <cstring>
 #include <memory>
 #include <string>
 
@@ -33,7 +32,7 @@ struct NamModelMetadata
   bool operator==(const NamModelMetadata& other) const
   {
     const auto sameBits = [](double a, double b)
-    { return std::bit_cast<std::uint64_t>(a) == std::bit_cast<std::uint64_t>(b); };
+    { return std::memcmp(&a, &b, sizeof(double)) == 0; };
     return hasInputLevel == other.hasInputLevel && sameBits(inputLevelDbu, other.inputLevelDbu) &&
            hasOutputLevel == other.hasOutputLevel &&
            sameBits(outputLevelDbu, other.outputLevelDbu) && hasLoudness == other.hasLoudness &&
