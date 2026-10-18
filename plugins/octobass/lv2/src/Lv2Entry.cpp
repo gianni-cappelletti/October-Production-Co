@@ -3,6 +3,7 @@
 #include <lv2/worker/worker.h>
 
 #include <cstring>
+#include <exception>
 
 #include "OctoBassLv2.hpp"
 #include "Uris.hpp"
@@ -15,6 +16,24 @@ using octob::lv2::OctoBassPlugin;
 OctoBassPlugin& plugin(LV2_Handle instance)
 {
   return *static_cast<OctoBassPlugin*>(instance);
+}
+
+template <typename Result, typename Call>
+Result guarded(LV2_Handle instance, const char* entryPoint, Result failure, const Call& call)
+{
+  try
+  {
+    return call();
+  }
+  catch (const std::exception& error)
+  {
+    plugin(instance).logUnhandledException(entryPoint, error.what());
+  }
+  catch (...)
+  {
+    plugin(instance).logUnhandledException(entryPoint, "unknown exception");
+  }
+  return failure;
 }
 
 LV2_Handle instantiate(const LV2_Descriptor* /*descriptor*/, double sampleRate,
@@ -46,7 +65,8 @@ void cleanup(LV2_Handle instance)
 LV2_Worker_Status work(LV2_Handle instance, LV2_Worker_Respond_Function /*respond*/,
                        LV2_Worker_Respond_Handle /*handle*/, uint32_t size, const void* data)
 {
-  return plugin(instance).work(data, size);
+  return guarded(instance, "worker", LV2_WORKER_ERR_UNKNOWN,
+                 [&] { return plugin(instance).work(data, size); });
 }
 
 LV2_Worker_Status workResponse(LV2_Handle /*instance*/, uint32_t /*size*/, const void* /*data*/)
@@ -57,14 +77,16 @@ LV2_Worker_Status workResponse(LV2_Handle /*instance*/, uint32_t /*size*/, const
 LV2_State_Status save(LV2_Handle instance, LV2_State_Store_Function store, LV2_State_Handle handle,
                       uint32_t /*flags*/, const LV2_Feature* const* features)
 {
-  return plugin(instance).save(store, handle, features);
+  return guarded(instance, "state save", LV2_STATE_ERR_UNKNOWN,
+                 [&] { return plugin(instance).save(store, handle, features); });
 }
 
 LV2_State_Status restore(LV2_Handle instance, LV2_State_Retrieve_Function retrieve,
                          LV2_State_Handle handle, uint32_t /*flags*/,
                          const LV2_Feature* const* features)
 {
-  return plugin(instance).restore(retrieve, handle, features);
+  return guarded(instance, "state restore", LV2_STATE_ERR_UNKNOWN,
+                 [&] { return plugin(instance).restore(retrieve, handle, features); });
 }
 
 const LV2_Worker_Interface workerInterface = {work, workResponse, nullptr};

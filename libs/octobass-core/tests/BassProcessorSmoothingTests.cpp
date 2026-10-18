@@ -14,7 +14,6 @@ using namespace octob;
 namespace
 {
 
-constexpr double kPi = 3.14159265358979323846;
 constexpr double kSampleRate = 48000.0;
 constexpr size_t kBlockSize = 128;
 constexpr size_t kBlocksBeforeChange = 40;
@@ -46,8 +45,8 @@ std::vector<float> bassAndTrebleInput()
   for (size_t i = 0; i < kTotalSamples; ++i)
   {
     const double t = static_cast<double>(i) / kSampleRate;
-    input[i] = static_cast<float>(0.3 * std::sin(2.0 * kPi * 80.0 * t) +
-                                  0.2 * std::sin(2.0 * kPi * 2000.0 * t));
+    input[i] = static_cast<float>(0.3 * std::sin(2.0 * Pi * 80.0 * t) +
+                                  0.2 * std::sin(2.0 * Pi * 2000.0 * t));
   }
   return input;
 }

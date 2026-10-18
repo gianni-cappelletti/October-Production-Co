@@ -15,13 +15,13 @@ namespace
 {
 
 const int DefaultPrimingBlockSize = 512;
-const int PrimingHeadroomFrames = 16384;
+const int WdlQueueSettlingFrames = 16384;
 
 void primeConvolutionEngine(WDL_ConvolutionEngine_Div& engine, int blockSize, int impulseLength)
 {
   std::vector<WDL_FFT_REAL> silence(static_cast<size_t>(blockSize), 0.0f);
   std::array<WDL_FFT_REAL*, 2> channels = {{silence.data(), silence.data()}};
-  for (int primed = 0; primed < impulseLength + PrimingHeadroomFrames; primed += blockSize)
+  for (int primed = 0; primed < impulseLength + WdlQueueSettlingFrames; primed += blockSize)
   {
     engine.Add(channels.data(), blockSize, 2);
     if (engine.Avail(blockSize) >= blockSize)

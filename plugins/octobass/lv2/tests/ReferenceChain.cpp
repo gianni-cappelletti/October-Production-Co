@@ -112,7 +112,6 @@ ControlValues defaultControls()
 
 std::vector<float> generateBassSignal(double sampleRate, double seconds)
 {
-  constexpr double Pi = 3.14159265358979323846;
   const auto length = static_cast<size_t>(sampleRate * seconds);
   std::vector<float> signal(length);
   for (size_t i = 0; i < length; ++i)

@@ -31,6 +31,9 @@ struct HostConfig
   bool provideLog = true;
   bool provideOptions = true;
   std::string stateDirectory;
+  size_t notifyBufferBytes = 64 * 1024;
+  std::string uriThatFailsToMap;
+  bool stateCallbacksThrow = false;
 };
 
 struct StoredStateValue
@@ -71,9 +74,11 @@ class FakeLv2Host
   size_t pendingWorkCount() const { return pendingWork_.size(); }
 
   std::vector<FileNotification> takeNotifications();
+  size_t malformedNotificationCount() const { return malformedNotificationCount_; }
 
   StoredState saveState();
   void restoreState(const StoredState& state);
+  LV2_State_Status lastStateStatus() const { return lastStateStatus_; }
 
   const std::vector<std::string>& logMessages() const { return logMessages_; }
   bool hasLogContaining(const std::string& text) const;
@@ -147,6 +152,8 @@ class FakeLv2Host
   StoredState* activeState_ = nullptr;
   const StoredState* activeRestoreState_ = nullptr;
   bool trackRunAllocations_ = false;
+  size_t malformedNotificationCount_ = 0;
+  LV2_State_Status lastStateStatus_ = LV2_STATE_SUCCESS;
 };
 
 }  // namespace octob::lv2::test

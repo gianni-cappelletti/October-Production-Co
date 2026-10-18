@@ -8,6 +8,7 @@
 #include "AllocationTracker.hpp"
 
 using namespace octob;
+using octob::test::allocationTrackingAvailable;
 using octob::test::resetTrackedAllocationCount;
 using octob::test::ScopedAllocationTracking;
 using octob::test::trackedAllocationCount;
@@ -16,31 +17,34 @@ namespace
 {
 
 constexpr double SampleRate = 48000.0;
-constexpr size_t BlockSize = 256;
-constexpr int BlocksAfterLoad = 400;
+constexpr size_t FramesAfterLoad = 2 * static_cast<size_t>(SampleRate);
 
 const std::string IrA = std::string(TEST_DATA_DIR) + "/INPUT_ir_a.wav";
 const std::string IrB = std::string(TEST_DATA_DIR) + "/INPUT_ir_b.wav";
 const std::string StereoIr = std::string(TEST_DATA_DIR) + "/INPUT_ir_stereo.wav";
 
-std::vector<float> sineBlock(size_t blockIndex)
-{
-  std::vector<float> block(BlockSize);
-  for (size_t i = 0; i < BlockSize; ++i)
-  {
-    const double t = static_cast<double>(blockIndex * BlockSize + i) / SampleRate;
-    block[i] = static_cast<float>(0.3 * std::sin(2.0 * 3.14159265358979323846 * 110.0 * t));
-  }
-  return block;
-}
-
-class IRProcessorRealtimeAllocation : public ::testing::Test
+class IRProcessorRealtimeAllocation : public ::testing::TestWithParam<size_t>
 {
  protected:
   void SetUp() override
   {
+    if (!allocationTrackingAvailable())
+      GTEST_SKIP() << "Allocation tracking requires an AddressSanitizer build";
     processor_.setSampleRate(SampleRate);
-    processor_.setMaxBlockSize(BlockSize);
+    processor_.setMaxBlockSize(blockSize());
+  }
+
+  static size_t blockSize() { return GetParam(); }
+
+  static std::vector<float> sineBlock(size_t blockIndex)
+  {
+    std::vector<float> block(blockSize());
+    for (size_t i = 0; i < block.size(); ++i)
+    {
+      const double t = static_cast<double>(blockIndex * block.size() + i) / SampleRate;
+      block[i] = static_cast<float>(0.3 * std::sin(2.0 * Pi * 110.0 * t));
+    }
+    return block;
   }
 
   void load(bool (IRProcessor::*loader)(const std::string&, std::string&), const std::string& path)
@@ -51,27 +55,27 @@ class IRProcessorRealtimeAllocation : public ::testing::Test
 
   size_t allocationsWhileProcessingMono()
   {
-    std::vector<float> output(BlockSize);
+    std::vector<float> output(blockSize());
     resetTrackedAllocationCount();
-    for (int block = 0; block < BlocksAfterLoad; ++block)
+    for (size_t block = 0; block < FramesAfterLoad / blockSize(); ++block)
     {
-      const auto input = sineBlock(static_cast<size_t>(block));
+      const auto input = sineBlock(block);
       const ScopedAllocationTracking tracking;
-      processor_.processMono(input.data(), output.data(), BlockSize);
+      processor_.processMono(input.data(), output.data(), blockSize());
     }
     return trackedAllocationCount();
   }
 
   size_t allocationsWhileProcessingStereo()
   {
-    std::vector<float> left(BlockSize);
-    std::vector<float> right(BlockSize);
+    std::vector<float> left(blockSize());
+    std::vector<float> right(blockSize());
     resetTrackedAllocationCount();
-    for (int block = 0; block < BlocksAfterLoad; ++block)
+    for (size_t block = 0; block < FramesAfterLoad / blockSize(); ++block)
     {
-      const auto input = sineBlock(static_cast<size_t>(block));
+      const auto input = sineBlock(block);
       const ScopedAllocationTracking tracking;
-      processor_.processMonoToStereo(input.data(), left.data(), right.data(), BlockSize);
+      processor_.processMonoToStereo(input.data(), left.data(), right.data(), blockSize());
     }
     return trackedAllocationCount();
   }
@@ -81,20 +85,20 @@ class IRProcessorRealtimeAllocation : public ::testing::Test
 
 }  // namespace
 
-TEST_F(IRProcessorRealtimeAllocation, MonoProcessingAfterFirstIrLoadDoesNotAllocate)
+TEST_P(IRProcessorRealtimeAllocation, MonoProcessingAfterFirstIrLoadDoesNotAllocate)
 {
   load(&IRProcessor::loadImpulseResponse1, IrA);
   EXPECT_EQ(allocationsWhileProcessingMono(), 0u);
 }
 
-TEST_F(IRProcessorRealtimeAllocation, MonoProcessingAfterBothIrsLoadDoesNotAllocate)
+TEST_P(IRProcessorRealtimeAllocation, MonoProcessingAfterBothIrsLoadDoesNotAllocate)
 {
   load(&IRProcessor::loadImpulseResponse1, IrA);
   load(&IRProcessor::loadImpulseResponse2, IrB);
   EXPECT_EQ(allocationsWhileProcessingMono(), 0u);
 }
 
-TEST_F(IRProcessorRealtimeAllocation, ProcessingAfterIrReplacementDoesNotAllocate)
+TEST_P(IRProcessorRealtimeAllocation, ProcessingAfterIrReplacementDoesNotAllocate)
 {
   load(&IRProcessor::loadImpulseResponse1, IrA);
   allocationsWhileProcessingMono();
@@ -102,14 +106,14 @@ TEST_F(IRProcessorRealtimeAllocation, ProcessingAfterIrReplacementDoesNotAllocat
   EXPECT_EQ(allocationsWhileProcessingMono(), 0u);
 }
 
-TEST_F(IRProcessorRealtimeAllocation, StereoProcessingAfterIrLoadDoesNotAllocate)
+TEST_P(IRProcessorRealtimeAllocation, StereoProcessingAfterIrLoadDoesNotAllocate)
 {
   load(&IRProcessor::loadImpulseResponse1, StereoIr);
   load(&IRProcessor::loadImpulseResponse2, IrB);
   EXPECT_EQ(allocationsWhileProcessingStereo(), 0u);
 }
 
-TEST_F(IRProcessorRealtimeAllocation, ProcessingAfterSampleRateChangeDoesNotAllocate)
+TEST_P(IRProcessorRealtimeAllocation, ProcessingAfterSampleRateChangeDoesNotAllocate)
 {
   load(&IRProcessor::loadImpulseResponse1, IrA);
   allocationsWhileProcessingMono();
@@ -117,8 +121,16 @@ TEST_F(IRProcessorRealtimeAllocation, ProcessingAfterSampleRateChangeDoesNotAllo
   EXPECT_EQ(allocationsWhileProcessingMono(), 0u);
 }
 
+INSTANTIATE_TEST_SUITE_P(HostBlockSizes, IRProcessorRealtimeAllocation,
+                         ::testing::Values<size_t>(32, 64, 256, 1024, 4096),
+                         [](const ::testing::TestParamInfo<size_t>& info)
+                         { return "Block" + std::to_string(info.param); });
+
 TEST(AllocationTracker, CountsHeapAllocationsInsideTrackedScope)
 {
+  if (!allocationTrackingAvailable())
+    GTEST_SKIP() << "Allocation tracking requires an AddressSanitizer build";
+
   volatile size_t elementCount = 64;
   resetTrackedAllocationCount();
   {

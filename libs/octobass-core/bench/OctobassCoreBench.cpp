@@ -16,8 +16,6 @@
 namespace
 {
 
-constexpr double kPi = 3.14159265358979323846;
-
 struct BenchConfig
 {
   double sampleRate = 48000.0;
@@ -120,7 +118,7 @@ std::vector<float> synthesizeBass(double sampleRate)
     const double phase = std::fmod(freq * t, 1.0);
     const double envelope = std::exp(-t * 4.0);
     signal[i] = static_cast<float>(0.5 * envelope * (2.0 * phase - 1.0) +
-                                   0.1 * envelope * std::sin(2.0 * kPi * freq * 4.0 * t));
+                                   0.1 * envelope * std::sin(2.0 * octob::Pi * freq * 4.0 * t));
   }
   return signal;
 }

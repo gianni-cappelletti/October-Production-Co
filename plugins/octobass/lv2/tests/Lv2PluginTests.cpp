@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -339,6 +340,29 @@ TEST(Lv2Files, PatchGetReportsEveryFileParameter)
   EXPECT_EQ(notifiedPath(notifications, FileSlot::CabinetIr), CabinetIr);
 }
 
+TEST(Lv2Files, NotificationsThatDoNotFitArriveIntactInLaterRuns)
+{
+  constexpr size_t PatchSetOverheadAllowance = 128;
+  const size_t longestPath =
+      std::max({SlimmableModel.size(), SecondModel.size(), CabinetIr.size()});
+  HostConfig config;
+  config.notifyBufferBytes = sizeof(LV2_Atom_Sequence) + longestPath + PatchSetOverheadAllowance;
+  FakeLv2Host host(config);
+  ASSERT_TRUE(host.isInstantiated());
+  const auto input = generateBassSignal(TestSampleRate, SignalSeconds);
+
+  loadThroughPlugin(host, input,
+                    {{FileSlot::Nam1, SlimmableModel},
+                     {FileSlot::Nam2, SecondModel},
+                     {FileSlot::CabinetIr, CabinetIr}});
+
+  const auto notifications = host.takeNotifications();
+  EXPECT_EQ(notifiedPath(notifications, FileSlot::Nam1), SlimmableModel);
+  EXPECT_EQ(notifiedPath(notifications, FileSlot::Nam2), SecondModel);
+  EXPECT_EQ(notifiedPath(notifications, FileSlot::CabinetIr), CabinetIr);
+  EXPECT_EQ(host.malformedNotificationCount(), 0u);
+}
+
 TEST(Lv2Quality, QualityChangeTakesEffectAfterWorkerRuns)
 {
   FakeLv2Host host;
@@ -367,6 +391,9 @@ TEST(Lv2Quality, QualityChangeTakesEffectAfterWorkerRuns)
 
 TEST(Lv2RealtimeSafety, RunNeverAllocates)
 {
+  if (!allocationTrackingAvailable())
+    GTEST_SKIP() << "Allocation tracking requires an AddressSanitizer build";
+
   FakeLv2Host host;
   ASSERT_TRUE(host.isInstantiated());
   const auto input = generateBassSignal(TestSampleRate, SignalSeconds);
@@ -541,4 +568,37 @@ TEST(Lv2SampleRates, ProcessesFiniteAudioAtCommonRates)
         << rate;
     EXPECT_GT(*std::max_element(output.begin(), output.end()), 0.0f) << rate;
   }
+}
+
+TEST(Lv2Robustness, InstantiationFailureIsLoggedAndReportedToHost)
+{
+  HostConfig config;
+  config.uriThatFailsToMap = fileParameter(FileSlot::CabinetIr).uri;
+
+  std::unique_ptr<FakeLv2Host> host;
+  ASSERT_NO_THROW(host = std::make_unique<FakeLv2Host>(config));
+  EXPECT_FALSE(host->isInstantiated());
+  EXPECT_TRUE(host->hasLogContaining("host failed to map"));
+}
+
+TEST(Lv2Robustness, StateFailuresAreLoggedReportedToHostAndLeaveThePluginUsable)
+{
+  HostConfig config;
+  config.stateCallbacksThrow = true;
+  FakeLv2Host host(config);
+  ASSERT_TRUE(host.isInstantiated());
+  const auto input = generateBassSignal(TestSampleRate, SignalSeconds);
+  loadThroughPlugin(host, input, {{FileSlot::Nam1, SlimmableModel}});
+
+  ASSERT_NO_THROW(host.saveState());
+  EXPECT_EQ(host.lastStateStatus(), LV2_STATE_ERR_UNKNOWN);
+  EXPECT_TRUE(host.hasLogContaining("host failed to store state"));
+
+  ASSERT_NO_THROW(host.restoreState({}));
+  EXPECT_EQ(host.lastStateStatus(), LV2_STATE_ERR_UNKNOWN);
+  EXPECT_TRUE(host.hasLogContaining("host failed to retrieve state"));
+
+  host.takeNotifications();
+  loadThroughPlugin(host, input, {{FileSlot::Nam2, SecondModel}});
+  EXPECT_EQ(notifiedPath(host.takeNotifications(), FileSlot::Nam2), SecondModel);
 }

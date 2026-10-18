@@ -56,11 +56,10 @@ void Crossover::updateCoefficients()
 {
   // Cytomic SVF (Andy Simper, trapezoidal integration).
   // LR4 = two cascaded Butterworth 2nd-order SVFs per band.
-  const double pi = 3.14159265358979323846;
   const double fc = static_cast<double>(frequency_);
   const double fs = sampleRate_;
 
-  const double g = std::tan(pi * fc / fs);
+  const double g = std::tan(Pi * fc / fs);
   const double k = std::sqrt(2.0);  // Butterworth: Q = 1/sqrt(2), k = 1/Q = sqrt(2)
 
   const double a1 = 1.0 / (1.0 + g * (g + k));

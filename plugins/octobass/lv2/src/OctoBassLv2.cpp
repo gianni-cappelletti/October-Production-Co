@@ -65,6 +65,12 @@ bool hasExtension(const std::string& path, const char* extension)
                     });
 }
 
+size_t patchSetPathEventBytes(uint32_t pathLength)
+{
+  return sizeof(int64_t) + sizeof(LV2_Atom_Object) + 2 * sizeof(LV2_Atom_Property_Body) +
+         lv2_atom_pad_size(sizeof(LV2_URID)) + lv2_atom_pad_size(pathLength + 1);
+}
+
 uint32_t readMaxBlockLength(const LV2_Options_Option* options, LV2_URID maxBlockLengthUrid,
                             LV2_URID atomInt)
 {
@@ -135,16 +141,28 @@ std::unique_ptr<OctoBassPlugin> OctoBassPlugin::create(double sampleRate,
     return nullptr;
   }
 
-  const uint32_t maxBlockLength =
-      readMaxBlockLength(options, map->map(map->handle, LV2_BUF_SIZE__maxBlockLength),
-                         map->map(map->handle, LV2_ATOM__Int));
-  if (options == nullptr)
-    lv2_log_note(&logger,
-                 "OctoBASS: host provides no block size options, processing in %u-frame chunks\n",
-                 maxBlockLength);
+  try
+  {
+    const uint32_t maxBlockLength =
+        readMaxBlockLength(options, map->map(map->handle, LV2_BUF_SIZE__maxBlockLength),
+                           map->map(map->handle, LV2_ATOM__Int));
+    if (options == nullptr)
+      lv2_log_note(&logger,
+                   "OctoBASS: host provides no block size options, processing in %u-frame chunks\n",
+                   maxBlockLength);
 
-  return std::unique_ptr<OctoBassPlugin>(
-      new OctoBassPlugin(sampleRate, maxBlockLength, *map, *schedule, log));
+    return std::unique_ptr<OctoBassPlugin>(
+        new OctoBassPlugin(sampleRate, maxBlockLength, *map, *schedule, log));
+  }
+  catch (const std::exception& error)
+  {
+    lv2_log_error(&logger, "OctoBASS: instantiation failed: %s\n", error.what());
+  }
+  catch (...)
+  {
+    lv2_log_error(&logger, "OctoBASS: instantiation failed with an unknown exception\n");
+  }
+  return nullptr;
 }
 
 OctoBassPlugin::OctoBassPlugin(double sampleRate, uint32_t maxBlockLength, LV2_URID_Map& map,
@@ -402,14 +420,21 @@ void OctoBassPlugin::writeNotifications()
       continue;
 
     const PathBuffer& path = loadedPaths_[slotIndex(slot)];
-    LV2_Atom_Forge_Frame objectFrame;
-    if (lv2_atom_forge_frame_time(&forge_, 0) == 0 ||
-        lv2_atom_forge_object(&forge_, &objectFrame, 0, urids_.patchSet) == 0)
+    const auto pathLength = static_cast<uint32_t>(std::strlen(path.data()));
+    if (forge_.size - forge_.offset < patchSetPathEventBytes(pathLength))
+    {
+      lv2_log_trace(&logger_, "OctoBASS: notify buffer full, deferring the %s notification\n",
+                    slotName(slot));
       break;
+    }
+
+    LV2_Atom_Forge_Frame objectFrame;
+    lv2_atom_forge_frame_time(&forge_, 0);
+    lv2_atom_forge_object(&forge_, &objectFrame, 0, urids_.patchSet);
     lv2_atom_forge_key(&forge_, urids_.patchProperty);
     lv2_atom_forge_urid(&forge_, urids_.fileParameters[slotIndex(slot)]);
     lv2_atom_forge_key(&forge_, urids_.patchValue);
-    lv2_atom_forge_path(&forge_, path.data(), static_cast<uint32_t>(std::strlen(path.data())));
+    lv2_atom_forge_path(&forge_, path.data(), pathLength);
     lv2_atom_forge_pop(&forge_, &objectFrame);
     pending = false;
   }
@@ -497,6 +522,11 @@ void OctoBassPlugin::clearFile(FileSlot slot)
   else
     bassProcessor_.clearNamModel(namSlotFor(slot));
   lv2_log_note(&logger_, "OctoBASS: cleared %s\n", slotName(slot));
+}
+
+void OctoBassPlugin::logUnhandledException(const char* entryPoint, const char* what)
+{
+  lv2_log_error(&logger_, "OctoBASS: %s failed: %s\n", entryPoint, what);
 }
 
 std::string OctoBassPlugin::currentPath(FileSlot slot) const

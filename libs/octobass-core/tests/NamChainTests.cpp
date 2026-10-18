@@ -13,7 +13,6 @@ using namespace octob;
 namespace
 {
 
-constexpr double kPi = 3.14159265358979323846;
 constexpr double kSampleRate = 44100.0;
 constexpr size_t kBlockSize = 512;
 constexpr size_t kNumBlocks = 16;
@@ -45,8 +44,8 @@ std::vector<float> generateSine(float freqHz, float amplitude = 0.3f)
 {
   std::vector<float> buf(kNumBlocks * kBlockSize);
   for (size_t i = 0; i < buf.size(); ++i)
-    buf[i] = amplitude * static_cast<float>(
-                             std::sin(2.0 * kPi * freqHz * static_cast<double>(i) / kSampleRate));
+    buf[i] = amplitude *
+             static_cast<float>(std::sin(2.0 * Pi * freqHz * static_cast<double>(i) / kSampleRate));
   return buf;
 }
 

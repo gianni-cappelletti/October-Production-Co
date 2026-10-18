@@ -230,7 +230,7 @@ mod-sim:
 	@docker build -t opc-mod-sim scripts/mod-sim
 	@docker rm -f opc-mod-sim >/dev/null 2>&1 || true
 	@echo "mod-ui will be at http://localhost:18888 once OctoBASS has built"
-	@docker run --rm --name opc-mod-sim -p 18888:8888 \
+	@docker run --rm --name opc-mod-sim -p 127.0.0.1:18888:8888 \
 		-v "$(CURDIR)":/src:ro -v opc-mod-sim-work:/work opc-mod-sim
 
 mod-sim-check:

@@ -60,6 +60,8 @@ class OctoBassPlugin
   LV2_State_Status restore(LV2_State_Retrieve_Function retrieve, LV2_State_Handle handle,
                            const LV2_Feature* const* features);
 
+  void logUnhandledException(const char* entryPoint, const char* what);
+
  private:
   struct Urids
   {

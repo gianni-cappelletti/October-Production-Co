@@ -10,7 +10,6 @@ using namespace octob;
 namespace
 {
 
-constexpr double kPi = 3.14159265358979323846;
 constexpr int kBlockSize = 512;
 
 std::vector<float> generateSine(float freqHz, float sampleRate, size_t numSamples,
@@ -18,7 +17,7 @@ std::vector<float> generateSine(float freqHz, float sampleRate, size_t numSample
 {
   std::vector<float> buf(numSamples);
   for (size_t i = 0; i < numSamples; ++i)
-    buf[i] = amplitude * static_cast<float>(std::sin(2.0 * kPi * freqHz * i / sampleRate));
+    buf[i] = amplitude * static_cast<float>(std::sin(2.0 * Pi * freqHz * i / sampleRate));
   return buf;
 }
 
@@ -214,13 +213,13 @@ TEST_F(CompressorAudioTest, NoOvershoot_OnTransientReentry)
 
   std::vector<float> input(kTotal, 0.0f);
   for (size_t i = 0; i < kBurstLen; ++i)
-    input[i] = kAmplitude * static_cast<float>(
-                                std::sin(2.0 * kPi * 80.0 * static_cast<double>(i) / kSampleRate));
+    input[i] = kAmplitude *
+               static_cast<float>(std::sin(2.0 * Pi * 80.0 * static_cast<double>(i) / kSampleRate));
   for (size_t i = kBurstLen + kSilenceLen; i < kTotal; ++i)
   {
     size_t j = i - kBurstLen - kSilenceLen;
-    input[i] = kAmplitude * static_cast<float>(
-                                std::sin(2.0 * kPi * 80.0 * static_cast<double>(j) / kSampleRate));
+    input[i] = kAmplitude *
+               static_cast<float>(std::sin(2.0 * Pi * 80.0 * static_cast<double>(j) / kSampleRate));
   }
 
   float inputPeak = peakLevel(input);

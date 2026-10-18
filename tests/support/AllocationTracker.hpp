@@ -32,6 +32,7 @@ class ScopedAllocationTrackingPause
   bool wasTracking_;
 };
 
+bool allocationTrackingAvailable();
 size_t trackedAllocationCount();
 void resetTrackedAllocationCount();
 

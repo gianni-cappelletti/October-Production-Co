@@ -36,7 +36,9 @@ char* duplicateString(const std::string& text)
 }  // namespace
 
 FakeLv2Host::FakeLv2Host(HostConfig config)
-    : config_(std::move(config)), controlBuffer_(AtomBufferBytes), notifyBuffer_(AtomBufferBytes)
+    : config_(std::move(config)),
+      controlBuffer_(AtomBufferBytes),
+      notifyBuffer_(config_.notifyBufferBytes)
 {
   uridMap_ = {this, &FakeLv2Host::mapCallback};
   uridUnmap_ = {this, &FakeLv2Host::unmapCallback};
@@ -218,7 +220,10 @@ void FakeLv2Host::readNotifySequence()
     lv2_atom_object_get(object, patchProperty, &property, patchValue, &value, 0);
     if (property == nullptr || value == nullptr || property->type != atomUrid ||
         value->type != atomPath)
+    {
+      ++malformedNotificationCount_;
       continue;
+    }
 
     const auto propertyUrid = reinterpret_cast<const LV2_Atom_URID*>(property)->body;
     const char* path = static_cast<const char*>(LV2_ATOM_BODY_CONST(value));
@@ -277,8 +282,8 @@ StoredState FakeLv2Host::saveState()
   const LV2_Feature* stateFeatures[] = {&mapPathFeature, &freePathFeature, nullptr};
 
   activeState_ = &state;
-  stateInterface_->save(instance_, &FakeLv2Host::storeCallback, this,
-                        LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE, stateFeatures);
+  lastStateStatus_ = stateInterface_->save(instance_, &FakeLv2Host::storeCallback, this,
+                                           LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE, stateFeatures);
   activeState_ = nullptr;
   return state;
 }
@@ -293,8 +298,9 @@ void FakeLv2Host::restoreState(const StoredState& state)
   const LV2_Feature* stateFeatures[] = {&mapPathFeature, &freePathFeature, nullptr};
 
   activeRestoreState_ = &state;
-  stateInterface_->restore(instance_, &FakeLv2Host::retrieveCallback, this,
-                           LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE, stateFeatures);
+  lastStateStatus_ =
+      stateInterface_->restore(instance_, &FakeLv2Host::retrieveCallback, this,
+                               LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE, stateFeatures);
   activeRestoreState_ = nullptr;
 }
 
@@ -324,7 +330,10 @@ std::string FakeLv2Host::unmap(LV2_URID urid) const
 
 LV2_URID FakeLv2Host::mapCallback(LV2_URID_Map_Handle handle, const char* uri)
 {
-  return static_cast<FakeLv2Host*>(handle)->map(uri);
+  auto* host = static_cast<FakeLv2Host*>(handle);
+  if (host->config_.uriThatFailsToMap == uri)
+    throw std::runtime_error(std::string("host failed to map ") + uri);
+  return host->map(uri);
 }
 
 const char* FakeLv2Host::unmapCallback(LV2_URID_Unmap_Handle handle, LV2_URID urid)
@@ -377,6 +386,8 @@ LV2_State_Status FakeLv2Host::storeCallback(LV2_State_Handle handle, uint32_t ke
                                             uint32_t /*flags*/)
 {
   auto* host = static_cast<FakeLv2Host*>(handle);
+  if (host->config_.stateCallbacksThrow)
+    throw std::runtime_error("host failed to store state");
   const auto* bytes = static_cast<const uint8_t*>(value);
   (*host->activeState_)[host->unmap(key)] = {host->unmap(type),
                                              std::vector<uint8_t>(bytes, bytes + size)};
@@ -387,6 +398,8 @@ const void* FakeLv2Host::retrieveCallback(LV2_State_Handle handle, uint32_t key,
                                           uint32_t* type, uint32_t* flags)
 {
   auto* host = static_cast<FakeLv2Host*>(handle);
+  if (host->config_.stateCallbacksThrow)
+    throw std::runtime_error("host failed to retrieve state");
   const auto found = host->activeRestoreState_->find(host->unmap(key));
   if (found == host->activeRestoreState_->end())
     return nullptr;
