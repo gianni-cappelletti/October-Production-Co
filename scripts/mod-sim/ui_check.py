@@ -207,7 +207,146 @@ def check_pedal_size(page: Page):
         """() => { const p = document.querySelector('.mod-pedal-octobass');
                    return [p.offsetWidth, p.offsetHeight]; }""")
     check("pedal is scaled up", size[0] >= 950 and size[1] >= 500, f"{size[0]}x{size[1]}")
-    check("pedal is no taller than its content needs", size[1] <= 520, f"{size[0]}x{size[1]}")
+    check("pedal is no taller than its content needs", size[1] <= 580, f"{size[0]}x{size[1]}")
+
+
+def background_luminance(page: Page, points):
+    return page.evaluate(
+        """async points => {
+             const pedal = document.querySelector('.mod-pedal-octobass');
+             const style = getComputedStyle(pedal);
+             const url = style.backgroundImage.slice(5, -2);
+             const image = new Image();
+             await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; image.src = url; });
+             const canvas = document.createElement('canvas');
+             canvas.width = image.naturalWidth;
+             canvas.height = image.naturalHeight;
+             const context = canvas.getContext('2d');
+             context.drawImage(image, 0, 0);
+             const scale = image.naturalWidth / pedal.offsetWidth;
+             return points.map(([x, y]) => {
+               const [r, g, b] = context.getImageData(Math.round(x * scale), Math.round(y * scale), 1, 1).data;
+               return Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+             });
+           }""", points)
+
+
+def name_strip(page: Page):
+    return page.evaluate(
+        """async () => {
+             const pedal = document.querySelector('.mod-pedal-octobass');
+             const url = getComputedStyle(pedal).backgroundImage.slice(5, -2);
+             const image = new Image();
+             await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; image.src = url; });
+             const canvas = document.createElement('canvas');
+             canvas.width = image.naturalWidth;
+             canvas.height = image.naturalHeight;
+             const context = canvas.getContext('2d');
+             context.drawImage(image, 0, 0);
+             const scale = image.naturalWidth / pedal.offsetWidth;
+             const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+             const at = (x, y) => { const i = (y * canvas.width + x) * 4; return [pixels[i], pixels[i + 1], pixels[i + 2]]; };
+             const luminance = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+             const probeX = Math.round(canvas.width * 0.1);
+             let top = Math.round(canvas.height * 0.85);
+             while (top < canvas.height && luminance(at(probeX, top)) > 120) top++;
+             const inside = Math.min(canvas.height - 1, top + Math.round(4 * scale));
+             const stripLuminance = luminance(at(probeX, inside));
+             let bottom = inside;
+             while (bottom < canvas.height && Math.abs(luminance(at(probeX, bottom)) - stripLuminance) <= 15) bottom++;
+             const middle = Math.round((top + bottom) / 2);
+             let left = canvas.width, right = -1;
+             for (let y = top; y < bottom; y++)
+               for (let x = 0; x < canvas.width; x++) {
+                 const [r, g, b] = at(x, y);
+                 if (r > 200 && g > 100 && g < 170 && b < 100) { left = Math.min(left, x); right = Math.max(right, x); }
+               }
+             return {
+               top: top / scale,
+               bottom: bottom / scale,
+               colour: at(probeX, middle),
+               rimLeft: at(Math.round(1.5 * scale), middle),
+               below: at(probeX, canvas.height - Math.round(6 * scale)),
+               text: right < 0 ? null : [left / scale, right / scale],
+             };
+           }""")
+
+
+def relative_luminance(rgb):
+    channels = [value / 255 for value in rgb]
+    linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def contrast(a, b):
+    high, low = sorted([relative_luminance(a), relative_luminance(b)], reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+def check_name_strip(page: Page):
+    width, height = page.evaluate(
+        """() => { const p = document.querySelector('.mod-pedal-octobass');
+                   return [p.offsetWidth, p.offsetHeight]; }""")
+    strip = name_strip(page)
+    check("name strip runs along the bottom of the faceplate", strip["bottom"] - strip["top"] >= 20,
+          f"strip {strip['top']:.1f}..{strip['bottom']:.1f}px")
+    strip_luminance = relative_luminance(strip["colour"])
+    check("name strip face is black", strip_luminance <= 0.012,
+          f"{strip['colour']} luminance {strip_luminance:.3f}")
+    check("bevel stays visible along the strip's side",
+          abs(relative_luminance(strip["rimLeft"]) - strip_luminance) >= 0.01,
+          f"rim {strip['rimLeft']} strip {strip['colour']}")
+    check("enclosure side shows below the strip",
+          relative_luminance(strip["below"]) >= strip_luminance + 0.03,
+          f"below {strip['below']} strip {strip['colour']}")
+    text = strip["text"]
+    check("strip carries a name in the LCD orange", text is not None, str(text))
+    if text is not None:
+        centre = (text[0] + text[1]) / 2
+        check("name is centered on the strip", abs(centre - width / 2) <= 3,
+              f"centre {centre:.1f} pedal centre {width / 2}")
+        check("name is wide enough to read", text[1] - text[0] >= 80, f"{text[1] - text[0]:.1f}px")
+    ratio = contrast((0xF0, 0x88, 0x30), strip["colour"])
+    check("name meets WCAG AA contrast on the strip", ratio >= 4.5, f"{ratio:.2f}:1")
+
+    lowest = page.evaluate(
+        """() => Math.max(...['bypass', 'nam1-on', 'nam2-on'].map(c => {
+             const e = document.querySelector('.mod-pedal-octobass .opc-' + c);
+             return e.offsetTop + e.offsetHeight;
+           }))""")
+    check("footswitches clear the name strip", strip["top"] - lowest >= 4,
+          f"gap {strip['top'] - lowest:.1f}px")
+
+
+def check_enclosure(page: Page):
+    style = page.evaluate(
+        """() => { const s = getComputedStyle(document.querySelector('.mod-pedal-octobass'));
+                   return [s.borderTopLeftRadius, s.boxShadow]; }""")
+    check("enclosure has rounded corners", float(style[0].rstrip("px") or 0) >= 12, style[0])
+    check("pedal casts a shadow on the floor", style[1] not in ("", "none"), style[1])
+
+    width, height = page.evaluate(
+        """() => { const p = document.querySelector('.mod-pedal-octobass');
+                   return [p.offsetWidth, p.offsetHeight]; }""")
+    lcd = page.evaluate(
+        """() => { const e = document.querySelector('.mod-pedal-octobass .opc-file[mod-parameter-uri$="#nam1Model"]');
+                   return [e.offsetLeft, e.offsetTop, e.offsetWidth, e.offsetHeight]; }""")
+    face, bottom_edge, top_edge, left_of_lcd, above_lcd = background_luminance(page, [
+        [width / 2, height * 0.45],
+        [width / 2, height - 4],
+        [width / 2, 1.5],
+        [lcd[0] - 1, lcd[1] + lcd[3] / 2],
+        [lcd[0] + lcd[2] / 2, lcd[1] - 1],
+    ])
+    check("enclosure shows its depth along the bottom edge", bottom_edge < face - 40,
+          f"edge {bottom_edge} face {face}")
+    check("enclosure rim catches the light along the top edge", top_edge > face,
+          f"edge {top_edge} face {face}")
+    check("file LCDs sit in a recess darker than the panel",
+          left_of_lcd < face - 40 and above_lcd < face - 40,
+          f"left {left_of_lcd} above {above_lcd} face {face}")
+    check("LCD recess is a soft shade, not a black outline",
+          left_of_lcd > 90 and above_lcd > 90, f"left {left_of_lcd} above {above_lcd}")
 
 
 def list_visible(page: Page, parameter):
@@ -437,6 +576,8 @@ def main():
         screenshot(page, "pedal-default.png")
         check_layout(page)
         check_pedal_size(page)
+        check_enclosure(page)
+        check_name_strip(page)
         check_right_zone(page)
         check_power_row(page)
         check_lower_readouts_align_with_ir(page)

@@ -18,7 +18,17 @@ constexpr float RenderScale = 2.0f;
 constexpr float DisplayScale = 1.3f;
 constexpr float PixelScale = RenderScale * DisplayScale;
 constexpr float PedalWidth = 760.0f;
-constexpr float PedalHeight = 395.0f;
+constexpr float NameStripHeight = 24.0f;
+constexpr float NameStripTop = 407.0f;
+constexpr float FaceplateHeight = NameStripTop + NameStripHeight;
+constexpr float EnclosureDepth = 10.0f;
+constexpr float PedalHeight = FaceplateHeight + EnclosureDepth;
+constexpr float EnclosureCornerRadius = 14.0f;
+constexpr float PrintInset = 6.0f;
+constexpr float BezelWidth = 1.5f;
+constexpr float BezelCornerRadius = 3.5f;
+constexpr float GrainDensity = 0.015f;
+constexpr int GrainSeed = 1;
 constexpr float DividerY = 305.0f;
 constexpr float Pad = 15.0f;
 constexpr float LineSlope = 86.4f / 540.0f;
@@ -53,10 +63,15 @@ constexpr float BadgeTextHeight = 11.0f;
 constexpr float BadgeCentreX = Pad + 161.0f;
 constexpr float BadgeCentreY = Row2Y + LabelHeight + KnobHeight * 0.5f;
 constexpr const char* BadgeText = "OPC";
+constexpr const char* NameText = "OctoBASS";
 constexpr const char* PedalClass = "mod-pedal-octobass";
 constexpr const char* FilePlaceholder = "-- none --";
 
 const juce::Colour PanelColour{0xfff0f0f2};
+const juce::Colour EnclosureSideColour{0xff505056};
+const juce::Colour NameStripColour{0xff141414};
+const juce::Colour BezelShadeColour{0xff8c8c92};
+const juce::Colour BezelLipColour{0xffc4c4c9};
 const juce::Colour LineColour{0xff1a1a1a};
 const juce::Colour LabelColour{0xff1a1a1a};
 
@@ -401,6 +416,113 @@ void drawText(juce::Graphics& g, const juce::String& text, const Box& box, const
   g.drawText(text, juce::Rectangle<float>(box.x, box.y, box.w, box.h), justification, false);
 }
 
+void drawGrain(juce::Graphics& g, const juce::Path& area)
+{
+  const juce::Graphics::ScopedSaveState saved(g);
+  g.reduceClipRegion(area);
+  const auto bounds = area.getBounds();
+  const float dot = 1.0f / PixelScale;
+  const auto dots = static_cast<int>(bounds.getWidth() * bounds.getHeight() * PixelScale *
+                                     PixelScale * GrainDensity);
+  juce::Random random(GrainSeed);
+  for (int i = 0; i < dots; ++i)
+  {
+    g.setColour(random.nextBool() ? juce::Colours::black.withAlpha(0.09f)
+                                  : juce::Colours::white.withAlpha(0.12f));
+    const float x = std::floor(random.nextFloat() * bounds.getWidth() * PixelScale) * dot;
+    const float y = std::floor(random.nextFloat() * bounds.getHeight() * PixelScale) * dot;
+    g.fillRect(bounds.getX() + x, bounds.getY() + y, dot, dot);
+  }
+}
+
+void drawEnclosure(juce::Graphics& g)
+{
+  const juce::Rectangle<float> body(0.0f, 0.0f, PedalWidth, PedalHeight);
+  const juce::Rectangle<float> faceplate(0.0f, 0.0f, PedalWidth, FaceplateHeight);
+
+  g.setGradientFill(
+      juce::ColourGradient(EnclosureSideColour, 0.0f, FaceplateHeight - EnclosureCornerRadius,
+                           EnclosureSideColour.darker(0.4f), 0.0f, PedalHeight, false));
+  g.fillRoundedRectangle(body, EnclosureCornerRadius);
+
+  g.setGradientFill(juce::ColourGradient(PanelColour.brighter(0.03f), 0.0f, 0.0f,
+                                         PanelColour.darker(0.05f), PedalWidth, FaceplateHeight,
+                                         false));
+  g.fillRoundedRectangle(faceplate, EnclosureCornerRadius);
+
+  juce::Path faceplatePath;
+  faceplatePath.addRoundedRectangle(faceplate, EnclosureCornerRadius);
+  drawGrain(g, faceplatePath);
+  {
+    const juce::Graphics::ScopedSaveState saved(g);
+    g.reduceClipRegion(faceplatePath);
+    g.setColour(NameStripColour);
+    g.fillRect(0.0f, NameStripTop, PedalWidth, NameStripHeight);
+  }
+
+  const auto rimGradient = [](float strength)
+  {
+    juce::ColourGradient rim(juce::Colours::white.withAlpha(0.95f * strength), 0.0f, 0.0f,
+                             juce::Colours::black.withAlpha(0.35f * strength), 0.0f,
+                             FaceplateHeight, false);
+    rim.addColour(0.15, juce::Colours::white.withAlpha(0.0f));
+    rim.addColour(0.8, juce::Colours::black.withAlpha(0.0f));
+    return rim;
+  };
+  g.setGradientFill(rimGradient(1.0f));
+  g.drawRoundedRectangle(faceplate.reduced(1.0f), EnclosureCornerRadius - 1.0f, 2.0f);
+  g.setGradientFill(rimGradient(0.5f));
+  g.drawRoundedRectangle(faceplate.reduced(3.0f), EnclosureCornerRadius - 3.0f, 2.0f);
+  {
+    const juce::Graphics::ScopedSaveState saved(g);
+    g.reduceClipRegion(juce::Rectangle<int>(0, static_cast<int>(NameStripTop),
+                                            static_cast<int>(PedalWidth),
+                                            static_cast<int>(NameStripHeight) + 1));
+    g.setColour(juce::Colours::white.withAlpha(0.22f));
+    g.drawRoundedRectangle(faceplate.reduced(1.0f), EnclosureCornerRadius - 1.0f, 2.0f);
+  }
+
+  g.setColour(juce::Colours::black.withAlpha(0.3f));
+  g.drawLine(EnclosureCornerRadius, FaceplateHeight, PedalWidth - EnclosureCornerRadius,
+             FaceplateHeight, 1.0f);
+  g.setColour(juce::Colours::black.withAlpha(0.55f));
+  g.drawRoundedRectangle(body.reduced(0.5f), EnclosureCornerRadius, 1.0f);
+}
+
+void drawStripName(juce::Graphics& g, OctoberLookAndFeel& lookAndFeel)
+{
+  drawText(g, NameText, {0.0f, NameStripTop, PedalWidth, NameStripHeight},
+           juce::Font(juce::FontOptions(lookAndFeel.getLCDTypeface()).withHeight(BadgeTextHeight)),
+           kLCDBacklightColour, juce::Justification::centred);
+}
+
+void drawLcdBezel(juce::Graphics& g, juce::Rectangle<float> lcd)
+{
+  const auto bezel = lcd.expanded(BezelWidth);
+  g.setGradientFill(juce::ColourGradient(BezelShadeColour, 0.0f, bezel.getY(), BezelLipColour, 0.0f,
+                                         bezel.getBottom(), false));
+  g.fillRoundedRectangle(bezel, BezelCornerRadius);
+  g.setColour(juce::Colours::white.withAlpha(0.8f));
+  g.drawLine(bezel.getX() + BezelCornerRadius, bezel.getBottom() + 0.5f,
+             bezel.getRight() - BezelCornerRadius, bezel.getBottom() + 0.5f, 1.0f);
+}
+
+void drawLcdGlass(juce::Graphics& g, juce::Rectangle<float> lcd)
+{
+  const auto glass = lcd.reduced(1.0f).withHeight(lcd.getHeight() * 0.45f);
+  g.setGradientFill(juce::ColourGradient(juce::Colours::white.withAlpha(0.16f), 0.0f, glass.getY(),
+                                         juce::Colours::white.withAlpha(0.0f), 0.0f,
+                                         glass.getBottom(), false));
+  g.fillRoundedRectangle(glass, 2.0f);
+}
+
+void drawRecessedLcd(juce::Graphics& g, juce::Rectangle<float> lcd,
+                     juce::Colour backlight = kLCDBacklightColour)
+{
+  drawLCDBackground(g, lcd, backlight);
+  drawLcdGlass(g, lcd);
+}
+
 juce::Rectangle<float> valueBox(const Control& control)
 {
   return {control.widgetBox.x, control.widgetBox.y + KnobHeight, KnobWidth, ValueHeight};
@@ -413,21 +535,13 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
   juce::Graphics g(image);
   g.addTransform(juce::AffineTransform::scale(PixelScale));
 
-  const juce::Rectangle<float> bounds(0.0f, 0.0f, PedalWidth, PedalHeight);
-  const float cornerRadius = 3.0f;
-  g.setColour(PanelColour);
-  g.fillRoundedRectangle(bounds, cornerRadius);
-  g.setColour(juce::Colours::black.withAlpha(0.28f));
-  g.drawRoundedRectangle(bounds.reduced(0.5f), cornerRadius, 1.0f);
-  g.setColour(juce::Colours::black.withAlpha(0.14f));
-  g.drawRoundedRectangle(bounds.reduced(1.5f), cornerRadius, 1.0f);
-  g.setColour(juce::Colours::black.withAlpha(0.06f));
-  g.drawRoundedRectangle(bounds.reduced(2.5f), cornerRadius, 1.0f);
+  drawEnclosure(g);
+  drawStripName(g, lookAndFeel);
 
   g.setColour(LineColour);
-  g.drawLine(LeftLineTopX, 0.0f, lineXAtY(LeftLineTopX, DividerY), DividerY, 3.0f);
-  g.drawLine(RightLineTopX, 0.0f, lineXAtY(RightLineTopX, DividerY), DividerY, 3.0f);
-  g.drawLine(0.0f, DividerY, PedalWidth, DividerY, 3.0f);
+  for (const float topX : {LeftLineTopX, RightLineTopX})
+    g.drawLine(lineXAtY(topX, PrintInset), PrintInset, lineXAtY(topX, DividerY), DividerY, 3.0f);
+  g.drawLine(PrintInset, DividerY, PedalWidth - PrintInset, DividerY, 3.0f);
 
   const juce::Font labelFont(
       juce::FontOptions(lookAndFeel.getTypefaceForFont(juce::Font(juce::FontOptions(15.0f))))
@@ -438,8 +552,13 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
       drawText(g, control.label, control.labelBox, labelFont, LabelColour,
                juce::Justification::centred);
     if (control.hasValue)
-      drawLCDBackground(g, valueBox(control));
+    {
+      drawLcdBezel(g, valueBox(control));
+      drawRecessedLcd(g, valueBox(control));
+    }
   }
+  for (const auto& slot : fileSlots)
+    drawLcdBezel(g, {slot.lcdBox.x, slot.lcdBox.y, slot.lcdBox.w, slot.lcdBox.h});
 
   const auto badge =
       juce::Rectangle<float>(BadgeWidth, BadgeHeight).withCentre({BadgeCentreX, BadgeCentreY});
@@ -474,7 +593,7 @@ juce::Image renderFileLcdSprite()
     g.addTransform(
         juce::AffineTransform::scale(framePixelWidth / FileLcdWidth, framePixelHeight / LcdHeight)
             .translated(static_cast<float>(frame) * framePixelWidth, 0.0f));
-    drawLCDBackground(g, {0.0f, 0.0f, FileLcdWidth, LcdHeight}, backlights[frame]);
+    drawRecessedLcd(g, {0.0f, 0.0f, FileLcdWidth, LcdHeight}, backlights[frame]);
   }
   return image;
 }
@@ -507,7 +626,7 @@ juce::Image renderScreenshot(OctoberLookAndFeel& lookAndFeel, const juce::Image&
 
   const juce::Font fileFont(juce::FontOptions(lookAndFeel.getLCDTypeface()).withHeight(10.0f));
   for (const auto& slot : fileSlots)
-    drawLCDBackground(g, {slot.lcdBox.x, slot.lcdBox.y, slot.lcdBox.w, slot.lcdBox.h});
+    drawRecessedLcd(g, {slot.lcdBox.x, slot.lcdBox.y, slot.lcdBox.w, slot.lcdBox.h});
   for (const auto& slot : fileSlots)
     drawText(g, FilePlaceholder,
              {slot.lcdBox.x + 8.0f, slot.lcdBox.y, slot.lcdBox.w - 16.0f, slot.lcdBox.h}, fileFont,
@@ -542,7 +661,8 @@ std::string generateStylesheet(const std::vector<Control>& controls,
          ";\n    background-image: url(/resources/background.png{{{ns}}});\n"
          "    background-size: " +
          px(PedalWidth) + " " + px(PedalHeight) +
-         ";\n    background-repeat: no-repeat;\n    border-radius: " + px(3.0f) + ";\n}\n\n";
+         ";\n    background-repeat: no-repeat;\n    border-radius: " + px(EnclosureCornerRadius) +
+         ";\n}\n\n";
   css += pedal +
          " .mod-drag-handle {\n    position: absolute;\n    left: 0;\n    top: 0;\n"
          "    width: 100%;\n    height: 100%;\n    cursor: move;\n    z-index: 1;\n}\n\n";

@@ -6,11 +6,11 @@
 .mod-pedal-octobass {
     position: absolute;
     width: 988px;
-    height: 513.5px;
+    height: 573.3px;
     background-image: url(/resources/background.png{{{ns}}});
-    background-size: 988px 513.5px;
+    background-size: 988px 573.3px;
     background-repeat: no-repeat;
-    border-radius: 3.9px;
+    border-radius: 18.2px;
 }
 
 .mod-pedal-octobass .mod-drag-handle {
