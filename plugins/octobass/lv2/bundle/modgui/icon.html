@@ -1,0 +1,48 @@
+<div class="mod-pedal mod-pedal-octobass">
+    <div mod-role="drag-handle" class="mod-drag-handle"></div>
+    <div class="opc-widget opc-squash" mod-role="input-control-port" mod-port-symbol="squash"></div>
+    <div class="opc-value opc-value-squash" mod-role="input-control-value" mod-port-symbol="squash"></div>
+    <div class="opc-widget opc-compression-mode" mod-role="input-control-port" mod-port-symbol="compression_mode"></div>
+    <div class="opc-value opc-value-compression-mode" mod-role="input-control-value" mod-port-symbol="compression_mode"></div>
+    <div class="opc-widget opc-low-level" mod-role="input-control-port" mod-port-symbol="low_level"></div>
+    <div class="opc-value opc-value-low-level" mod-role="input-control-value" mod-port-symbol="low_level"></div>
+    <div class="opc-widget opc-crossover" mod-role="input-control-port" mod-port-symbol="crossover"></div>
+    <div class="opc-value opc-value-crossover" mod-role="input-control-value" mod-port-symbol="crossover"></div>
+    <div class="opc-widget opc-gate" mod-role="input-control-port" mod-port-symbol="gate"></div>
+    <div class="opc-value opc-value-gate" mod-role="input-control-value" mod-port-symbol="gate"></div>
+    <div class="opc-widget opc-high-input-gain" mod-role="input-control-port" mod-port-symbol="high_input_gain"></div>
+    <div class="opc-value opc-value-high-input-gain" mod-role="input-control-value" mod-port-symbol="high_input_gain"></div>
+    <div class="opc-widget opc-high-blend" mod-role="input-control-port" mod-port-symbol="high_blend"></div>
+    <div class="opc-value opc-value-high-blend" mod-role="input-control-value" mod-port-symbol="high_blend"></div>
+    <div class="opc-widget opc-high-output-gain" mod-role="input-control-port" mod-port-symbol="high_output_gain"></div>
+    <div class="opc-value opc-value-high-output-gain" mod-role="input-control-value" mod-port-symbol="high_output_gain"></div>
+    <div class="opc-widget opc-bypass" mod-role="bypass"></div>
+    <div class="opc-widget opc-nam1-on" mod-role="input-control-port" mod-port-symbol="nam1_on" mod-widget="switch"></div>
+    <div class="opc-widget opc-nam2-on" mod-role="input-control-port" mod-port-symbol="nam2_on" mod-widget="switch"></div>
+    {{#effect.parameters}}
+    {{#path}}
+    <div class="mod-enumerated opc-file" mod-role="input-parameter" mod-parameter-uri="{{uri}}" mod-widget="custom-select-path">
+        <div class="mod-enumerated-selected" mod-role="input-parameter-value" mod-parameter-uri="{{uri}}">-- none --</div>
+        <div class="mod-enumerated-list">
+            {{#files}}
+            <div mod-role="enumeration-option" mod-parameter-value="{{fullname}}">{{basename}}</div>
+            {{/files}}
+        </div>
+    </div>
+    {{/path}}
+    {{/effect.parameters}}
+    <div class="mod-pedal-input">
+        {{#effect.ports.audio.input}}
+        <div class="mod-input mod-input-disconnected" title="{{name}}" mod-role="input-audio-port" mod-port-symbol="{{symbol}}">
+            <div class="mod-pedal-input-image"></div>
+        </div>
+        {{/effect.ports.audio.input}}
+    </div>
+    <div class="mod-pedal-output">
+        {{#effect.ports.audio.output}}
+        <div class="mod-output mod-output-disconnected" title="{{name}}" mod-role="output-audio-port" mod-port-symbol="{{symbol}}">
+            <div class="mod-pedal-output-image"></div>
+        </div>
+        {{/effect.ports.audio.output}}
+    </div>
+</div>

@@ -9,12 +9,12 @@
 #include <vector>
 
 #include "octobass-core/NamProcessor.hpp"
+#include "octobass-core/Types.hpp"
 
 using namespace octob;
 
 namespace
 {
-constexpr double kPi = 3.14159265358979323846;
 constexpr int kBlockSize = 512;
 
 std::vector<float> generateSine(float freqHz, float sampleRate, size_t numSamples,
@@ -22,7 +22,7 @@ std::vector<float> generateSine(float freqHz, float sampleRate, size_t numSample
 {
   std::vector<float> buf(numSamples);
   for (size_t i = 0; i < numSamples; ++i)
-    buf[i] = amplitude * static_cast<float>(std::sin(2.0 * kPi * freqHz * i / sampleRate));
+    buf[i] = amplitude * static_cast<float>(std::sin(2.0 * Pi * freqHz * i / sampleRate));
   return buf;
 }
 }  // namespace
@@ -604,4 +604,39 @@ TEST_F(NamCalibrationTest, EmptyBlockDuringTheOnOffFadeKeepsItClickFree)
     maxDelta = std::max(maxDelta, std::abs(output[i] - output[i - 1]));
   EXPECT_LT(maxDelta, 0.005f);
   EXPECT_NEAR(output.back(), 0.1f, 1.0e-6f);
+}
+
+TEST(NamProcessorPreparation, ModelLoadedBeforeBlockSizeMatchesModelLoadedAfter)
+{
+  const std::vector<std::string> modelPaths = {
+      std::string(TEST_DATA_DIR) + "/INPUT_VHD.nam",
+      std::string(TEST_DATA_DIR) + "/INPUT_HM2-W OctoBASS distortion 2_a2.nam"};
+
+  for (const auto& modelPath : modelPaths)
+  {
+    std::string err;
+    NamProcessor loadedFirst;
+    ASSERT_TRUE(loadedFirst.loadModel(modelPath, err)) << err;
+    loadedFirst.setSampleRate(44100.0);
+    loadedFirst.setMaxBlockSize(kBlockSize);
+
+    NamProcessor preparedFirst;
+    preparedFirst.setSampleRate(44100.0);
+    preparedFirst.setMaxBlockSize(kBlockSize);
+    ASSERT_TRUE(preparedFirst.loadModel(modelPath, err)) << err;
+
+    constexpr size_t kNumSamples = kBlockSize * 4;
+    const auto input = generateSine(1000.0f, 44100.0f, kNumSamples);
+    std::vector<float> loadedFirstOutput(kNumSamples);
+    std::vector<float> preparedFirstOutput(kNumSamples);
+    for (size_t b = 0; b < kNumSamples / kBlockSize; ++b)
+    {
+      loadedFirst.process(input.data() + b * kBlockSize, loadedFirstOutput.data() + b * kBlockSize,
+                          kBlockSize);
+      preparedFirst.process(input.data() + b * kBlockSize,
+                            preparedFirstOutput.data() + b * kBlockSize, kBlockSize);
+    }
+
+    EXPECT_EQ(loadedFirstOutput, preparedFirstOutput) << modelPath;
+  }
 }

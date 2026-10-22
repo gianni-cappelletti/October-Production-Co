@@ -1,0 +1,69 @@
+@prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
+@prefix pset: <http://lv2plug.in/ns/ext/presets#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#preset-default>
+    a pset:Preset ;
+    lv2:appliesTo <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass> ;
+    rdfs:label "Default" ;
+    lv2:port [
+        lv2:symbol "crossover" ;
+        pset:value 250.0
+    ] , [
+        lv2:symbol "squash" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "compression_mode" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "low_level" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "high_input_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "high_output_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "output_gain" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "dry_wet" ;
+        pset:value 100.0
+    ] , [
+        lv2:symbol "gate" ;
+        pset:value -96.0
+    ] , [
+        lv2:symbol "high_blend" ;
+        pset:value 100.0
+    ] , [
+        lv2:symbol "low_solo" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "high_solo" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "nam1_on" ;
+        pset:value 1.0
+    ] , [
+        lv2:symbol "nam1_calibrate_input" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "nam1_input_level" ;
+        pset:value 12.0
+    ] , [
+        lv2:symbol "nam1_output_mode" ;
+        pset:value 1.0
+    ] , [
+        lv2:symbol "nam2_on" ;
+        pset:value 1.0
+    ] , [
+        lv2:symbol "nam2_calibrate_input" ;
+        pset:value 0.0
+    ] , [
+        lv2:symbol "nam2_input_level" ;
+        pset:value 12.0
+    ] , [
+        lv2:symbol "nam2_output_mode" ;
+        pset:value 1.0
+    ] .

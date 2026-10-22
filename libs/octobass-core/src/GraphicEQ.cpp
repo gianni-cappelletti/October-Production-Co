@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <numbers>
 
 namespace octob
 {
@@ -60,7 +59,7 @@ BiquadCoeffsD computePeakingCoeffs(double gainDb, double centerFreqHz, double q,
 {
   // RBJ Audio EQ Cookbook -- peaking EQ
   double A = std::pow(10.0, gainDb / 40.0);
-  double w0 = 2.0 * std::numbers::pi * clampBelowNyquist(centerFreqHz, sampleRate) / sampleRate;
+  double w0 = 2.0 * Pi * clampBelowNyquist(centerFreqHz, sampleRate) / sampleRate;
   double alpha = std::sin(w0) / (2.0 * q);
   double cosw0 = std::cos(w0);
 
@@ -73,7 +72,7 @@ BiquadCoeffsD computePeakingCoeffs(double gainDb, double centerFreqHz, double q,
 BiquadCoeffsD computeHighpassCoeffs(double cutoffFreqHz, double q, SampleRate sampleRate)
 {
   // RBJ Audio EQ Cookbook -- highpass
-  double w0 = 2.0 * std::numbers::pi * clampBelowNyquist(cutoffFreqHz, sampleRate) / sampleRate;
+  double w0 = 2.0 * Pi * clampBelowNyquist(cutoffFreqHz, sampleRate) / sampleRate;
   double alpha = std::sin(w0) / (2.0 * q);
   double cosw0 = std::cos(w0);
 
@@ -85,7 +84,7 @@ BiquadCoeffsD computeHighpassCoeffs(double cutoffFreqHz, double q, SampleRate sa
 BiquadCoeffsD computeLowpassCoeffs(double cutoffFreqHz, double q, SampleRate sampleRate)
 {
   // RBJ Audio EQ Cookbook -- lowpass
-  double w0 = 2.0 * std::numbers::pi * clampBelowNyquist(cutoffFreqHz, sampleRate) / sampleRate;
+  double w0 = 2.0 * Pi * clampBelowNyquist(cutoffFreqHz, sampleRate) / sampleRate;
   double alpha = std::sin(w0) / (2.0 * q);
   double cosw0 = std::cos(w0);
 
@@ -396,7 +395,7 @@ float GraphicEQ::computeMagnitudeResponseDb(const GraphicEQNode* nodes, int numN
 {
   // Use double precision and complex evaluation to avoid catastrophic
   // float cancellation at low frequencies where cos(w) ~ 1.
-  double w = 2.0 * std::numbers::pi * static_cast<double>(freqHz) / sampleRate;
+  double w = 2.0 * Pi * static_cast<double>(freqHz) / sampleRate;
   double sinw = std::sin(w);
   double cosw = std::cos(w);
   double sin2w = std::sin(2.0 * w);

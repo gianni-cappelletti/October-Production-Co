@@ -92,10 +92,9 @@ double computeRMS(const std::vector<float>& buf)
 std::vector<float> generateSine(float freqHz, float sampleRate, size_t numSamples,
                                 float amplitude = 0.3f)
 {
-  constexpr double kPi = 3.14159265358979323846;
   std::vector<float> buf(numSamples);
   for (size_t i = 0; i < numSamples; ++i)
-    buf[i] = amplitude * static_cast<float>(std::sin(2.0 * kPi * freqHz * i / sampleRate));
+    buf[i] = amplitude * static_cast<float>(std::sin(2.0 * Pi * freqHz * i / sampleRate));
   return buf;
 }
 
@@ -287,7 +286,7 @@ TEST_F(BassProcessorAudioTest, ProcessBass_LowBandSquash_WithStaticMakeup)
   constexpr float kFreqHz = 80.0f;
   constexpr size_t kDurationSamples = 88200;
   constexpr size_t kSkip = 44100;
-  constexpr double kTwoPi = 2.0 * 3.14159265358979323846;
+  constexpr double kTwoPi = 2.0 * Pi;
 
   std::vector<float> lowTone(kDurationSamples);
   for (size_t i = 0; i < kDurationSamples; ++i)
@@ -354,7 +353,7 @@ TEST_F(BassProcessorAudioTest, ProcessBass_LowBandSquash_NoOvershoot)
   constexpr size_t kTotal = kBurstLen + kSilenceLen + kReburstLen;
   constexpr float kFreq = 80.0f;
   constexpr float kAmplitude = 0.6f;
-  constexpr double kTwoPi = 2.0 * 3.14159265358979323846;
+  constexpr double kTwoPi = 2.0 * Pi;
 
   std::vector<float> input(kTotal, 0.0f);
   for (size_t i = 0; i < kBurstLen; ++i)

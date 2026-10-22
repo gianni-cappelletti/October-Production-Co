@@ -11,7 +11,8 @@
 # ── Plugin registry ─────────────────────────────────────────────
 JUCE_PLUGINS := octobir octobass
 VCV_PLUGINS  := octobir
-ALL_PLUGINS  := $(sort $(JUCE_PLUGINS) $(VCV_PLUGINS))
+LV2_PLUGINS  := octobass
+ALL_PLUGINS  := $(sort $(JUCE_PLUGINS) $(VCV_PLUGINS) $(LV2_PLUGINS))
 
 # ── Platform detection ──────────────────────────────────────────
 UNAME_S := $(shell uname -s)
@@ -35,9 +36,11 @@ VCV_SOURCES  := $(shell find plugins/octobir/vcv-rack/src -name "*.cpp" 2>/dev/n
 
 # ── Convenience aggregate targets ──────────────────────────────
 .PHONY: octobir octobass all test core header-opc header-octobir header-octobass help clean tidy format license
-.PHONY: octobir-juce octobir-vcv octobass-juce
+.PHONY: octobir-juce octobir-vcv octobass-juce octobass-lv2 octobass-lv2-ttl octobass-lv2-modgui
+.PHONY: octobass-mod-desktop mod-sim mod-sim-check mod-sim-cpu mod-sim-valgrind
 .PHONY: test-octobir test-octobir-core test-octobir-juce test-octobir-vcv
-.PHONY: test-octobass test-octobass-core test-octobass-juce
+.PHONY: test-octobass test-octobass-core test-octobass-juce test-octobass-lv2
+.PHONY: bench-octobass-core
 
 header-opc:
 	@./scripts/show-header.sh opc
@@ -57,6 +60,14 @@ help: header-opc
 	@echo "  make octobir-vcv      - Build and install OctobIR VCV plugin"
 	@echo "  make octobass         - Build all OctoBASS formats (JUCE)"
 	@echo "  make octobass-juce    - Build and install OctoBASS JUCE plugin"
+	@echo "  make octobass-lv2     - Build and install OctoBASS LV2 plugin (MOD Audio)"
+	@echo "  make octobass-lv2-ttl - Regenerate the committed OctoBASS LV2 plugin TTL"
+	@echo "  make octobass-lv2-modgui - Regenerate the committed OctoBASS modgui assets"
+	@echo "  make octobass-mod-desktop - Install OctoBASS LV2 and bundled tones into MOD Desktop (macOS)"
+	@echo "  make mod-sim          - Run mod-ui + mod-host with OctoBASS in a container (http://localhost:18888)"
+	@echo "  make mod-sim-check    - Run browser UI checks against a running mod-sim"
+	@echo "  make mod-sim-cpu      - Time OctoBASS against MOD's NAM plugin (Dwarf CPU estimate)"
+	@echo "  make mod-sim-valgrind - Run the LV2 tests under valgrind (Linux arm64)"
 	@echo "  make core             - Build core libraries only (debug)"
 	@echo ""
 	@echo "Testing (with ASan + leak detection):"
@@ -68,6 +79,10 @@ help: header-opc
 	@echo "  make test-octobass        - Run all OctoBASS tests"
 	@echo "  make test-octobass-core - Run octobass-core unit tests"
 	@echo "  make test-octobass-juce - Run OctoBASS JUCE plugin tests"
+	@echo "  make test-octobass-lv2  - Run OctoBASS LV2 plugin tests"
+	@echo ""
+	@echo "Benchmarks:"
+	@echo "  make bench-octobass-core - Build the octobass-core real-time load benchmark"
 	@echo ""
 	@echo "Code quality:"
 	@echo "  make tidy             - Run formatting, static analysis, and license checks"
@@ -167,11 +182,81 @@ endif
 	@echo "  VST3: ~/Library/Audio/Plug-Ins/VST3/OctoBASS.vst3"
 	@echo "  AU:   ~/Library/Audio/Plug-Ins/Components/OctoBASS.component"
 
+ifeq ($(UNAME_S),Darwin)
+    LV2_INSTALL_DIR := $(HOME)/Library/Audio/Plug-Ins/LV2
+else
+    LV2_INSTALL_DIR := $(HOME)/.lv2
+endif
+
+octobass-lv2: header-octobass
+	@echo "Building OctoBASS LV2 plugin (Release)..."
+	@cmake --preset release-octobass-lv2 $(MACOS_ARCH_FLAG)
+	@cmake --build build/release-octobass-lv2 --target octobass-lv2-bundle -j$(NPROC)
+	@mkdir -p $(LV2_INSTALL_DIR)
+	@rm -rf $(LV2_INSTALL_DIR)/OctoBASS.lv2
+	@cp -R build/release-octobass-lv2/plugins/octobass/lv2/OctoBASS.lv2 $(LV2_INSTALL_DIR)/
+	@echo "OctoBASS LV2 plugin installed: $(LV2_INSTALL_DIR)/OctoBASS.lv2"
+
+octobass-lv2-ttl:
+	@cmake --preset release-octobass-lv2 $(MACOS_ARCH_FLAG)
+	@cmake --build build/release-octobass-lv2 --target octobass-lv2-ttlgen -j$(NPROC)
+	@./build/release-octobass-lv2/plugins/octobass/lv2/octobass-lv2-ttlgen plugins/octobass/lv2/bundle
+
+octobass-lv2-modgui:
+	@cmake -B build/octobass-modgui-renderer -DCMAKE_BUILD_TYPE=Release \
+		-DBUILD_OCTOBIR=OFF -DBUILD_OCTOBIR_JUCE=OFF -DBUILD_OCTOBIR_VCV=OFF \
+		-DBUILD_OCTOBASS_JUCE=OFF -DBUILD_OCTOBASS_LV2_MODGUI_RENDERER=ON $(MACOS_ARCH_FLAG)
+	@cmake --build build/octobass-modgui-renderer --target octobass-modgui-renderer -j$(NPROC)
+	@./build/octobass-modgui-renderer/plugins/octobass/lv2/octobass-modgui-renderer_artefacts/Release/octobass-modgui-renderer \
+		plugins/octobass/lv2/bundle/modgui
+	@cp libs/juce-ui-shared/Resources/Fonts/PressStart2P-OFL.txt plugins/octobass/lv2/bundle/modgui/
+
+MOD_DESKTOP_DIR := $(HOME)/Documents/MOD Desktop
+
+octobass-mod-desktop: header-octobass
+	@cmake --preset release-octobass-lv2 $(MACOS_ARCH_FLAG)
+	@cmake --build build/release-octobass-lv2 --target octobass-lv2-bundle -j$(NPROC)
+	@mkdir -p "$(MOD_DESKTOP_DIR)/lv2" "$(MOD_DESKTOP_DIR)/user-files/NAM Models" \
+		"$(MOD_DESKTOP_DIR)/user-files/Speaker Cabinets IRs"
+	@rm -rf "$(MOD_DESKTOP_DIR)/lv2/OctoBASS.lv2"
+	@cp -R build/release-octobass-lv2/plugins/octobass/lv2/OctoBASS.lv2 "$(MOD_DESKTOP_DIR)/lv2/"
+	@cp tones/nam_captures/*.nam "$(MOD_DESKTOP_DIR)/user-files/NAM Models/"
+	@cp tones/impulse_responses/*.wav "$(MOD_DESKTOP_DIR)/user-files/Speaker Cabinets IRs/"
+	@echo "OctoBASS installed for MOD Desktop: $(MOD_DESKTOP_DIR)/lv2/OctoBASS.lv2"
+	@echo "Bundled tones copied to $(MOD_DESKTOP_DIR)/user-files"
+	@echo "Restart MOD Desktop (Stop, then Start) to rescan plugins"
+
+mod-sim:
+	@docker build -t opc-mod-sim scripts/mod-sim
+	@docker rm -f opc-mod-sim >/dev/null 2>&1 || true
+	@echo "mod-ui will be at http://localhost:18888 once OctoBASS has built"
+	@docker run --rm --name opc-mod-sim -p 127.0.0.1:18888:8888 \
+		-v "$(CURDIR)":/src:ro -v opc-mod-sim-work:/work opc-mod-sim
+
+mod-sim-check:
+	@./scripts/mod-sim/run-ui-check.sh
+
+mod-sim-cpu:
+	@docker build -q -t opc-mod-sim scripts/mod-sim >/dev/null
+	@docker run --rm --entrypoint bash -v "$(CURDIR)":/src:ro -v opc-mod-sim-work:/work opc-mod-sim \
+		/src/scripts/mod-sim/cpu-calibration.sh
+
+mod-sim-valgrind:
+	@docker build -q -t opc-mod-sim scripts/mod-sim >/dev/null
+	@docker run --rm --entrypoint bash -v "$(CURDIR)":/src:ro -v opc-mod-sim-work:/work opc-mod-sim \
+		/src/scripts/mod-sim/valgrind.sh
+
 # ── Core libraries ─────────────────────────────────────────────
 core: header-opc
 	@cmake --preset dev
 	@cmake --build build/dev --target octobir-core octobass-core -j$(NPROC)
 	@echo "Core libraries built"
+
+# ── Benchmarks ─────────────────────────────────────────────────
+bench-octobass-core: header-octobass
+	@cmake --preset bench-octobass-core $(MACOS_ARCH_FLAG)
+	@cmake --build build/bench-octobass-core --target octobass-core-bench -j$(NPROC)
+	@echo "Benchmark built: build/bench-octobass-core/libs/octobass-core/bench/octobass-core-bench"
 
 # ── Test targets ───────────────────────────────────────────────
 test: test-octobir test-octobass
@@ -199,7 +284,7 @@ test-octobir-vcv:
 	@echo "Running OctobIR VCV plugin tests..."
 	@$(TEST_RUNNER) ./build/test-octobir-vcv/plugins/octobir/vcv-rack/tests/octobir-vcv-tests
 
-test-octobass: test-octobass-core test-octobass-juce
+test-octobass: test-octobass-core test-octobass-juce test-octobass-lv2
 
 test-octobass-core:
 	@rm -rf build/test-octobass-core
@@ -214,6 +299,13 @@ test-octobass-juce:
 	@cmake --build build/test-octobass-juce --target octobass-plugin-tests -j$(NPROC)
 	@echo "Running OctoBASS JUCE plugin tests..."
 	@$(TEST_RUNNER) ./build/test-octobass-juce/plugins/octobass/juce/tests/octobass-plugin-tests
+
+test-octobass-lv2:
+	@rm -rf build/test-octobass-lv2
+	@cmake --preset test-octobass-lv2
+	@cmake --build build/test-octobass-lv2 --target octobass-lv2-tests -j$(NPROC)
+	@echo "Running OctoBASS LV2 plugin tests..."
+	@$(TEST_RUNNER) ./build/test-octobass-lv2/plugins/octobass/lv2/tests/octobass-lv2-tests
 
 # ── Clean ──────────────────────────────────────────────────────
 clean:

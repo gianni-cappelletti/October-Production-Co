@@ -6,9 +6,34 @@
 #include <array>
 #include <cmath>
 #include <string>
+#include <vector>
 
 namespace octob
 {
+
+namespace
+{
+
+const int DefaultPrimingBlockSize = 512;
+const int WdlQueueSettlingFrames = 16384;
+
+void primeConvolutionEngine(WDL_ConvolutionEngine_Div& engine, int blockSize, int impulseLength)
+{
+  std::vector<WDL_FFT_REAL> silence(static_cast<size_t>(blockSize), 0.0f);
+  std::array<WDL_FFT_REAL*, 2> channels = {{silence.data(), silence.data()}};
+  for (int primed = 0; primed < impulseLength + WdlQueueSettlingFrames; primed += blockSize)
+  {
+    engine.Add(channels.data(), blockSize, 2);
+    if (engine.Avail(blockSize) >= blockSize)
+    {
+      engine.Get();
+      engine.Advance(blockSize);
+    }
+  }
+  engine.Reset();
+}
+
+}  // namespace
 
 IRProcessor::IRProcessor()
     : impulseBuffer1_(new WDL_ImpulseBuffer()),
@@ -72,6 +97,8 @@ bool IRProcessor::loadImpulseResponse1(const std::string& filepath, std::string&
                    " Hz";
     return false;
   }
+
+  primeConvolutionEngine(*stagingEngine, primingBlockSize(), irLength);
 
   {
     std::lock_guard<std::mutex> lock(pendingMutex1_);
@@ -139,6 +166,8 @@ bool IRProcessor::loadImpulseResponse2(const std::string& filepath, std::string&
     return false;
   }
 
+  primeConvolutionEngine(*stagingEngine, primingBlockSize(), irLength);
+
   {
     std::lock_guard<std::mutex> lock(pendingMutex2_);
     stagingEngine2_ = std::move(stagingEngine);
@@ -192,6 +221,8 @@ void IRProcessor::setSampleRate(SampleRate sampleRate)
       auto stagingEngine =
           std::unique_ptr<WDL_ConvolutionEngine_Div>(new WDL_ConvolutionEngine_Div());
       const int latency = stagingEngine->SetImpulse(impulseBuffer1_.get(), 64, 0, 0, 0);
+      if (latency >= 0)
+        primeConvolutionEngine(*stagingEngine, primingBlockSize(), impulseBuffer1_->GetLength());
 
       std::lock_guard<std::mutex> lock(pendingMutex1_);
       stagingEngine1_ = std::move(stagingEngine);
@@ -206,6 +237,8 @@ void IRProcessor::setSampleRate(SampleRate sampleRate)
       auto stagingEngine =
           std::unique_ptr<WDL_ConvolutionEngine_Div>(new WDL_ConvolutionEngine_Div());
       const int latency = stagingEngine->SetImpulse(impulseBuffer2_.get(), 64, 0, 0, 0);
+      if (latency >= 0)
+        primeConvolutionEngine(*stagingEngine, primingBlockSize(), impulseBuffer2_->GetLength());
 
       std::lock_guard<std::mutex> lock(pendingMutex2_);
       stagingEngine2_ = std::move(stagingEngine);
@@ -214,6 +247,11 @@ void IRProcessor::setSampleRate(SampleRate sampleRate)
       ir2Pending_.store(true, std::memory_order_release);
     }
   }
+}
+
+int IRProcessor::primingBlockSize() const
+{
+  return scratchL_.empty() ? DefaultPrimingBlockSize : static_cast<int>(scratchL_.size());
 }
 
 void IRProcessor::setMaxBlockSize(FrameCount maxBlockSize)

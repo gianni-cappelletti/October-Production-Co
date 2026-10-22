@@ -98,6 +98,7 @@ git submodule update --init --recursive
 make octobir-juce    # Build and install OctobIR JUCE plugins (VST3 + AU)
 make octobir-vcv     # Build and install OctobIR VCV Rack plugin
 make octobass-juce   # Build and install OctoBASS JUCE plugins (VST3 + AU)
+make octobass-lv2    # Build and install OctoBASS LV2 plugin (MOD Audio)
 ```
 
 **Note**: If you previously installed via the packaged installer, remove the old plugins first:
@@ -115,6 +116,7 @@ Installed locations:
 - **macOS VST3**: `~/Library/Audio/Plug-Ins/VST3/<Plugin>.vst3`
 - **macOS AU**: `~/Library/Audio/Plug-Ins/Components/<Plugin>.component`
 - **Linux VST3**: `~/.vst3/<Plugin>.vst3`
+- **LV2** (OctoBASS only): `~/Library/Audio/Plug-Ins/LV2/OctoBASS.lv2` (macOS), `~/.lv2/OctoBASS.lv2` (Linux); see [plugins/octobass/lv2/README.md](plugins/octobass/lv2/README.md) for MOD device builds
 - **VCV Rack** (OctobIR only): `~/Documents/Rack2/plugins/OctobIR` (or your Rack plugins directory)
 
 

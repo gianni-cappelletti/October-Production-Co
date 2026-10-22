@@ -1,0 +1,413 @@
+@prefix atom:  <http://lv2plug.in/ns/ext/atom#> .
+@prefix bufsz: <http://lv2plug.in/ns/ext/buf-size#> .
+@prefix doap:  <http://usefulinc.com/ns/doap#> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix log:   <http://lv2plug.in/ns/ext/log#> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix mod:   <http://moddevices.com/ns/mod#> .
+@prefix opts:  <http://lv2plug.in/ns/ext/options#> .
+@prefix patch: <http://lv2plug.in/ns/ext/patch#> .
+@prefix pg:    <http://lv2plug.in/ns/ext/port-groups#> .
+@prefix pprop: <http://lv2plug.in/ns/ext/port-props#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix state: <http://lv2plug.in/ns/ext/state#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix urid:  <http://lv2plug.in/ns/ext/urid#> .
+@prefix work:  <http://lv2plug.in/ns/ext/worker#> .
+
+<https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1Model>
+    a lv2:Parameter ;
+    rdfs:label "NAM 1 Model" ;
+    rdfs:range atom:Path ;
+    mod:fileTypes "nammodel" .
+
+<https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2Model>
+    a lv2:Parameter ;
+    rdfs:label "NAM 2 Model" ;
+    rdfs:range atom:Path ;
+    mod:fileTypes "nammodel" .
+
+<https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#cabinetIr>
+    a lv2:Parameter ;
+    rdfs:label "Cabinet IR" ;
+    rdfs:range atom:Path ;
+    mod:fileTypes "cabsim" .
+
+<https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    a pg:Group ;
+    lv2:symbol "main" ;
+    rdfs:label "Main" .
+
+<https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
+    a pg:Group ;
+    lv2:symbol "nam1" ;
+    rdfs:label "NAM 1" .
+
+<https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
+    a pg:Group ;
+    lv2:symbol "nam2" ;
+    rdfs:label "NAM 2" .
+
+<https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass>
+    a lv2:Plugin, lv2:SimulatorPlugin ;
+    doap:name "OctoBASS" ;
+    doap:license <http://spdx.org/licenses/GPL-3.0-only> ;
+    doap:homepage <https://github.com/gianni-cappelletti/October-Production-Co> ;
+    doap:maintainer [
+        foaf:name "October Production Co." ;
+        foaf:homepage <https://github.com/gianni-cappelletti/October-Production-Co>
+    ] ;
+    mod:brand "OPC" ;
+    mod:label "OctoBASS" ;
+    rdfs:comment "Bass amp and tone shaper: crossover split, compressed low band, two serial NAM slots and a cabinet IR on the high band. Slimmable (A2) NAM captures run their slim submodel; use lite captures on MOD devices, full-size captures exceed the CPU budget. Each file slot has a None entry that unloads it. Neural amp modeling by NeuralAmpModelerCore, Copyright (c) 2023 Steven Atkinson, MIT License. License and third-party notices: LICENSE and THIRD_PARTY_NOTICES.txt in the plugin bundle." ;
+    lv2:requiredFeature urid:map, work:schedule ;
+    lv2:optionalFeature lv2:hardRTCapable, log:log, opts:options, bufsz:boundedBlockLength, state:threadSafeRestore ;
+    lv2:extensionData work:interface, state:interface ;
+    patch:writable <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1Model> , <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2Model> , <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#cabinetIr> ;
+    lv2:port [
+        a lv2:InputPort, lv2:AudioPort ;
+        lv2:index 0 ;
+        lv2:symbol "in" ;
+        lv2:name "In"
+    ] , [
+        a lv2:OutputPort, lv2:AudioPort ;
+        lv2:index 1 ;
+        lv2:symbol "out" ;
+        lv2:name "Out"
+    ] , [
+        a lv2:InputPort, atom:AtomPort ;
+        lv2:index 2 ;
+        lv2:symbol "control" ;
+        lv2:name "Control" ;
+        atom:bufferType atom:Sequence ;
+        atom:supports patch:Message ;
+        lv2:designation lv2:control
+    ] , [
+        a lv2:OutputPort, atom:AtomPort ;
+        lv2:index 3 ;
+        lv2:symbol "notify" ;
+        lv2:name "Notify" ;
+        atom:bufferType atom:Sequence ;
+        atom:supports patch:Message ;
+        lv2:designation lv2:control
+    ] , [
+        a lv2:OutputPort, lv2:ControlPort ;
+        lv2:index 4 ;
+        lv2:symbol "latency" ;
+        lv2:name "Latency" ;
+        lv2:designation lv2:latency ;
+        lv2:portProperty lv2:reportsLatency, lv2:integer, pprop:notOnGUI ;
+        lv2:default 0.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 192000.0 ;
+        units:unit units:frame
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 5 ;
+        lv2:symbol "enabled" ;
+        lv2:name "Enabled" ;
+        lv2:designation lv2:enabled ;
+        lv2:default 1.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 6 ;
+        lv2:symbol "crossover" ;
+        lv2:name "Crossover" ;
+        lv2:default 250.0 ;
+        lv2:minimum 50.0 ;
+        lv2:maximum 800.0 ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "hertz" ;
+            units:symbol "Hz" ;
+            units:render "%.0f Hz"
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 7 ;
+        lv2:symbol "squash" ;
+        lv2:name "Squash" ;
+        lv2:default 0.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 100.0 ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "percent" ;
+            units:symbol "%" ;
+            units:render "%.0f%%"
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 8 ;
+        lv2:symbol "compression_mode" ;
+        lv2:name "Compression Mode" ;
+        lv2:default 0.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 3.0 ;
+        lv2:portProperty lv2:integer, lv2:enumeration ;
+        lv2:scalePoint [
+            rdfs:label "Tight" ;
+            rdf:value 0.0
+        ] , [
+            rdfs:label "Smooth" ;
+            rdf:value 1.0
+        ] , [
+            rdfs:label "Punch" ;
+            rdf:value 2.0
+        ] , [
+            rdfs:label "Glue" ;
+            rdf:value 3.0
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 9 ;
+        lv2:symbol "low_level" ;
+        lv2:name "Low Level" ;
+        lv2:default 0.0 ;
+        lv2:minimum -24.0 ;
+        lv2:maximum 12.0 ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 10 ;
+        lv2:symbol "high_input_gain" ;
+        lv2:name "High Input Gain" ;
+        lv2:default 0.0 ;
+        lv2:minimum -24.0 ;
+        lv2:maximum 24.0 ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 11 ;
+        lv2:symbol "high_output_gain" ;
+        lv2:name "High Output Gain" ;
+        lv2:default 0.0 ;
+        lv2:minimum -24.0 ;
+        lv2:maximum 24.0 ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 12 ;
+        lv2:symbol "output_gain" ;
+        lv2:name "Output Gain" ;
+        lv2:default 0.0 ;
+        lv2:minimum -24.0 ;
+        lv2:maximum 24.0 ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 13 ;
+        lv2:symbol "dry_wet" ;
+        lv2:name "Dry/Wet" ;
+        lv2:default 100.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 100.0 ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "percent" ;
+            units:symbol "%" ;
+            units:render "%.0f%%"
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 14 ;
+        lv2:symbol "gate" ;
+        lv2:name "Gate" ;
+        lv2:default -96.0 ;
+        lv2:minimum -96.0 ;
+        lv2:maximum 0.0 ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels" ;
+            units:symbol "dB" ;
+            units:render "%.1f dB"
+        ] ;
+        lv2:scalePoint [
+            rdfs:label "Off" ;
+            rdf:value -96.0
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 15 ;
+        lv2:symbol "high_blend" ;
+        lv2:name "High Blend" ;
+        lv2:default 100.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 100.0 ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "percent" ;
+            units:symbol "%" ;
+            units:render "%.0f%%"
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 16 ;
+        lv2:symbol "low_solo" ;
+        lv2:name "Low Solo" ;
+        lv2:default 0.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 17 ;
+        lv2:symbol "high_solo" ;
+        lv2:name "High Solo" ;
+        lv2:default 0.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#main>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 18 ;
+        lv2:symbol "nam1_on" ;
+        lv2:name "NAM 1 On" ;
+        lv2:default 1.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 19 ;
+        lv2:symbol "nam1_calibrate_input" ;
+        lv2:name "NAM 1 Calibrate Input" ;
+        lv2:shortName "NAM 1 Calibrate" ;
+        lv2:default 0.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 20 ;
+        lv2:symbol "nam1_input_level" ;
+        lv2:name "NAM 1 Input Level" ;
+        lv2:shortName "NAM 1 Input Lvl" ;
+        lv2:default 12.0 ;
+        lv2:minimum -60.0 ;
+        lv2:maximum 60.0 ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels unloaded" ;
+            units:symbol "dBu" ;
+            units:render "%.1f dBu"
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 21 ;
+        lv2:symbol "nam1_output_mode" ;
+        lv2:name "NAM 1 Output Mode" ;
+        lv2:shortName "NAM 1 Out Mode" ;
+        lv2:default 1.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 2.0 ;
+        lv2:portProperty lv2:integer, lv2:enumeration ;
+        lv2:scalePoint [
+            rdfs:label "Raw" ;
+            rdf:value 0.0
+        ] , [
+            rdfs:label "Normalized" ;
+            rdf:value 1.0
+        ] , [
+            rdfs:label "Calibrated" ;
+            rdf:value 2.0
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 22 ;
+        lv2:symbol "nam2_on" ;
+        lv2:name "NAM 2 On" ;
+        lv2:default 1.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 23 ;
+        lv2:symbol "nam2_calibrate_input" ;
+        lv2:name "NAM 2 Calibrate Input" ;
+        lv2:shortName "NAM 2 Calibrate" ;
+        lv2:default 0.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 24 ;
+        lv2:symbol "nam2_input_level" ;
+        lv2:name "NAM 2 Input Level" ;
+        lv2:shortName "NAM 2 Input Lvl" ;
+        lv2:default 12.0 ;
+        lv2:minimum -60.0 ;
+        lv2:maximum 60.0 ;
+        units:unit [
+            a units:Unit ;
+            rdfs:label "decibels unloaded" ;
+            units:symbol "dBu" ;
+            units:render "%.1f dBu"
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
+    ] , [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 25 ;
+        lv2:symbol "nam2_output_mode" ;
+        lv2:name "NAM 2 Output Mode" ;
+        lv2:shortName "NAM 2 Out Mode" ;
+        lv2:default 1.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 2.0 ;
+        lv2:portProperty lv2:integer, lv2:enumeration ;
+        lv2:scalePoint [
+            rdfs:label "Raw" ;
+            rdf:value 0.0
+        ] , [
+            rdfs:label "Normalized" ;
+            rdf:value 1.0
+        ] , [
+            rdfs:label "Calibrated" ;
+            rdf:value 2.0
+        ] ;
+        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
+    ] .

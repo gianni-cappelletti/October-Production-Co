@@ -2,33 +2,7 @@
 
 #include <BinaryData.h>
 
-static void drawScrew(juce::Graphics& g, float cx, float cy)
-{
-  {
-    juce::ColourGradient grad(juce::Colour(0xffABA9A9), cx, cy - 6.5f, juce::Colour(0xff8F8F8F), cx,
-                              cy + 6.5f, false);
-    g.setGradientFill(grad);
-    g.fillEllipse(cx - 6.5f, cy - 6.5f, 13.0f, 13.0f);
-  }
-  {
-    juce::ColourGradient grad(juce::Colour(0xffF5F5F5), cx, cy - 5.81f, juce::Colour(0xffC2C2C2),
-                              cx, cy + 5.81f, false);
-    g.setGradientFill(grad);
-    g.fillEllipse(cx - 5.81f, cy - 5.81f, 11.62f, 11.62f);
-  }
-  {
-    juce::ColourGradient grad(juce::Colour(0xffEBEBEB), cx, cy - 5.36f, juce::Colour(0xffCCCCCC),
-                              cx, cy + 5.36f, false);
-    g.setGradientFill(grad);
-    g.fillEllipse(cx - 5.36f, cy - 5.36f, 10.72f, 10.72f);
-  }
-
-  const float armLen = 7.09f;
-  const float armW = 1.88f;
-  g.setColour(juce::Colour(0xff8C8C8C));
-  g.fillRect(cx - armW * 0.5f, cy - armLen * 0.5f, armW, armLen);
-  g.fillRect(cx - armLen * 0.5f, cy - armW * 0.5f, armLen, armW);
-}
+#include "PanelPainting.h"
 
 static void setupRotarySlider(juce::Slider& s, int textBoxWidth = 90)
 {
@@ -542,10 +516,10 @@ void OctoBassEditor::paint(juce::Graphics& g)
   const float screwCyTop = 8.0f + 7.5f;
   const float screwCyBottom = h - 8.0f - 7.5f;
 
-  drawScrew(g, screwCx1, screwCyTop);
-  drawScrew(g, screwCx2, screwCyTop);
-  drawScrew(g, screwCx1, screwCyBottom);
-  drawScrew(g, screwCx2, screwCyBottom);
+  drawPanelScrew(g, screwCx1, screwCyTop);
+  drawPanelScrew(g, screwCx2, screwCyTop);
+  drawPanelScrew(g, screwCx1, screwCyBottom);
+  drawPanelScrew(g, screwCx2, screwCyBottom);
 
   // Diagonal zone separator lines -- both lean / (upper-right to lower-left), full height
   g.setColour(juce::Colour(0xff1a1a1a));
