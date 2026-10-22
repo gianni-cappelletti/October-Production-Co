@@ -60,7 +60,7 @@
     ] ;
     mod:brand "OPC" ;
     mod:label "OctoBASS" ;
-    rdfs:comment "Bass amp and tone shaper: crossover split, compressed low band, two serial NAM slots and a cabinet IR on the high band. NAM Quality below 50% runs the slim model; 50% and above runs the full-size model, which is likely too heavy for a MOD Dwarf. Neural amp modeling by NeuralAmpModelerCore, Copyright (c) 2023 Steven Atkinson, MIT License. License and third-party notices: LICENSE and THIRD_PARTY_NOTICES.txt in the plugin bundle." ;
+    rdfs:comment "Bass amp and tone shaper: crossover split, compressed low band, two serial NAM slots and a cabinet IR on the high band. Slimmable (A2) NAM captures run their slim submodel; use lite captures on MOD devices, full-size captures exceed the CPU budget. Each file slot has a None entry that unloads it. Neural amp modeling by NeuralAmpModelerCore, Copyright (c) 2023 Steven Atkinson, MIT License. License and third-party notices: LICENSE and THIRD_PARTY_NOTICES.txt in the plugin bundle." ;
     lv2:requiredFeature urid:map, work:schedule ;
     lv2:optionalFeature lv2:hardRTCapable, log:log, opts:options, bufsz:boundedBlockLength, state:threadSafeRestore ;
     lv2:extensionData work:interface, state:interface ;
@@ -307,21 +307,6 @@
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
         lv2:index 19 ;
-        lv2:symbol "nam1_quality" ;
-        lv2:name "NAM 1 Quality" ;
-        lv2:default 49.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 100.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "percent" ;
-            units:symbol "%" ;
-            units:render "%.0f%%"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 20 ;
         lv2:symbol "nam1_calibrate_input" ;
         lv2:name "NAM 1 Calibrate Input" ;
         lv2:shortName "NAM 1 Calibrate" ;
@@ -332,7 +317,7 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 21 ;
+        lv2:index 20 ;
         lv2:symbol "nam1_input_level" ;
         lv2:name "NAM 1 Input Level" ;
         lv2:shortName "NAM 1 Input Lvl" ;
@@ -348,7 +333,7 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 22 ;
+        lv2:index 21 ;
         lv2:symbol "nam1_output_mode" ;
         lv2:name "NAM 1 Output Mode" ;
         lv2:shortName "NAM 1 Out Mode" ;
@@ -369,7 +354,7 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam1>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 23 ;
+        lv2:index 22 ;
         lv2:symbol "nam2_on" ;
         lv2:name "NAM 2 On" ;
         lv2:default 1.0 ;
@@ -379,22 +364,7 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 24 ;
-        lv2:symbol "nam2_quality" ;
-        lv2:name "NAM 2 Quality" ;
-        lv2:default 49.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 100.0 ;
-        units:unit [
-            a units:Unit ;
-            rdfs:label "percent" ;
-            units:symbol "%" ;
-            units:render "%.0f%%"
-        ] ;
-        pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
-    ] , [
-        a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 25 ;
+        lv2:index 23 ;
         lv2:symbol "nam2_calibrate_input" ;
         lv2:name "NAM 2 Calibrate Input" ;
         lv2:shortName "NAM 2 Calibrate" ;
@@ -405,7 +375,7 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 26 ;
+        lv2:index 24 ;
         lv2:symbol "nam2_input_level" ;
         lv2:name "NAM 2 Input Level" ;
         lv2:shortName "NAM 2 Input Lvl" ;
@@ -421,7 +391,7 @@
         pg:group <https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass#nam2>
     ] , [
         a lv2:InputPort, lv2:ControlPort ;
-        lv2:index 27 ;
+        lv2:index 25 ;
         lv2:symbol "nam2_output_mode" ;
         lv2:name "NAM 2 Output Mode" ;
         lv2:shortName "NAM 2 Out Mode" ;

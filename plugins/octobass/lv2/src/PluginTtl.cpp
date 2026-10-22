@@ -20,8 +20,9 @@ constexpr const char* Brand = "OPC";
 constexpr const char* Label = "OctoBASS";
 constexpr const char* Comment =
     "Bass amp and tone shaper: crossover split, compressed low band, two serial NAM slots and a "
-    "cabinet IR on the high band. NAM Quality below 50% runs the slim model; 50% and above runs "
-    "the full-size model, which is likely too heavy for a MOD Dwarf. Neural amp modeling by "
+    "cabinet IR on the high band. Slimmable (A2) NAM captures run their slim submodel; use lite "
+    "captures on MOD devices, full-size captures exceed the CPU budget. Each file slot has a None "
+    "entry that unloads it. Neural amp modeling by "
     "NeuralAmpModelerCore, Copyright (c) 2023 Steven Atkinson, MIT License. License and "
     "third-party notices: LICENSE and THIRD_PARTY_NOTICES.txt in the plugin bundle.";
 

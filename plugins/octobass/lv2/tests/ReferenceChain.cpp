@@ -31,7 +31,7 @@ ReferenceChain::ReferenceChain(double sampleRate, size_t maxBlockSize) : maxBloc
   processor_.setGraphicEQLowCut(true, MinGraphicEQFreqHz);
   processor_.setGraphicEQHighCut(true, MaxGraphicEQFreqHz);
   for (const auto slot : kNamSlots)
-    setNamQualityPercent(slot, DefaultNamQualityPercent);
+    setNamQualityPercent(slot, NamSlimQuality * 100.0f);
 }
 
 void ReferenceChain::loadNamModel(NamSlot slot, const std::string& path)

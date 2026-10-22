@@ -16,15 +16,13 @@
     <div class="opc-value opc-value-high-blend" mod-role="input-control-value" mod-port-symbol="high_blend"></div>
     <div class="opc-widget opc-high-output-gain" mod-role="input-control-port" mod-port-symbol="high_output_gain"></div>
     <div class="opc-value opc-value-high-output-gain" mod-role="input-control-value" mod-port-symbol="high_output_gain"></div>
-    <div class="opc-widget opc-nam1-quality" opc-quality-symbol="nam1_quality"></div>
-    <div class="opc-widget opc-nam2-quality" opc-quality-symbol="nam2_quality"></div>
     <div class="opc-widget opc-bypass" mod-role="bypass"></div>
     <div class="opc-widget opc-nam1-on" mod-role="input-control-port" mod-port-symbol="nam1_on" mod-widget="switch"></div>
     <div class="opc-widget opc-nam2-on" mod-role="input-control-port" mod-port-symbol="nam2_on" mod-widget="switch"></div>
     {{#effect.parameters}}
     {{#path}}
     <div class="mod-enumerated opc-file" mod-role="input-parameter" mod-parameter-uri="{{uri}}" mod-widget="custom-select-path">
-        <div class="mod-enumerated-selected" mod-role="input-parameter-value" mod-parameter-uri="{{uri}}">-- choose a file --</div>
+        <div class="mod-enumerated-selected" mod-role="input-parameter-value" mod-parameter-uri="{{uri}}">-- none --</div>
         <div class="mod-enumerated-list">
             {{#files}}
             <div mod-role="enumeration-option" mod-parameter-value="{{fullname}}">{{basename}}</div>

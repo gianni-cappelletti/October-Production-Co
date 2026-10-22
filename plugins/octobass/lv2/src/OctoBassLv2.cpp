@@ -89,6 +89,32 @@ uint32_t readMaxBlockLength(const LV2_Options_Option* options, LV2_URID maxBlock
   return FallbackMaxBlockLength;
 }
 
+class HostAllocatedPath
+{
+ public:
+  HostAllocatedPath(char* path, const LV2_State_Free_Path* freePath)
+      : path_(path), freePath_(freePath)
+  {
+  }
+  ~HostAllocatedPath()
+  {
+    if (path_ == nullptr)
+      return;
+    if (freePath_ != nullptr)
+      freePath_->free_path(freePath_->handle, path_);
+    else
+      std::free(path_);
+  }
+  HostAllocatedPath(const HostAllocatedPath&) = delete;
+  HostAllocatedPath& operator=(const HostAllocatedPath&) = delete;
+
+  const char* get() const { return path_; }
+
+ private:
+  char* path_;
+  const LV2_State_Free_Path* freePath_;
+};
+
 }  // namespace
 
 void LoadedPathsMailbox::publish(FileSlot slot, const std::string& path)
@@ -189,10 +215,7 @@ OctoBassPlugin::OctoBassPlugin(double sampleRate, uint32_t maxBlockLength, LV2_U
   bassProcessor_.setGraphicEQLowCut(true, MinGraphicEQFreqHz);
   bassProcessor_.setGraphicEQHighCut(true, MaxGraphicEQFreqHz);
   for (const auto slot : kNamSlots)
-  {
-    bassProcessor_.setNamQuality(slot, DefaultNamQualityPercent / 100.0f);
-    scheduledQualityPercent_[static_cast<size_t>(slot)] = DefaultNamQualityPercent;
-  }
+    bassProcessor_.setNamQuality(slot, NamSlimQuality);
   bypassRamp_.prepare(sampleRate, BypassRampSeconds);
 
   lv2_log_note(&logger_, "OctoBASS: instantiated at %.0f Hz, max block %u frames\n", sampleRate,
@@ -223,7 +246,6 @@ float OctoBassPlugin::control(PortIndex index) const
 void OctoBassPlugin::run(uint32_t frames)
 {
   readControlMessages();
-  scheduleQualityChanges();
   collectLoadedPaths();
 
   const float* input = ports_[port::AudioIn];
@@ -364,7 +386,7 @@ bool OctoBassPlugin::scheduleFileLoad(FileSlot slot, const char* path, uint32_t 
     return false;
   }
 
-  const WorkMessage message{WorkKind::LoadFile, slot, namSlotFor(slot), 0.0f, length};
+  const WorkMessage message{slot, length};
   std::memcpy(workBuffer_.data(), &message, sizeof(message));
   std::memcpy(workBuffer_.data() + sizeof(message), path, length);
 
@@ -375,23 +397,6 @@ bool OctoBassPlugin::scheduleFileLoad(FileSlot slot, const char* path, uint32_t 
     return false;
   }
   return true;
-}
-
-void OctoBassPlugin::scheduleQualityChanges()
-{
-  for (const auto slot : kNamSlots)
-  {
-    const float requested = control(port::namQuality(slot));
-    float& scheduled = scheduledQualityPercent_[static_cast<size_t>(slot)];
-    if (requested == scheduled)
-      continue;
-
-    const WorkMessage message{WorkKind::SetNamQuality, FileSlot::Nam1, slot, requested, 0};
-    if (schedule_.schedule_work(schedule_.handle, sizeof(message), &message) == LV2_WORKER_SUCCESS)
-      scheduled = requested;
-    else
-      lv2_log_trace(&logger_, "OctoBASS: worker queue rejected a quality change, retrying\n");
-  }
 }
 
 void OctoBassPlugin::collectLoadedPaths()
@@ -451,35 +456,26 @@ LV2_Worker_Status OctoBassPlugin::work(const void* data, uint32_t size)
   }
   std::memcpy(&message, data, sizeof(message));
 
-  const std::lock_guard<std::mutex> lock(nonRealtimeMutex_);
-  switch (message.kind)
+  if (static_cast<unsigned>(message.fileSlot) >= NumFileSlots)
   {
-    case WorkKind::SetNamQuality:
-      bassProcessor_.setNamQuality(message.namSlot, message.qualityPercent / 100.0f);
-      lv2_log_trace(&logger_, "OctoBASS: NAM %d quality set to %.0f%%\n",
-                    static_cast<int>(message.namSlot) + 1, message.qualityPercent);
-      return LV2_WORKER_SUCCESS;
-
-    case WorkKind::LoadFile:
-    {
-      if (size < sizeof(message) + message.pathLength)
-      {
-        lv2_log_error(&logger_, "OctoBASS: discarding truncated %s load message\n",
-                      slotName(message.fileSlot));
-        return LV2_WORKER_ERR_UNKNOWN;
-      }
-      const std::string path(static_cast<const char*>(data) + sizeof(message), message.pathLength);
-      if (path.empty())
-        clearFile(message.fileSlot);
-      else
-        loadFile(message.fileSlot, path);
-      mailbox_.publish(message.fileSlot, currentPath(message.fileSlot));
-      return LV2_WORKER_SUCCESS;
-    }
+    lv2_log_error(&logger_, "OctoBASS: discarding worker message for an unknown file slot\n");
+    return LV2_WORKER_ERR_UNKNOWN;
+  }
+  if (size < sizeof(message) + message.pathLength)
+  {
+    lv2_log_error(&logger_, "OctoBASS: discarding truncated %s load message\n",
+                  slotName(message.fileSlot));
+    return LV2_WORKER_ERR_UNKNOWN;
   }
 
-  lv2_log_error(&logger_, "OctoBASS: discarding worker message of unknown kind\n");
-  return LV2_WORKER_ERR_UNKNOWN;
+  const std::string path(static_cast<const char*>(data) + sizeof(message), message.pathLength);
+  const std::lock_guard<std::mutex> lock(nonRealtimeMutex_);
+  if (path.empty())
+    clearFile(message.fileSlot);
+  else
+    loadFile(message.fileSlot, path);
+  mailbox_.publish(message.fileSlot, currentPath(message.fileSlot));
+  return LV2_WORKER_SUCCESS;
 }
 
 std::optional<std::string> OctoBassPlugin::rejectionReason(FileSlot slot,
@@ -550,22 +546,15 @@ LV2_State_Status OctoBassPlugin::save(LV2_State_Store_Function store, LV2_State_
     if (path.empty())
       continue;
 
-    char* abstractPath =
-        mapPath != nullptr ? mapPath->abstract_path(mapPath->handle, path.c_str()) : nullptr;
-    const char* stored = abstractPath != nullptr ? abstractPath : path.c_str();
+    const HostAllocatedPath abstractPath(
+        mapPath != nullptr ? mapPath->abstract_path(mapPath->handle, path.c_str()) : nullptr,
+        freePath);
+    const char* stored = abstractPath.get() != nullptr ? abstractPath.get() : path.c_str();
     const LV2_State_Status status =
         store(handle, urids_.fileParameters[slotIndex(slot)], stored, std::strlen(stored) + 1,
               urids_.atomPath, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
     if (status != LV2_STATE_SUCCESS)
       lv2_log_error(&logger_, "OctoBASS: host failed to store the %s path\n", slotName(slot));
-
-    if (abstractPath != nullptr)
-    {
-      if (freePath != nullptr)
-        freePath->free_path(freePath->handle, abstractPath);
-      else
-        std::free(abstractPath);
-    }
   }
   return LV2_STATE_SUCCESS;
 }
@@ -592,16 +581,10 @@ LV2_State_Status OctoBassPlugin::restore(LV2_State_Retrieve_Function retrieve,
     if (value != nullptr && type == urids_.atomPath && size > 0)
     {
       const std::string stored(value, strnlen(value, size));
-      char* absolutePath =
-          mapPath != nullptr ? mapPath->absolute_path(mapPath->handle, stored.c_str()) : nullptr;
-      path = absolutePath != nullptr ? absolutePath : stored;
-      if (absolutePath != nullptr)
-      {
-        if (freePath != nullptr)
-          freePath->free_path(freePath->handle, absolutePath);
-        else
-          std::free(absolutePath);
-      }
+      const HostAllocatedPath absolutePath(
+          mapPath != nullptr ? mapPath->absolute_path(mapPath->handle, stored.c_str()) : nullptr,
+          freePath);
+      path = absolutePath.get() != nullptr ? absolutePath.get() : stored;
     }
     else if (value != nullptr)
     {

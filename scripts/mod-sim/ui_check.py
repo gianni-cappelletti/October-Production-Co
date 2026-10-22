@@ -9,6 +9,9 @@ OUTPUT_DIR = os.environ.get("MOD_SIM_OUTPUT", "/out")
 PLUGIN_URI = "https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass"
 INSTANCE = "/graph/octobass"
 PEDAL = ".mod-pedal-octobass"
+SETTINGS = f'.mod-settings[mod-instance="{INSTANCE}"]'
+FILE_PARAMETERS = ["nam1Model", "nam2Model", "cabinetIr"]
+EMPTY_SLOT_TEXT = "-- none --"
 
 failures = []
 
@@ -58,14 +61,17 @@ def add_pedal(page: Page):
 def check_layout(page: Page):
     for css_class in ["squash", "compression-mode", "low-level", "crossover", "gate",
                       "high-input-gain", "high-blend", "high-output-gain",
-                      "nam1-on", "nam2-on", "nam1-quality", "nam2-quality", "bypass"]:
+                      "nam1-on", "nam2-on", "bypass"]:
         check(f"widget {css_class} visible", widget(page, css_class).is_visible())
+    check("no NAM quality levers on the pedal", page.locator(f"{PEDAL} [opc-quality-symbol]").count() == 0)
     check("no version text on the pedal", page.locator(f"{PEDAL} .opc-version").count() == 0)
     for css_class in ["low-solo", "high-solo"]:
         check(f"no {css_class} button on the pedal", widget(page, css_class).count() == 0)
-    for parameter in ["nam1Model", "nam2Model", "cabinetIr"]:
+    for parameter in FILE_PARAMETERS:
         check(f"file picker {parameter} rendered once", file_picker(page, parameter).count() == 1,
               f"count={file_picker(page, parameter).count()}")
+        shown = file_picker(page, parameter).locator(".mod-enumerated-selected").inner_text().strip()
+        check(f"empty {parameter} slot reads {EMPTY_SLOT_TEXT}", shown == EMPTY_SLOT_TEXT, shown)
     expected_readouts = {
         "high-input-gain": "0.0 dB",
         "high-blend": "100%",
@@ -134,33 +140,15 @@ def check_right_zone(page: Page):
            })""")
     widths = [box[2] for box in boxes]
     check("LCD slots share one width", len(set(widths)) == 1, str(widths))
-    check("LCD slots are narrower than the zone", widths[0] <= 330, str(widths))
-    for slot, (left, top, width, height) in zip(["nam1", "nam2"], boxes):
-        lever = page.evaluate(
-            f"""() => {{ const e = document.querySelector('.mod-pedal-octobass .opc-{slot}-quality');
-                        return [e.offsetLeft, e.offsetTop, e.offsetHeight]; }}""")
-        lcd_centre = top + height / 2
-        lever_centre = lever[1] + lever[2] / 2
-        check(f"{slot} quality lever is inline with its LCD", abs(lcd_centre - lever_centre) <= 2,
-              f"lcd {lcd_centre} lever {lever_centre}")
-        check(f"{slot} quality lever is right of its LCD", lever[0] > left + width,
-              f"lever {lever[0]} lcd right {left + width}")
-
-
-def check_quality_levers(page: Page):
-    for slot in ["nam1", "nam2"]:
-        lever = widget(page, f"{slot}-quality")
-        check(f"{slot} quality lever visible", lever.is_visible())
-        check(f"{slot} quality lever starts on Lite", "opc-full" not in classes(lever),
-              " ".join(classes(lever)))
-        lever.click()
-        page.wait_for_timeout(400)
-        check(f"{slot} quality lever switches to Full", "opc-full" in classes(lever),
-              " ".join(classes(lever)))
-        lever.click()
-        page.wait_for_timeout(400)
-        check(f"{slot} quality lever switches back to Lite", "opc-full" not in classes(lever),
-              " ".join(classes(lever)))
+    knob_row = page.evaluate(
+        """() => ['high-input-gain', 'high-output-gain'].map(c => {
+             const e = document.querySelector('.mod-pedal-octobass .opc-' + c);
+             return [e.offsetLeft, e.offsetLeft + e.offsetWidth];
+           })""")
+    left, _, width, _ = boxes[0]
+    check("LCD slots span the high band knob row",
+          left <= knob_row[0][0] and left + width >= knob_row[1][1],
+          f"lcd {left}..{left + width} knobs {knob_row[0][0]}..{knob_row[1][1]}")
 
 
 DIVIDER_Y_CSS = 305 * 1.3
@@ -226,6 +214,12 @@ def list_visible(page: Page, parameter):
     return file_picker(page, parameter).locator(".mod-enumerated-list").is_visible()
 
 
+def click_outside_pedal(page: Page):
+    box = page.locator(PEDAL).bounding_box()
+    page.mouse.click(box["x"] + box["width"] + 200, box["y"] + box["height"] / 2)
+    page.wait_for_timeout(300)
+
+
 def check_file_list_dismissal(page: Page):
     file_picker(page, "nam1Model").locator(".mod-enumerated-selected").click()
     page.wait_for_timeout(300)
@@ -235,15 +229,32 @@ def check_file_list_dismissal(page: Page):
     page.wait_for_timeout(300)
     check("click outside closes file list", not list_visible(page, "nam1Model"))
 
-    file_picker(page, "nam1Model").locator(".mod-enumerated-selected").click()
-    page.wait_for_timeout(300)
     file_picker(page, "nam2Model").locator(".mod-enumerated-selected").click()
     page.wait_for_timeout(300)
-    check("opening another picker closes the first", not list_visible(page, "nam1Model"))
-    check("second picker opens", list_visible(page, "nam2Model"))
+    file_picker(page, "nam1Model").locator(".mod-enumerated-selected").click()
+    page.wait_for_timeout(300)
+    check("opening another picker closes the first", not list_visible(page, "nam2Model"))
+    check("second picker opens", list_visible(page, "nam1Model"))
     page.mouse.click(box["x"] + box["width"] + 200, box["y"] + box["height"] / 2)
     page.wait_for_timeout(300)
-    check("click outside closes second picker", not list_visible(page, "nam2Model"))
+    check("click outside closes second picker", not list_visible(page, "nam1Model"))
+
+    for parameter in ["nam1Model", "nam2Model"]:
+        file_picker(page, parameter).locator(".mod-enumerated-selected").click()
+        page.wait_for_timeout(300)
+        covered = page.evaluate(
+            f"""() => {{
+                 const picker = document.querySelector('.mod-pedal-octobass .opc-file[mod-parameter-uri$="#{parameter}"]');
+                 const list = picker.querySelector('.mod-enumerated-list').getBoundingClientRect();
+                 const lcds = Array.from(document.querySelectorAll('.mod-pedal-octobass .opc-file'))
+                     .filter(e => e !== picker).map(e => e.getBoundingClientRect());
+                 return lcds.filter(r => r.top < list.bottom && r.bottom > list.top).flatMap(r => {{
+                     const hit = document.elementFromPoint(r.left + r.width / 2, Math.max(r.top, list.top) + 4);
+                     return picker.contains(hit) ? [] : [hit.className];
+                 }});
+               }}""")
+        check(f"open {parameter} list is drawn above the LCDs below it", not covered, str(covered))
+        click_outside_pedal(page)
 
 
 def check_file_loading(page: Page):
@@ -260,6 +271,142 @@ def check_file_loading(page: Page):
         shown = picker.locator(".mod-enumerated-selected").inner_text().strip()
         check(f"{parameter} shows loaded file", name in shown and shown.endswith(expected_suffix),
               shown)
+
+
+class PluginFileFeedback:
+    def __init__(self, page: Page):
+        self.reports = []
+        page.on("websocket", lambda socket: socket.on("framereceived", self._receive))
+
+    def _receive(self, frame):
+        if not isinstance(frame, str) or not frame.startswith(f"patch_set {INSTANCE} "):
+            return
+        parts = frame.split(" ", 5)
+        if len(parts) >= 5 and parts[4] == "p":
+            self.reports.append((parts[3].rsplit("#", 1)[-1], parts[5] if len(parts) > 5 else ""))
+
+    def clear(self):
+        self.reports.clear()
+
+    def last(self, parameter):
+        paths = [path for name, path in self.reports if name == parameter]
+        return paths[-1] if paths else None
+
+
+def none_row(container):
+    return container.locator(".mod-enumerated-list > .opc-file-none")
+
+
+def settings_file_list(page: Page, parameter):
+    return page.locator(SETTINGS).locator(f'.mod-file-list:has([mod-parameter-uri$="#{parameter}"])')
+
+
+def shown_file(page: Page, parameter):
+    return file_picker(page, parameter).locator(".mod-enumerated-selected").inner_text().strip()
+
+
+def load_first_file(page: Page, parameter):
+    picker = file_picker(page, parameter)
+    picker.locator(".mod-enumerated-selected").click()
+    option = picker.locator('[mod-role="enumeration-option"]:not(.mod-hidden)').first
+    expect(option).to_be_visible(timeout=5000)
+    option.click()
+    wait_until_ready(page)
+    page.wait_for_timeout(500)
+
+
+def check_file_clearing(page: Page, feedback: PluginFileFeedback):
+    for parameter in FILE_PARAMETERS:
+        picker = file_picker(page, parameter)
+        if shown_file(page, parameter) == EMPTY_SLOT_TEXT:
+            load_first_file(page, parameter)
+        check(f"{parameter} has a file before clearing", shown_file(page, parameter) != EMPTY_SLOT_TEXT,
+              shown_file(page, parameter))
+
+        picker.locator(".mod-enumerated-selected").click()
+        page.wait_for_timeout(300)
+        row = none_row(picker)
+        check(f"{parameter} list offers None", row.count() == 1 and row.is_visible(),
+              f"count={row.count()}")
+        if row.count() != 1:
+            click_outside_pedal(page)
+            continue
+        first_row = picker.locator(".mod-enumerated-list > div:not(.mod-hidden)").first
+        check(f"{parameter} None is the first row", "opc-file-none" in classes(first_row),
+              " ".join(classes(first_row)))
+        check(f"{parameter} None row reads None", row.inner_text().strip() == "None",
+              row.inner_text().strip())
+
+        feedback.clear()
+        row.click()
+        page.wait_for_timeout(800)
+        check(f"{parameter} LCD reads {EMPTY_SLOT_TEXT} after None",
+              shown_file(page, parameter) == EMPTY_SLOT_TEXT, shown_file(page, parameter))
+        check(f"{parameter} file list closes after None", not list_visible(page, parameter))
+        check(f"OctoBASS reports {parameter} empty after None", feedback.last(parameter) == "",
+              repr(feedback.last(parameter)))
+
+
+def check_cleared_slot_survives_pedalboard_reload(page: Page, feedback: PluginFileFeedback):
+    load_first_file(page, "nam1Model")
+    load_first_file(page, "nam2Model")
+    file_picker(page, "nam2Model").locator(".mod-enumerated-selected").click()
+    page.wait_for_timeout(300)
+    row = none_row(file_picker(page, "nam2Model"))
+    if row.count() == 1:
+        row.click()
+        page.wait_for_timeout(800)
+    else:
+        click_outside_pedal(page)
+
+    response = page.request.post(MOD_UI_URL + "/pedalboard/save",
+                                 form={"title": "OctoBASS None check", "asNew": "1"})
+    saved = response.ok and response.json().get("ok", False)
+    check("pedalboard saves", saved, response.text())
+    if not saved:
+        return
+    bundlepath = response.json()["bundlepath"]
+
+    feedback.clear()
+    response = page.request.post(MOD_UI_URL + "/pedalboard/load_bundle/",
+                                 form={"bundlepath": bundlepath, "isDefault": "0"})
+    check("pedalboard reloads", response.ok, response.text())
+    page.reload()
+    page.wait_for_load_state("networkidle")
+    wait_until_ready(page)
+    expect(page.locator(PEDAL)).to_be_visible(timeout=20000)
+    page.wait_for_timeout(1500)
+
+    check("loaded slot keeps its file after reload", shown_file(page, "nam1Model").endswith(".nam"),
+          shown_file(page, "nam1Model"))
+    check(f"cleared slot reads {EMPTY_SLOT_TEXT} after reload",
+          shown_file(page, "nam2Model") == EMPTY_SLOT_TEXT, shown_file(page, "nam2Model"))
+    nam2_reports = [path for name, path in feedback.reports if name == "nam2Model"]
+    check("OctoBASS never reloads the cleared slot", all(path == "" for path in nam2_reports),
+          str(nam2_reports))
+    page.request.get(MOD_UI_URL + "/pedalboard/remove?" +
+                     urllib.parse.urlencode({"bundlepath": bundlepath}))
+
+
+def check_settings_panel_none(page: Page, feedback: PluginFileFeedback):
+    for parameter in FILE_PARAMETERS:
+        row = none_row(settings_file_list(page, parameter))
+        check(f"settings panel {parameter} list offers None", row.count() == 1, f"count={row.count()}")
+
+    if shown_file(page, "nam1Model") == EMPTY_SLOT_TEXT:
+        load_first_file(page, "nam1Model")
+    page.evaluate(f"""() => $('{SETTINGS}').window('open')""")
+    page.wait_for_timeout(300)
+    settings_row = none_row(settings_file_list(page, "nam1Model"))
+    feedback.clear()
+    if settings_row.count() == 1:
+        settings_row.click()
+        page.wait_for_timeout(800)
+    page.evaluate(f"""() => $('{SETTINGS}').window('close')""")
+    check(f"None in the settings panel shows {EMPTY_SLOT_TEXT} on the pedal",
+          shown_file(page, "nam1Model") == EMPTY_SLOT_TEXT, shown_file(page, "nam1Model"))
+    check("OctoBASS reports nam1Model empty after None in the settings panel",
+          feedback.last("nam1Model") == "", repr(feedback.last("nam1Model")))
 
 
 def check_knob_drag(page: Page):
@@ -281,6 +428,7 @@ def main():
         browser = playwright.chromium.launch()
         page = browser.new_page(viewport={"width": 1600, "height": 1000}, device_scale_factor=2)
         page.on("pageerror", lambda error: failures.append(f"page error: {error}"))
+        feedback = PluginFileFeedback(page)
         page.goto(MOD_UI_URL + "/")
         page.wait_for_load_state("networkidle")
         wait_until_ready(page)
@@ -290,7 +438,6 @@ def main():
         check_layout(page)
         check_pedal_size(page)
         check_right_zone(page)
-        check_quality_levers(page)
         check_power_row(page)
         check_lower_readouts_align_with_ir(page)
         check_sprite_frames(page)
@@ -299,6 +446,9 @@ def main():
         check_knob_drag(page)
         check_file_loading(page)
         screenshot(page, "pedal-loaded.png")
+        check_file_clearing(page, feedback)
+        check_cleared_slot_survives_pedalboard_reload(page, feedback)
+        check_settings_panel_none(page, feedback)
         page.screenshot(path=os.path.join(OUTPUT_DIR, "pedalboard.png"))
 
         browser.close()

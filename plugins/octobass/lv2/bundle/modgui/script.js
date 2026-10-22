@@ -1,5 +1,5 @@
 function (event, funcs) {
-    var qualityFullThreshold = 50;
+    var emptySlotText = '-- none --';
 
     var slotFileParameters = { nam1_on: 'nam1Model', nam2_on: 'nam2Model' };
 
@@ -12,37 +12,67 @@ function (event, funcs) {
             .toggleClass('opc-dim', value < 0.5);
     };
 
-    var updateQualityLever = function (symbol, value) {
-        event.icon.find('[opc-quality-symbol="' + symbol + '"]')
-            .toggleClass('opc-full', value >= qualityFullThreshold)
-            .data('value', value);
+    var fileListsIn = function (container) {
+        return container.find('[mod-widget="custom-select-path"]').map(function () {
+            var widget = $(this);
+            return widget.is('.mod-enumerated-list') ? this : widget.find('.mod-enumerated-list').get(0);
+        });
+    };
+
+    var containers = function () {
+        return [event.icon, event.settings].filter(function (container) {
+            return container;
+        });
+    };
+
+    var addNoneRows = function () {
+        containers().forEach(function (container) {
+            fileListsIn(container).each(function () {
+                var list = $(this);
+                if (list.children('.opc-file-none').length === 0) {
+                    list.prepend($('<div class="opc-file-none">None</div>'));
+                }
+            });
+        });
+    };
+
+    var showSlotFile = function (uri, path) {
+        var isEmpty = !path;
+        containers().forEach(function (container) {
+            container.find('[mod-parameter-uri="' + uri + '"] .opc-file-none').toggleClass('selected', isEmpty);
+        });
+        if (isEmpty) {
+            event.icon.find('.mod-enumerated-selected[mod-parameter-uri="' + uri + '"]').text(emptySlotText);
+        }
     };
 
     if (event.type === 'start') {
+        addNoneRows();
         event.ports.forEach(function (port) {
-            updateQualityLever(port.symbol, port.value);
             updateSlotLcd(port.symbol, port.value);
         });
-
-        event.icon.find('[opc-quality-symbol]').on('click', function (e) {
-            var lever = $(this);
-            var symbol = lever.attr('opc-quality-symbol');
-            var value = lever.data('value') >= qualityFullThreshold ? 0 : 100;
-            funcs.set_port_value(symbol, value);
-            updateQualityLever(symbol, value);
-            e.stopPropagation();
+        event.parameters.forEach(function (parameter) {
+            showSlotFile(parameter.uri, parameter.value);
         });
 
-        var containers = [event.icon, event.settings];
-        var closeOtherFileLists = function (e) {
+        containers().forEach(function (container) {
+            container.on('click', '.opc-file-none', function () {
+                var uri = $(this).closest('[mod-parameter-uri]').attr('mod-parameter-uri');
+                funcs.patch_set(uri, 'p', '');
+                showSlotFile(uri, '');
+            });
+        });
+
+        var onDocumentMouseDown = function (e) {
             if (!document.body.contains(event.icon[0])) {
-                $(document).off('mousedown', closeOtherFileLists);
+                $(document).off('mousedown', onDocumentMouseDown);
                 return;
             }
-            containers.forEach(function (container) {
-                if (!container) {
-                    return;
-                }
+            addNoneRows();
+            event.icon.find('.opc-file').each(function () {
+                $(this).toggleClass('opc-active', this.contains(e.target));
+            });
+            containers().forEach(function (container) {
                 container.find('.mod-enumerated').each(function () {
                     if (!this.contains(e.target)) {
                         $(this).find('.mod-enumerated-list').hide();
@@ -50,15 +80,23 @@ function (event, funcs) {
                 });
             });
         };
-        $(document).on('mousedown', closeOtherFileLists);
+        $(document).on('mousedown', onDocumentMouseDown);
         return;
     }
 
-    if (event.type !== 'change' || event.symbol === undefined) {
+    if (event.type !== 'change') {
         return;
     }
 
-    updateQualityLever(event.symbol, event.value);
+    if (event.uri !== undefined) {
+        showSlotFile(event.uri, event.value);
+        return;
+    }
+
+    if (event.symbol === undefined) {
+        return;
+    }
+
     updateSlotLcd(event.symbol, event.value);
 
     if (event.value < 0.5) {

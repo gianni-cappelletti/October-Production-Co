@@ -363,30 +363,25 @@ TEST(Lv2Files, NotificationsThatDoNotFitArriveIntactInLaterRuns)
   EXPECT_EQ(host.malformedNotificationCount(), 0u);
 }
 
-TEST(Lv2Quality, QualityChangeTakesEffectAfterWorkerRuns)
+TEST(Lv2Nam, SlimmableCapturesAlwaysRunTheirSlimSubmodel)
 {
   FakeLv2Host host;
   ASSERT_TRUE(host.isInstantiated());
   const auto input = generateBassSignal(TestSampleRate, SignalSeconds);
-  auto actual = loadThroughPlugin(host, input, {{FileSlot::Nam1, SlimmableModel}});
+  const auto actual = loadThroughPlugin(host, input, {{FileSlot::Nam1, SlimmableModel}});
 
-  host.setControl(port::namQuality(NamSlot::First), 100.0f);
-  actual = concat(std::move(actual), loadThroughPlugin(host, input, {}));
+  const auto referenceAtQuality = [&input](float percent)
+  {
+    ReferenceChain reference(TestSampleRate, TestBlockSize);
+    reference.setNamQualityPercent(NamSlot::First, percent);
+    auto output = reference.process(firstBlock(input), TestBlockSize, defaultControls());
+    reference.loadNamModel(NamSlot::First, SlimmableModel);
+    return concat(std::move(output),
+                  reference.process(afterFirstBlock(input), TestBlockSize, defaultControls()));
+  };
 
-  ReferenceChain reference(TestSampleRate, TestBlockSize);
-  auto expected = reference.process(firstBlock(input), TestBlockSize, defaultControls());
-  reference.loadNamModel(NamSlot::First, SlimmableModel);
-  expected = concat(std::move(expected),
-                    reference.process(afterFirstBlock(input), TestBlockSize, defaultControls()));
-  auto controls = defaultControls();
-  controls[port::namQuality(NamSlot::First)] = 100.0f;
-  expected =
-      concat(std::move(expected), reference.process(firstBlock(input), TestBlockSize, controls));
-  reference.setNamQualityPercent(NamSlot::First, 100.0f);
-  expected = concat(std::move(expected),
-                    reference.process(afterFirstBlock(input), TestBlockSize, controls));
-
-  EXPECT_TRUE(sameAudio(actual, expected));
+  EXPECT_TRUE(sameAudio(actual, referenceAtQuality(0.0f)));
+  EXPECT_FALSE(sameAudio(actual, referenceAtQuality(100.0f), 1e-6f));
 }
 
 TEST(Lv2RealtimeSafety, RunNeverAllocates)
@@ -407,8 +402,6 @@ TEST(Lv2RealtimeSafety, RunNeverAllocates)
                     {{FileSlot::Nam1, SlimmableModel},
                      {FileSlot::Nam2, SecondModel},
                      {FileSlot::CabinetIr, CabinetIr}});
-  host.setControl(port::namQuality(NamSlot::First), 100.0f);
-  loadThroughPlugin(host, input, {});
   host.requestFiles();
   host.setControl(port::Enabled, 0.0f);
   host.process(input, TestBlockSize);
@@ -526,6 +519,42 @@ TEST(Lv2State, SaveAndRestoreRoundTripsLoadedFiles)
   EXPECT_EQ(notifiedPath(notifications, FileSlot::Nam1), SlimmableModel);
   EXPECT_EQ(notifiedPath(notifications, FileSlot::Nam2), SecondModel);
   EXPECT_EQ(notifiedPath(notifications, FileSlot::CabinetIr), CabinetIr);
+}
+
+TEST(Lv2State, SlotClearedBeforeSavingStaysEmptyAfterRestore)
+{
+  HostConfig config;
+  config.stateDirectory = TEST_DATA_DIR;
+  const auto input = generateBassSignal(TestSampleRate, SignalSeconds);
+
+  FakeLv2Host host(config);
+  ASSERT_TRUE(host.isInstantiated());
+  loadThroughPlugin(host, input,
+                    {{FileSlot::Nam1, SlimmableModel},
+                     {FileSlot::Nam2, SecondModel},
+                     {FileSlot::CabinetIr, CabinetIr}});
+  loadThroughPlugin(host, input, {{FileSlot::Nam2, ""}});
+  const auto saved = host.saveState();
+  EXPECT_EQ(saved.count(fileParameter(FileSlot::Nam2).uri), 0u);
+
+  FakeLv2Host restored(config);
+  ASSERT_TRUE(restored.isInstantiated());
+  loadThroughPlugin(restored, input, {{FileSlot::Nam2, SecondModel}});
+  restored.restoreState(saved);
+  const auto actual = restored.process(input, TestBlockSize);
+
+  ReferenceChain reference(TestSampleRate, TestBlockSize);
+  reference.loadNamModel(NamSlot::First, SlimmableModel);
+  reference.loadImpulseResponse(CabinetIr);
+  const auto expected = reference.process(input, TestBlockSize, defaultControls());
+  const std::vector<float> settledActual(actual.end() - TestBlockSize, actual.end());
+  const std::vector<float> settledExpected(expected.end() - TestBlockSize, expected.end());
+  EXPECT_TRUE(sameAudio(settledActual, settledExpected, 1e-3f));
+
+  restored.takeNotifications();
+  restored.requestFiles();
+  restored.process(firstBlock(input), TestBlockSize);
+  EXPECT_EQ(notifiedPath(restored.takeNotifications(), FileSlot::Nam2), "");
 }
 
 TEST(Lv2State, RestoringMissingFileClearsSlotAndLogs)

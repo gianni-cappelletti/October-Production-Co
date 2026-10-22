@@ -46,9 +46,6 @@
         lv2:symbol "nam1_on" ;
         pset:value 1.0
     ] , [
-        lv2:symbol "nam1_quality" ;
-        pset:value 49.0
-    ] , [
         lv2:symbol "nam1_calibrate_input" ;
         pset:value 0.0
     ] , [
@@ -60,9 +57,6 @@
     ] , [
         lv2:symbol "nam2_on" ;
         pset:value 1.0
-    ] , [
-        lv2:symbol "nam2_quality" ;
-        pset:value 49.0
     ] , [
         lv2:symbol "nam2_calibrate_input" ;
         pset:value 0.0

@@ -18,21 +18,23 @@ Native LV2 wrapper around `octobass-core` for MOD Audio devices (Dwarf, Duo X) a
 |------|-------|
 | URI | `https://github.com/gianni-cappelletti/October-Production-Co/plugins/octobass` |
 | Audio | 1 in, 1 out |
-| Control ports | 22 inputs mirroring the JUCE parameters except the graphic EQ, `enabled` (bypass), `latency` output |
+| Control ports | 20 inputs mirroring the JUCE parameters except the graphic EQ and NAM quality, `enabled` (bypass), `latency` output |
 | File parameters | `#nam1Model`, `#nam2Model` (`mod:fileTypes "nammodel"`), `#cabinetIr` (`mod:fileTypes "cabsim"`, `.wav`) |
 | Required features | `urid:map`, `work:schedule` |
 | Extensions | `work:interface`, `state:interface` |
-| NAM quality | 0-100%, default 49%. Below 50% selects the slim submodel of slimmable (A2) models; 50% and above selects the full-size submodel |
+| NAM quality | Fixed at 0.49 (MOD Neural Amp Modeler's `DEFAULT_QUALITY_SCALE`): slimmable (A2) captures run their slim submodel. Not exposed as a port |
 | Version | Generated from `VERSION`: `lv2:minorVersion` = 2 x (MAJOR x 100 + MINOR), `lv2:microVersion` = 2 x PATCH (2.4.0 is 408.0) |
 
 - Percent ports use 0-100; the core receives 0-1.
 - The graphic EQ is not exposed. Its low cut (20 Hz) and high cut (20 kHz) are always on, matching the JUCE defaults; the 16 nodes are off.
 - Port names longer than mod-ui's 16-character display limit carry an `lv2:shortName`.
 - The bundle includes `LICENSE` (GPL-3.0) and `THIRD_PARTY_NOTICES.txt`.
-- File loads, clears and NAM quality changes run on the LV2 worker thread; `run()` does not allocate.
+- File loads and clears run on the LV2 worker thread; `run()` does not allocate.
+- Non-slimmable NAM captures (standard WaveNet, LSTM) always run at full size; full-size captures exceed the Dwarf CPU budget.
 - The pedal has no Solo buttons; the Solo ports are in MOD's settings panel. Both Solo ports on: the most recently engaged solo wins, and the modgui clears the other Solo port.
 - The footer has three footswitches with status LEDs: ON (plugin on/bypass), NAM 1 and NAM 2 (slot on/off). A lit LED means the plugin or slot is on. A NAM slot that is off dims its LCD backlight, as in the JUCE plugin.
-- Each NAM slot has a LITE/FULL lever to the right of its LCD. It shows FULL at quality >= 50% and sets quality to 0% or 100% when clicked.
+- Each file list (pedal LCDs and settings panel) starts with a None row. It sends an empty path, which unloads the slot. An empty slot reads `-- none --`. `script.js` adds the row because mod-ui's file picker hides list entries that are not files.
+- The file picker being used is raised above the other LCDs so its open list is not covered.
 - Saved state stores file paths through `state:mapPath`.
 - LV2 versions have no major field, and hosts treat an odd minor or micro version as a development build (mod-ui labels it Testing). The encoding keeps every release even and increasing. MINOR must stay below 100.
 - The version is written into `manifest.ttl` from `manifest.ttl.in` when the bundle is assembled.
@@ -72,19 +74,22 @@ Requires Docker (Colima on macOS). The simulator image runs JACK (dummy driver),
 |---------|--------|
 | `make octobass-mod-desktop` | Installs the macOS bundle to `~/Documents/MOD Desktop/lv2` and the bundled tones to `~/Documents/MOD Desktop/user-files` |
 | `make mod-sim` | Builds OctoBASS from the working tree and serves mod-ui at http://localhost:18888 |
-| `make mod-sim-check` | Headless Chromium checks against a running `mod-sim`: layout, readout formats, fonts, quality levers, bypass, knob drag, file loading and dismissal. Screenshots in `build/mod-sim/` |
+| `make mod-sim-check` | Headless Chromium checks against a running `mod-sim`: layout, readout formats, fonts, bypass, knob drag, file loading, list stacking and dismissal, None on the pedal and settings panel, and a cleared slot surviving pedalboard save and reload. Screenshots in `build/mod-sim/` |
 | `make mod-sim-valgrind` | LV2 tests under valgrind (Linux arm64) |
 | `make mod-sim-cpu` | Times OctoBASS and MOD's Neural Amp Modeler (mod-plugin-builder commit) in the same LV2 host |
 
-Estimated Dwarf CPU at 128 frames (bundled A2 captures, cabinet IR loaded):
+Measured MOD Dwarf CPU (device tester, bundled A2 captures and cabinet IR):
 
-| Configuration | Estimate |
-|---------------|----------|
-| 1 NAM slot, quality < 50% | 19-28% |
-| 2 NAM slots, quality < 50% | 31-45% |
-| 1 NAM slot, quality >= 50% | Likely exceeds the CPU budget |
+| Configuration | CPU |
+|---------------|-----|
+| Plugin only | 10% |
+| Plugin + IR | 22% |
+| Plugin + 1 NAM + IR | 39-40.5% |
+| Plugin + 2 NAM + IR | 59.5-60% |
 
-Dwarf CPU estimate: `OctoBASS % / NAM nano % x Dwarf NAM nano %`. MOD forum reports for the Dwarf at 128 frames: NAM nano 36-42%, feather 66-76%. `make_timing_models.py` derives nano/feather/standard WaveNet models with random weights for timing only.
+CPU varies with the capture; one other lite capture reached 63% in a single slot.
+
+`make mod-sim-cpu` estimate: `OctoBASS % / NAM nano % x Dwarf NAM nano %`. MOD forum reports for the Dwarf at 128 frames: NAM nano 36-42%, feather 66-76%. `make_timing_models.py` derives nano/feather/standard WaveNet models with random weights for timing only.
 
 ## Benchmark
 

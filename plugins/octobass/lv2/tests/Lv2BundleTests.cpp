@@ -93,6 +93,12 @@ TEST(Lv2Bundle, ExposesNoEqualizerControls)
   EXPECT_EQ(generatePluginTtl().find("#eq>"), std::string::npos);
 }
 
+TEST(Lv2Bundle, ExposesNoNamQualityControls)
+{
+  for (const auto& spec : portTable())
+    EXPECT_EQ(spec.symbol.find("quality"), std::string::npos) << spec.symbol;
+}
+
 TEST(Lv2Bundle, EveryPortNameFitsModDisplaysAndStaysDistinct)
 {
   constexpr size_t ModDisplayCharacters = 16;

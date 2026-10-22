@@ -33,10 +33,6 @@ constexpr float Row1Y = 29.0f;
 constexpr float Row2Y = 179.0f;
 constexpr float RightZoneX = Pad + 220.0f + 160.0f;
 constexpr float RightZoneWidth = PedalWidth - Pad - RightZoneX;
-constexpr float LeverWidth = 44.0f;
-constexpr float LeverHeight = 28.0f;
-constexpr float LeverLabelWidth = 26.0f;
-constexpr float LeverLabelGap = 2.0f;
 constexpr float LcdHeight = 30.0f;
 constexpr float FootswitchWidth = 56.0f;
 constexpr float FootswitchHeight = 64.0f;
@@ -45,10 +41,9 @@ constexpr float FootswitchRowCentreX = 380.0f;
 constexpr float FootswitchLabelY = DividerY + 6.0f;
 constexpr float FootswitchY = FootswitchLabelY + LabelHeight;
 constexpr std::array<float, 3> FileLcdY{{167.0f, 213.0f, 259.0f}};
-constexpr float QualityLeverX =
-    RightZoneX + RightZoneWidth - LeverLabelWidth - LeverLabelGap - LeverWidth;
-constexpr float FileLcdX = RightZoneX + 2.0f;
-constexpr float FileLcdWidth = QualityLeverX - LeverLabelGap - LeverLabelWidth - 8.0f - FileLcdX;
+constexpr float FileLcdInset = 2.0f;
+constexpr float FileLcdX = RightZoneX + FileLcdInset;
+constexpr float FileLcdWidth = RightZoneWidth - 2.0f * FileLcdInset;
 constexpr float ButtonMargin = 8.0f;
 constexpr int KnobFrames = 65;
 constexpr float BadgeWidth = 84.0f;
@@ -59,7 +54,7 @@ constexpr float BadgeCentreX = Pad + 161.0f;
 constexpr float BadgeCentreY = Row2Y + LabelHeight + KnobHeight * 0.5f;
 constexpr const char* BadgeText = "OPC";
 constexpr const char* PedalClass = "mod-pedal-octobass";
-constexpr const char* FilePlaceholder = "-- choose a file --";
+constexpr const char* FilePlaceholder = "-- none --";
 
 const juce::Colour PanelColour{0xfff0f0f2};
 const juce::Colour LineColour{0xff1a1a1a};
@@ -70,7 +65,6 @@ enum class Widget
   Knob,
   ModeKnob,
   Footswitch,
-  QualityLever,
   Bypass,
 };
 
@@ -92,8 +86,6 @@ struct Control
   bool hasValue;
   float defaultNormalised;
   std::string defaultText;
-  std::string leftLabel{};
-  std::string rightLabel{};
 };
 
 struct FileSlot
@@ -150,21 +142,6 @@ std::vector<Control> buildControls()
       knob("high_blend", "MIX", RightZoneX + columnW, columnW, Row1Y, Widget::Knob, 1.0f, "100%"));
   controls.push_back(knob("high_output_gain", "OUTPUT", RightZoneX + 2.0f * columnW, columnW, Row1Y,
                           Widget::Knob, 0.5f, "0.0 dB"));
-
-  for (int slot = 0; slot < 2; ++slot)
-  {
-    const float y = FileLcdY[static_cast<size_t>(slot)] + (LcdHeight - LeverHeight) * 0.5f;
-    controls.push_back({"nam" + std::to_string(slot + 1) + "_quality",
-                        Widget::QualityLever,
-                        "",
-                        {QualityLeverX, y, LeverWidth, LeverHeight},
-                        {0, 0, 0, 0},
-                        false,
-                        0.0f,
-                        "",
-                        "LITE",
-                        "FULL"});
-  }
 
   const std::array<std::pair<std::string, std::string>, 3> footswitches = {
       {{":bypass", "ON"}, {"nam1_on", "NAM 1"}, {"nam2_on", "NAM 2"}}};
@@ -235,7 +212,6 @@ int frameCount(Widget widget)
     case Widget::ModeKnob:
       return 4;
     case Widget::Footswitch:
-    case Widget::QualityLever:
     case Widget::Bypass:
       return 2;
   }
@@ -367,17 +343,6 @@ void paintWidgetFrame(OctoberLookAndFeel& lookAndFeel, const Control& control, i
       drawFootswitch(g, {0.0f, 0.0f, box.w, box.h}, frame == 1);
       break;
     }
-    case Widget::QualityLever:
-    {
-      juce::ToggleButton button;
-      button.setLookAndFeel(&lookAndFeel);
-      button.setComponentID("metalToggle");
-      button.setToggleState(frame == 1, juce::dontSendNotification);
-      button.setBounds(0, 0, width, height);
-      paintComponentInto(image, button, originX + marginX, originY + marginY, scaleX, scaleY);
-      button.setLookAndFeel(nullptr);
-      break;
-    }
   }
 }
 
@@ -389,8 +354,6 @@ std::string spriteName(Widget widget)
       return "knob.png";
     case Widget::ModeKnob:
       return "knob-mode.png";
-    case Widget::QualityLever:
-      return "toggle.png";
     case Widget::Footswitch:
     case Widget::Bypass:
       return "footswitch.png";
@@ -469,9 +432,6 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
   const juce::Font labelFont(
       juce::FontOptions(lookAndFeel.getTypefaceForFont(juce::Font(juce::FontOptions(15.0f))))
           .withHeight(15.0f));
-  const juce::Font leverLabelFont(
-      juce::FontOptions(lookAndFeel.getTypefaceForFont(juce::Font(juce::FontOptions(11.0f))))
-          .withHeight(11.0f));
   for (const auto& control : controls)
   {
     if (!control.label.empty())
@@ -479,16 +439,6 @@ juce::Image renderBackground(OctoberLookAndFeel& lookAndFeel, const std::vector<
                juce::Justification::centred);
     if (control.hasValue)
       drawLCDBackground(g, valueBox(control));
-
-    const auto& box = control.widgetBox;
-    if (!control.leftLabel.empty())
-      drawText(g, control.leftLabel,
-               {box.x - LeverLabelGap - LeverLabelWidth, box.y, LeverLabelWidth, box.h},
-               leverLabelFont, LabelColour, juce::Justification::centredRight);
-    if (!control.rightLabel.empty())
-      drawText(g, control.rightLabel,
-               {box.x + box.w + LeverLabelGap, box.y, LeverLabelWidth, box.h}, leverLabelFont,
-               LabelColour, juce::Justification::centredLeft);
   }
 
   const auto badge =
@@ -622,12 +572,7 @@ std::string generateStylesheet(const std::vector<Control>& controls,
            spriteName(control.widget) + "{{{ns}}});\n    background-size: " + stripW + " " +
            frameH + ";\n}\n\n";
 
-    if (control.widget == Widget::QualityLever)
-    {
-      css += selector + " {\n    background-position: 0 0;\n}\n\n";
-      css += selector + ".opc-full {\n    background-position: -" + frameW + " 0;\n}\n\n";
-    }
-    else if (frames == 2)
+    if (frames == 2)
     {
       const std::string active = control.widget == Widget::Bypass ? ".off" : ".on";
       const std::string inactive = control.widget == Widget::Bypass ? ".on" : ".off";
@@ -664,6 +609,7 @@ std::string generateStylesheet(const std::vector<Control>& controls,
          "    cursor: pointer;\n}\n\n";
   css += pedal + " .opc-file.opc-dim {\n    background-position: -" +
          std::to_string(fileLcdCssWidth()) + "px 0;\n}\n\n";
+  css += pedal + " .opc-file.opc-active {\n    z-index: 31;\n}\n\n";
   css += pedal +
          " .opc-file .mod-enumerated-selected {\n    font-family: 'OPC LCD', monospace "
          "!important;\n    padding: 0 " +
@@ -693,8 +639,6 @@ std::string widgetRoleAttributes(const Control& control)
 {
   if (control.widget == Widget::Bypass)
     return "mod-role=\"bypass\"";
-  if (control.widget == Widget::QualityLever)
-    return "opc-quality-symbol=\"" + control.symbol + "\"";
   std::string attributes =
       "mod-role=\"input-control-port\" mod-port-symbol=\"" + control.symbol + "\"";
   if (control.widget == Widget::Footswitch)

@@ -110,9 +110,6 @@ std::vector<PortSpec> buildPortTable()
     const auto group = slot == NamSlot::First ? PortGroup::Nam1 : PortGroup::Nam2;
 
     ports.push_back(toggle(port::namOn(slot), symbol + "_on", name + " On", true, group));
-    ports.push_back(control(port::namQuality(slot), symbol + "_quality", name + " Quality", 0.0f,
-                            100.0f, DefaultNamQualityPercent, PortUnit::Percent, PortStyle::Linear,
-                            group));
     PortSpec calibrateInput = toggle(port::namCalibrateInput(slot), symbol + "_calibrate_input",
                                      name + " Calibrate Input", false, group);
     calibrateInput.shortName = name + " Calibrate";

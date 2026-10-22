@@ -76,18 +76,9 @@ class OctoBassPlugin
     std::array<LV2_URID, NumFileSlots> fileParameters;
   };
 
-  enum class WorkKind : uint8_t
-  {
-    LoadFile,
-    SetNamQuality,
-  };
-
   struct WorkMessage
   {
-    WorkKind kind;
     FileSlot fileSlot;
-    NamSlot namSlot;
-    float qualityPercent;
     uint32_t pathLength;
   };
 
@@ -97,7 +88,6 @@ class OctoBassPlugin
   void applyControls(bool lowSolo, bool highSolo);
   void resolveSolo(bool& lowSolo, bool& highSolo);
   void readControlMessages();
-  void scheduleQualityChanges();
   void collectLoadedPaths();
   void writeNotifications();
   bool scheduleFileLoad(FileSlot slot, const char* path, uint32_t length);
@@ -125,7 +115,6 @@ class OctoBassPlugin
   const LV2_Atom_Sequence* controlPort_ = nullptr;
   LV2_Atom_Sequence* notifyPort_ = nullptr;
 
-  std::array<float, kNumNamSlots> scheduledQualityPercent_{};
   bool previousLowSoloPort_ = false;
   bool previousHighSoloPort_ = false;
   bool lowSoloWins_ = true;

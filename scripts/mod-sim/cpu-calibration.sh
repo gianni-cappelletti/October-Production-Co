@@ -55,8 +55,7 @@ run "nam A2 capture, quality 49%" --uri "${NAM_LV2_URI}" --model "${CAPTURE}"
 
 echo "== OctoBASS"
 run "no files" --uri "${OCTOBASS_URI}"
+run "IR only" --uri "${OCTOBASS_URI}" --file "${CAB}=${IR}"
 run "1 slot A2 slim + IR" --uri "${OCTOBASS_URI}" --file "${NAM1}=${CAPTURE}" --file "${CAB}=${IR}"
 run "2 slots A2 slim + IR" --uri "${OCTOBASS_URI}" --file "${NAM1}=${CAPTURE}" --file "${NAM2}=${CAPTURE}" --file "${CAB}=${IR}"
-run "1 slot A2 full + IR" --uri "${OCTOBASS_URI}" --file "${NAM1}=${CAPTURE}" --file "${CAB}=${IR}" --set nam1_quality=100
-run "2 slots A2 full + IR" --uri "${OCTOBASS_URI}" --file "${NAM1}=${CAPTURE}" --file "${NAM2}=${CAPTURE}" --file "${CAB}=${IR}" --set nam1_quality=100 --set nam2_quality=100
 run "1 slot nano + IR" --uri "${OCTOBASS_URI}" --file "${NAM1}=${WORK}/models/timing-nano.nam" --file "${CAB}=${IR}"
